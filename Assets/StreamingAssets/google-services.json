@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "648644847638",
+    "project_id": "ar-cardgame",
+    "storage_bucket": "ar-cardgame.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648644847638:android:de8adbb1b2f7324f942d37",
+        "android_client_info": {
+          "package_name": "com.leejerel.arcardgamesimulator"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANQo4LDmOCr5rBlUyHT1bLJrAp2EpPfNA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
