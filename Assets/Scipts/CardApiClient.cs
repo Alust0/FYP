@@ -47,6 +47,7 @@ namespace Vanguard.Api
         {
             CardData card = ScriptableObject.CreateInstance<CardData>();
             card.cardName = !string.IsNullOrEmpty(name) ? name : "Unknown Card";
+            card.cardNumber = number;
             card.grade = grade;
             card.power = power;
             card.shield = shield;

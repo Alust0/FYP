@@ -8,7 +8,7 @@ public class AROverlayEventBridge : MonoBehaviour
     public PhaseHUDOverlay      phaseHUD;
     public BattleOverlay        battleOverlay;
     public NotificationOverlay  notificationOverlay;
-    public CardOverlayManager   cardOverlayManager;
+    public VuforiaCardOverlayManager cardOverlayManager;
 
     void OnEnable()
     {

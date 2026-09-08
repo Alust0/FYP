@@ -109,6 +109,11 @@ public class ApiCardDatabase : MonoBehaviour
     public CardData GetByName(string cardName)
         => allCards.FirstOrDefault(c => string.Equals(c.cardName, cardName, System.StringComparison.OrdinalIgnoreCase));
 
+    // Looks up a card by its set/number code — used to resolve Cloud Reco target metadata
+    // (e.g. "DZ-BT03-008") back to the card's stats
+    public CardData GetByNumber(string cardNumber)
+        => allCards.FirstOrDefault(c => string.Equals(c.cardNumber, cardNumber, System.StringComparison.OrdinalIgnoreCase));
+
     // --- Deck building ---
 
     // Returns one unit per grade (0-3) to use as the ride deck

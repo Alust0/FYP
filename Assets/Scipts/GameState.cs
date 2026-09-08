@@ -30,6 +30,7 @@ public enum AbilityType { Activated, Automatic, Continuous, Order }
 public class CardData : ScriptableObject
 {
     public string cardName;
+    public string cardNumber; // set/number code, e.g. "DZ-BT03-008" — matches Cloud Reco target metadata
     public int grade; // 0 through 4
     public int power;
     public int shield;
@@ -163,6 +164,41 @@ public class PlayerState
 
     // Returns true if both vanguard circle and soul are empty
     public bool HasNoVanguard() => vanguardCircle == null && soul.Count == 0;
+
+    // Removes a card instance from whichever zone it currently occupies —
+    // used when a physically scanned card is detected moving to a new zone
+    public void RemoveCardFromAllZones(CardInstance card)
+    {
+        if (vanguardCircle == card) vanguardCircle = null;
+        if (centerBackRearguard == card) centerBackRearguard = null;
+        for (int i = 0; i < frontRowRearguards.Length; i++) if (frontRowRearguards[i] == card) frontRowRearguards[i] = null;
+        for (int i = 0; i < backRowRearguards.Length; i++) if (backRowRearguards[i] == card) backRowRearguards[i] = null;
+        guardianCircle.Remove(card);
+        damageZone.Remove(card);
+        dropZone.Remove(card);
+    }
+
+    // Places a card into the zone identified by a BoardLayout circle-key suffix
+    // (the part after the "P1_"/"P2_" prefix, e.g. "Vanguard", "LeftFront", "Damage").
+    // Returns false for zones that aren't modeled as a single-card slot (deck, order zone, etc).
+    public bool PlaceCardInZone(CardInstance card, string zoneSuffix)
+    {
+        RemoveCardFromAllZones(card);
+
+        switch (zoneSuffix)
+        {
+            case "Vanguard": vanguardCircle = card; return true;
+            case "LeftFront": frontRowRearguards[0] = card; return true;
+            case "RightFront": frontRowRearguards[1] = card; return true;
+            case "LeftBack": backRowRearguards[0] = card; return true;
+            case "RightBack": backRowRearguards[1] = card; return true;
+            case "CenterBack": centerBackRearguard = card; return true;
+            case "Guardian": guardianCircle.Add(card); return true;
+            case "Damage": damageZone.Add(card); return true;
+            case "Drop": dropZone.Add(card); return true;
+            default: return false;
+        }
+    }
 }
 
 // Singleton that tracks the full state of a running game
