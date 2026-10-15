@@ -30,7 +30,16 @@ public enum AbilityType { Activated, Automatic, Continuous, Order }
 public class CardData : ScriptableObject
 {
     public string cardName;
+    public string cardNameEn; // English translated name, if available
     public string cardNumber; // set/number code, e.g. "DZ-BT03-008" — matches Cloud Reco target metadata
+    public string clan;
+    public string nation;
+    public string race;
+    public string rarity;
+    public string illustrator;
+    public string skillText; // skill badge, e.g. "Twin Drive!!" — distinct from the full abilityText
+    public string flavorText;
+    public string imageUrl; // card art, for detail-panel display
     public int grade; // 0 through 4
     public int power;
     public int shield;
@@ -57,12 +66,12 @@ public class GiftMarker
     public GiftType giftType; // TypeI or TypeII
     public int circleIndex; // target circle index on field
 
-    // Force I → Power +10000 your turn
-    // Force II → Critical becomes 2
-    // Accel I → new circle Power +10000
-    // Accel II → new circle Power +5000 draw
-    // Protect I → Protect pseudo-card hand
-    // Protect II → intercept Shield +10000
+    /* Force I → Power +10000 your turn
+     Force II → Critical becomes 2
+     Accel I → new circle Power +10000
+     Accel II → new circle Power +5000 draw
+     Protect I → Protect pseudo-card hand
+     Protect II → intercept Shield +10000 */
 
     public GiftMarker(ImaginaryGift clan, GiftType type, int circle)
     {
@@ -165,8 +174,7 @@ public class PlayerState
     // Returns true if both vanguard circle and soul are empty
     public bool HasNoVanguard() => vanguardCircle == null && soul.Count == 0;
 
-    // Removes a card instance from whichever zone it currently occupies —
-    // used when a physically scanned card is detected moving to a new zone
+    // Removes a card from whichever zone it occupies, e.g. when a scanned card moves zones
     public void RemoveCardFromAllZones(CardInstance card)
     {
         if (vanguardCircle == card) vanguardCircle = null;
@@ -178,9 +186,8 @@ public class PlayerState
         dropZone.Remove(card);
     }
 
-    // Places a card into the zone identified by a BoardLayout circle-key suffix
-    // (the part after the "P1_"/"P2_" prefix, e.g. "Vanguard", "LeftFront", "Damage").
-    // Returns false for zones that aren't modeled as a single-card slot (deck, order zone, etc).
+    /* Places a card into the zone named by a BoardLayout circle-key suffix (the part after
+     "P1_"/"P2_", e.g. "Vanguard"). Returns false for zones that aren't modeled (deck, order zone, etc). */
     public bool PlaceCardInZone(CardInstance card, string zoneSuffix)
     {
         RemoveCardFromAllZones(card);

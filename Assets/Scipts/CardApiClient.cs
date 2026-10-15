@@ -29,15 +29,30 @@ namespace Vanguard.Api
     public class ScrapedCardDto
     {
         public string name;
+        public string name_en;
         public string number;
         public string url;
         public string image_url;
         public string image_file_type;
         public string type;
+        public string clan;
+        public string clan_en;
         public string nation;
+        public string nation_en;
+        public string race;
+        public string race_en;
+        public string rarity;
+        public string illustrator;
+        public string skill;
+        public string skill_en;
+        public string trigger_type;
+        public string trigger_type_en;
+        public string flavor;
+        public string flavor_en;
         public int grade;
         public int power;
         public int shield;
+        public int critical;
         public string effect;
         public string effect_en;
         public string productName;
@@ -47,11 +62,20 @@ namespace Vanguard.Api
         {
             CardData card = ScriptableObject.CreateInstance<CardData>();
             card.cardName = !string.IsNullOrEmpty(name) ? name : "Unknown Card";
+            card.cardNameEn = name_en;
             card.cardNumber = number;
+            card.clan = !string.IsNullOrEmpty(clan_en) ? clan_en : clan;
+            card.nation = !string.IsNullOrEmpty(nation_en) ? nation_en : nation;
+            card.race = !string.IsNullOrEmpty(race_en) ? race_en : race;
+            card.rarity = rarity;
+            card.illustrator = illustrator;
+            card.skillText = !string.IsNullOrEmpty(skill_en) ? skill_en : skill;
+            card.flavorText = !string.IsNullOrEmpty(flavor_en) ? flavor_en : flavor;
+            card.imageUrl = image_url;
             card.grade = grade;
             card.power = power;
             card.shield = shield;
-            card.critical = 1; // Default starting critical
+            card.critical = critical > 0 ? critical : 1; // default starting critical when unset
 
             // Prefer English translated effect if present, otherwise fallback to Japanese
             card.abilityText = !string.IsNullOrEmpty(effect_en) ? effect_en : (!string.IsNullOrEmpty(effect) ? effect : "");
@@ -71,16 +95,17 @@ namespace Vanguard.Api
                 }
             }
 
-            // Deduce trigger icon from type string and card name
-            if (card.isTriggerUnit)
+            /* Trigger icon: use the explicit trigger_type when present (Firestore always has it,
+             the REST scraper may not), else guess from name/type text. */
+            string triggerSource = !string.IsNullOrEmpty(trigger_type_en) ? trigger_type_en : trigger_type;
+            if (!string.IsNullOrEmpty(triggerSource))
             {
-                string combined = (type ?? "") + " " + (name ?? "");
-                if (combined.Contains("Critical") || combined.Contains("クリティカル")) card.triggerIcon = TriggerIcon.Critical;
-                else if (combined.Contains("Draw") || combined.Contains("ドロー")) card.triggerIcon = TriggerIcon.Draw;
-                else if (combined.Contains("Stand") || combined.Contains("スタンド")) card.triggerIcon = TriggerIcon.Stand;
-                else if (combined.Contains("Heal") || combined.Contains("ヒール")) card.triggerIcon = TriggerIcon.Heal;
-                else if (combined.Contains("Front") || combined.Contains("フロント")) card.triggerIcon = TriggerIcon.Front;
-                else if (combined.Contains("Over") || combined.Contains("オーバー")) card.triggerIcon = TriggerIcon.Over;
+                card.isTriggerUnit = true;
+                card.triggerIcon = ParseTriggerIcon(triggerSource);
+            }
+            else if (card.isTriggerUnit)
+            {
+                card.triggerIcon = ParseTriggerIcon((type ?? "") + " " + (name ?? ""));
             }
 
             // Standard Vanguard mechanics deduction based on grade
@@ -114,6 +139,17 @@ namespace Vanguard.Api
             }
 
             return card;
+        }
+
+        static TriggerIcon ParseTriggerIcon(string source)
+        {
+            if (source.Contains("Critical") || source.Contains("クリティカル")) return TriggerIcon.Critical;
+            if (source.Contains("Draw") || source.Contains("ドロー")) return TriggerIcon.Draw;
+            if (source.Contains("Stand") || source.Contains("スタンド")) return TriggerIcon.Stand;
+            if (source.Contains("Heal") || source.Contains("ヒール")) return TriggerIcon.Heal;
+            if (source.Contains("Front") || source.Contains("フロント")) return TriggerIcon.Front;
+            if (source.Contains("Over") || source.Contains("オーバー")) return TriggerIcon.Over;
+            return TriggerIcon.None;
         }
     }
 

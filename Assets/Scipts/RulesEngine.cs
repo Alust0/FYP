@@ -8,8 +8,7 @@ public class RulesEngine : MonoBehaviour
 {
     private GameState gs;
 
-    // Pending choices set by UI — replace these with real UI callbacks
-    // Player input pending choices — replace stubs below with real UI callbacks
+    // Pending player choices — replace the stubs below with real UI callbacks
 
     void Start()
     {
@@ -271,7 +270,7 @@ public class RulesEngine : MonoBehaviour
     // yield return null;
     // }
 
-    // Stride step — player may stride if vanguard is grade 3 or higher and G zone has face down cards
+    // Stride step — player may stride if vanguard is grade 3+ and G zone has face down cards
     IEnumerator ExecuteStrideStep()
     {
         PlayerState cp = gs.CurrentPlayer;

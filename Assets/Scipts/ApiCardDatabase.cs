@@ -4,8 +4,8 @@ using System.Linq;
 using UnityEngine;
 using Vanguard.Api;
 
-// Singleton that loads card data from the Python REST API and provides query and deck-building methods.
-// Separate from AR/CardDatabase.cs which is the Resources-based static lookup used by the AR overlays.
+/* Singleton that loads card data from the Python REST API, with query and deck-building helpers.
+ Separate from AR/CardDatabase.cs (the Resources-based lookup the AR overlays use). */
 public class ApiCardDatabase : MonoBehaviour
 {
     public static ApiCardDatabase Instance { get; private set; }
@@ -109,8 +109,7 @@ public class ApiCardDatabase : MonoBehaviour
     public CardData GetByName(string cardName)
         => allCards.FirstOrDefault(c => string.Equals(c.cardName, cardName, System.StringComparison.OrdinalIgnoreCase));
 
-    // Looks up a card by its set/number code — used to resolve Cloud Reco target metadata
-    // (e.g. "DZ-BT03-008") back to the card's stats
+    // Looks up a card by its set/number code, e.g. Cloud Reco metadata like "DZ-BT03-008"
     public CardData GetByNumber(string cardNumber)
         => allCards.FirstOrDefault(c => string.Equals(c.cardNumber, cardNumber, System.StringComparison.OrdinalIgnoreCase));
 
@@ -128,7 +127,7 @@ public class ApiCardDatabase : MonoBehaviour
         return ride;
     }
 
-    // Builds a legal 50-card D-format main deck: 4x each standard trigger type, rest filled with units
+    // Builds a legal 50-card D-format main deck: 4x each trigger type, the rest units
     public List<CardData> BuildMainDeck(int vanguardGrade = 3)
     {
         var deck = new List<CardData>();

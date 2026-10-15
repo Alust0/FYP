@@ -1,33 +1,50 @@
 using UnityEngine;
 using Vuforia;
 
-// Forces the camera device to prioritize image quality/resolution over frame rate,
-// keeps it in continuous autofocus, and bumps Unity's rendering quality to the
-// highest level available — all of which improve the chances of a successful
-// Cloud Reco match.
+/* Prioritizes camera image quality over frame rate, keeps continuous autofocus on, and sets
+ Unity's highest quality level, all to improve the chances of a Cloud Reco match. */
 public class UpgradeCameraQuality : MonoBehaviour
 {
     void Start()
     {
         QualitySettings.SetQualityLevel(QualitySettings.names.Length - 1, true);
 
+        // Vuforia may already be running, in which case OnVuforiaStarted has fired without us
+        if (VuforiaApplication.Instance.IsRunning)
+            OnVuforiaStarted();
+
         VuforiaApplication.Instance.OnVuforiaStarted += OnVuforiaStarted;
+    }
+
+    void OnDestroy()
+    {
+        VuforiaApplication.Instance.OnVuforiaStarted -= OnVuforiaStarted;
     }
 
     private void OnVuforiaStarted()
     {
         var cameraDevice = VuforiaBehaviour.Instance.CameraDevice;
-        cameraDevice.SetCameraMode(CameraMode.MODE_OPTIMIZE_QUALITY);
 
-        // Cards are held close to the lens, so prefer macro (close-up) focus.
-        // Fall back to continuous autofocus if the device doesn't support macro.
-        if (!cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_MACRO))
+        bool modeSet = cameraDevice.SetCameraMode(CameraMode.MODE_OPTIMIZE_QUALITY);
+        Debug.Log($"[CameraDiag] SetCameraMode(MODE_OPTIMIZE_QUALITY) returned: {modeSet}");
+
+        /* Continuous autofocus keeps cards sharp at tabletop distance. Macro mode blurs a
+         playmat viewed from above; trigger-auto is the fallback when continuous AF is missing. */
+        bool focusSet = cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_CONTINUOUSAUTO);
+        Debug.Log($"[CameraDiag] SetFocusMode(CONTINUOUSAUTO) returned: {focusSet}");
+
+        if (!focusSet)
         {
-            Debug.Log("Macro focus is not supported on this device, falling back to continuous autofocus.");
-            if (!cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_CONTINUOUSAUTO))
-            {
-                Debug.Log("Continuous autofocus is not supported on this device.");
-            }
+            bool triggerSet = cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_TRIGGERAUTO);
+            Debug.Log($"[CameraDiag] Fallback SetFocusMode(TRIGGERAUTO) returned: {triggerSet}");
+
+            // Both fail on a PC webcam (Vuforia can't control its focus), so ask the driver directly
+            if (!triggerSet)
+                WebcamAutoFocus.Enable();
         }
+
+        // Confirm what resolution Vuforia is actually using right now
+        var videoMode = cameraDevice.GetVideoMode();
+        Debug.Log($"[CameraDiag] Active video mode: {videoMode.width}x{videoMode.height}, framerate: {videoMode.frameRate}");
     }
 }

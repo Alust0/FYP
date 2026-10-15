@@ -1,7 +1,6 @@
 using UnityEngine;
 
-// Wires all GameState events to the correct overlay components
-// Attach this to a single GameObject in the scene alongside all overlay components
+// Wires GameState events to the overlay components. Attach alongside them on one GameObject.
 public class AROverlayEventBridge : MonoBehaviour
 {
     [Header("Overlay Components")]

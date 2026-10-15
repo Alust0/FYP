@@ -38,19 +38,74 @@ public class CardOverlayUI : MonoBehaviour
     public GameObject rulePromptPanel;
     public TextMeshProUGUI rulePromptText;
 
+    [Header("Detail Panel")]
+    [Tooltip("Toggled by detailToggleButton; holds the descriptive fields that don't fit the compact overlay.")]
+    public GameObject detailPanel;
+    public TextMeshProUGUI clanRaceText;
+    public TextMeshProUGUI skillBadgeText;
+    public TextMeshProUGUI flavorBodyText;
+    public TextMeshProUGUI rarityText;
+    public Button detailToggleButton;
+
+    bool mDetailOpen;
+
+    void Awake()
+    {
+        if (detailToggleButton != null)
+            detailToggleButton.onClick.AddListener(ToggleDetailPanel);
+        if (detailPanel != null)
+            detailPanel.SetActive(false);
+    }
+
+    /* The detail panel lies flat with the card by default; once opened, billboard it toward
+     the camera so long skill/flavor text stays legible. */
+    void LateUpdate()
+    {
+        if (!mDetailOpen || detailPanel == null) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        Vector3 toCam = detailPanel.transform.position - cam.transform.position;
+        if (toCam.sqrMagnitude < 0.0001f) return;
+
+        detailPanel.transform.rotation = Quaternion.LookRotation(toCam, Vector3.up);
+    }
+
+    public void ToggleDetailPanel()
+    {
+        mDetailOpen = !mDetailOpen;
+        detailPanel?.SetActive(mDetailOpen);
+    }
+
     // Populates all UI fields from a CardData asset
     public void Populate(CardData data)
     {
-        if (cardNameText != null) cardNameText.text = data.cardName;
-        if (gradeText != null) gradeText.text = "G" + data.grade;
-        if (powerText != null) powerText.text = data.power.ToString();
-        if (criticalText != null) criticalText.text = "C:" + data.critical;
+        /* Prefer the English name: the default TMP font (LiberationSans SDF) has no CJK
+         glyphs, so Japanese-only names render as missing-glyph boxes. */
+        if (cardNameText != null)
+            cardNameText.text = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
+        if (gradeText != null) 
+            gradeText.text = "G" + data.grade;
+        if (powerText != null) 
+            powerText.text = data.power.ToString();
+        if (criticalText != null) 
+            criticalText.text = "C:" + data.critical;
 
         SetTriggerIcon(data.triggerIcon);
         SetGiftIcon(data.imaginaryGift);
 
         if (orientationIcon != null && standSprite != null)
             orientationIcon.sprite = standSprite; // default stand
+
+        if (clanRaceText != null)
+            clanRaceText.text = string.IsNullOrEmpty(data.clan) ? data.race : data.clan + " / " + data.race;
+        if (skillBadgeText != null) 
+            skillBadgeText.text = data.skillText;
+        if (flavorBodyText != null) 
+            flavorBodyText.text = data.flavorText;
+        if (rarityText != null) 
+            rarityText.text = data.rarity;
 
         if (rulePromptPanel != null)
             rulePromptPanel.SetActive(false); // hidden by default
@@ -64,9 +119,12 @@ public class CardOverlayUI : MonoBehaviour
         int total = basePower + modifier;
         powerText.text = total.ToString();
 
-        if (modifier > 0) powerText.color = Color.green; // boosted green
-        else if (modifier < 0) powerText.color = Color.red;
-        else powerText.color = Color.white;
+        if (modifier > 0) 
+            powerText.color = Color.green; // boosted green
+        else if (modifier < 0) 
+            powerText.color = Color.red;
+        else 
+            powerText.color = Color.white;
     }
 
     // Updates the critical display
@@ -79,7 +137,8 @@ public class CardOverlayUI : MonoBehaviour
     // Swaps the orientation icon between stand and rest
     public void SetRestIndicator(bool isRested)
     {
-        if (orientationIcon == null) return;
+        if (orientationIcon == null) 
+            return;
 
         orientationIcon.sprite = isRested ? restSprite : standSprite;
         orientationIcon.color = isRested ? Color.yellow : Color.white; // yellow when rested
@@ -88,7 +147,10 @@ public class CardOverlayUI : MonoBehaviour
     // Shows a contextual rule prompt above the card
     public void ShowRulePrompt(string promptText)
     {
-        if (rulePromptPanel == null || rulePromptText == null) return;
+        if (rulePromptPanel == null || rulePromptText == null) 
+        {
+            return;
+        }
 
         rulePromptText.text = promptText;
         rulePromptPanel.SetActive(true);
@@ -98,7 +160,10 @@ public class CardOverlayUI : MonoBehaviour
     // Assigns the correct trigger icon sprite
     void SetTriggerIcon(TriggerIcon icon)
     {
-        if (triggerIconImage == null) return;
+        if (triggerIconImage == null) 
+        {
+            return;
+        }
 
         triggerIconImage.gameObject.SetActive(icon != TriggerIcon.None);
 
@@ -116,7 +181,10 @@ public class CardOverlayUI : MonoBehaviour
     // Assigns the correct imaginary gift icon sprite
     void SetGiftIcon(ImaginaryGift gift)
     {
-        if (giftIconImage == null) return;
+        if (giftIconImage == null) 
+        {
+            return;
+        }
 
         giftIconImage.gameObject.SetActive(gift != ImaginaryGift.None);
 

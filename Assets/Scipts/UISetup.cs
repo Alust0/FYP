@@ -2,8 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// Automatically creates and positions all HUD UI elements at runtime
-// Attach this to any GameObject in the scene and press Play
+// Creates and positions all HUD UI elements at runtime. Attach to any GameObject in the scene.
 public class UISetup : MonoBehaviour
 {
     // References set automatically by this script
@@ -15,8 +14,7 @@ public class UISetup : MonoBehaviour
 
     void Awake()
     {
-        // Skip setup entirely if the canvas was already built (e.g. by a previous play session
-        // or because UISetup exists alongside the pre-built scene objects)
+        // Skip setup if the canvas already exists (earlier play session, or pre-built scene objects)
         if (GameObject.Find("AROverlayCanvas") != null)
         {
             Debug.Log("[UISetup] AROverlayCanvas already present — skipping UI creation.");

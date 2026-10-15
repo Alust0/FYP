@@ -17,14 +17,22 @@ public class BoardLayout : MonoBehaviour
     // How far each player's field is from the center line
     public float playerFieldOffset = 2.8f;
 
-    // When this board has no parent (i.e. no tracked mat set up yet), it needs to sit
-    // in front of the AR camera to be visible at all — the camera's near clip plane
-    // otherwise clips out anything placed at its own position. Ignored once parented
-    // under a tracked Image Target, since that already places the board correctly.
+    /* Unparented (no tracked mat yet), the board sits this far in front of the AR camera so
+     the near clip plane doesn't cut it out. Ignored once parented under an Image Target. */
     public float distanceFromCameraIfUnparented = 3f;
 
     // Font size for zone label text
     public int labelFontSize = 14;
+
+    [Header("Zone Appearance")]
+    [Tooltip("Base fill color for zones — alpha 0 keeps them fully transparent so only the outline shows. Also used to reset a zone after HighlightCircle.")]
+    public Color fillColor = new Color(1f, 1f, 1f, 0f);
+    [Tooltip("Color of the box outline drawn around each zone.")]
+    public Color outlineColor = Color.black;
+    public float outlineWidth = 0.02f;
+
+    // Cloned per zone so HighlightCircle can tint one without affecting the rest
+    static Material sZoneFillMaterialTemplate;
 
     // Holds all spawned GameObjects by key
     public Dictionary<string, GameObject> circles = new Dictionary<string, GameObject>();
@@ -32,10 +40,8 @@ public class BoardLayout : MonoBehaviour
     // Tracks which circles have a card placed on them
     private Dictionary<string, bool> hasCard = new Dictionary<string, bool>();
 
-    // Pairs a zone key (e.g. "P1_Vanguard") with the GameObject holding that zone's
-    // physical Vuforia Image Target, so zone position tracks the real playmat marker
-    // instead of a procedurally placed quad. Requires the target to already exist as
-    // a Vuforia database entry and be placed in the scene — assign in the Inspector.
+    /* Pairs a zone key (e.g. "P1_Vanguard") with a Vuforia Image Target in the scene, so the
+     zone tracks the real playmat instead of a procedural quad. Assign in the Inspector. */
     [System.Serializable]
     public class ArZoneMarker
     {
@@ -46,13 +52,10 @@ public class BoardLayout : MonoBehaviour
     [Header("AR Zone Markers (optional) — overrides the procedural quad for matching keys")]
     public List<ArZoneMarker> arZoneMarkers = new List<ArZoneMarker>();
 
-    // Single player: only P1's side is spawned, useful when the camera only ever
-    // needs to see one player's half of the board (e.g. each player holds their
-    // own device). Multiplayer spawns both halves as before.
+    // SinglePlayer spawns only P1's half (one device per player); Multiplayer spawns both
     public enum BoardMode { SinglePlayer, Multiplayer }
 
-    // Vertical: P1/P2 stacked top/bottom (original layout). Horizontal: P1/P2
-    // side-by-side, sharing one center line running the other direction.
+    // Vertical: P1/P2 stacked top/bottom. Horizontal: P1/P2 side by side.
     public enum LayoutOrientation { Vertical, Horizontal }
 
     [Header("Layout")]
@@ -66,11 +69,14 @@ public class BoardLayout : MonoBehaviour
 
     void Start()
     {
-        // Local, not world — so that if this object is parented under a tracked
-        // Vuforia Image Target (the physical playmat), the whole board follows it.
-        // Unparented, it needs a forward offset instead of sitting at the camera's
-        // own position (which the near clip plane would otherwise cut out entirely).
-        transform.localPosition = transform.parent == null
+        /* Local, not world, so a board parented under a playmat Image Target follows it.
+         Unparented, it rides on the AR camera with a forward offset instead: Vuforia moves
+         the camera once a card is tracked, which would leave a world-fixed board out of view. */
+        bool unparented = transform.parent == null;
+        if (unparented && Camera.main != null)
+            transform.SetParent(Camera.main.transform, false);
+
+        transform.localPosition = unparented
             ? new Vector3(0f, 0f, distanceFromCameraIfUnparented)
             : Vector3.zero;
         transform.localRotation = Quaternion.identity;
@@ -94,11 +100,8 @@ public class BoardLayout : MonoBehaviour
         GameState.OnGameStateUpdated += SyncFromGameState;
     }
 
-    // Vuforia finalizes the AR camera's real field of view asynchronously as its
-    // camera device negotiation completes — sometime after Start(), and not
-    // reliably tied to any single event. Re-fitting whenever the FOV actually
-    // changes (rather than guessing when it's "ready") keeps the board correctly
-    // sized regardless of when that settles; it's a no-op once FOV stops changing.
+    /* Vuforia settles the AR camera's real FOV some time after Start(), tied to no single
+     event, so re-fit whenever the FOV changes. A no-op once it stops changing. */
     float mLastFittedFov = -1f;
 
     void Update()
@@ -115,11 +118,9 @@ public class BoardLayout : MonoBehaviour
         }
     }
 
-    // Scales the board so its total footprint fits within whatever the main camera
-    // can actually see at the board's current distance, then re-centers the actual
-    // content (not this transform's own pivot) onto the camera's forward axis —
-    // needed because Single Player mode only spawns one player's rows, so the
-    // content isn't symmetric around this object's local origin.
+    /* Scales the board to fit what the main camera sees at its distance, then centers the
+     content (not this transform's pivot) on the camera's forward axis. Single Player only
+     spawns one side, so the content isn't symmetric around the local origin. */
     void FitToCamera()
     {
         Camera cam = Camera.main;
@@ -135,8 +136,7 @@ public class BoardLayout : MonoBehaviour
         float scaleY = (visibleHeight * cameraFillFraction) / bounds.size.y;
         transform.localScale *= Mathf.Min(scaleX, scaleY);
 
-        // Re-measure post-scale, then shift so the content's center — not this
-        // transform's pivot — lands on the camera's forward axis.
+        // Re-measure post-scale, then center the content on the camera's forward axis
         if (!TryGetSpawnedBounds(out bounds)) return;
 
         Vector3 localCenter = cam.transform.InverseTransformPoint(bounds.center);
@@ -166,12 +166,11 @@ public class BoardLayout : MonoBehaviour
         GameState.OnGameStateUpdated -= SyncFromGameState;
     }
 
-    // Spawns the full field for one player based on the confirmed layout
-    // [ Damage ][ LB ][ CB ][ RB ][ Drop ][ OOG ]
-    // [ Order ][ LF ][ VG ][ RF ][ Deck ][ Ride ]
-    // [ ][ ][ GD ][ TG ][ Bind ]
-    // In Vertical orientation this grid runs left-to-right with players stacked
-    // top/bottom; in Horizontal it's transposed so players sit side-by-side.
+    /* Spawns the full field for one player:
+     [ Damage ][ LB ][ CB ][ RB ][ Drop ][ OOG ]
+     [ Order ][ LF ][ VG ][ RF ][ Deck ][ Ride ]
+     [ ][ ][ GD ][ TG ][ Bind ]
+     Vertical runs this grid left-to-right with players stacked; Horizontal transposes it. */
     void SpawnPlayerField(bool isOpponent)
     {
         string prefix = isOpponent ? "P2" : "P1";
@@ -194,9 +193,8 @@ public class BoardLayout : MonoBehaviour
         float rightSideCol = rightCol + stepX + 0.1f;
         float farRightSideCol = rightSideCol + stepX + 0.1f; // OOG and Ride are one further out
 
-        // Maps (position-across-row, distance-from-center-line) to a world position.
-        // Vertical: rows run along Y (players stacked top/bottom), columns along X.
-        // Horizontal: rows run along X (players side-by-side), columns along Y.
+        /* Maps (position across row, distance from center line) to a position.
+         Vertical: rows along Y, columns along X. Horizontal: the reverse. */
         Vector3 Pos(float col, float dist) => layoutOrientation == LayoutOrientation.Vertical
             ? new Vector3(col, flip * dist, 0f)
             : new Vector3(flip * dist, col, 0f);
@@ -239,6 +237,8 @@ public class BoardLayout : MonoBehaviour
         obj.transform.localRotation = Quaternion.identity;
         obj.transform.localScale = new Vector3(cardWidth, cardHeight, 0.01f);
 
+        StyleZone(obj);
+
         // Create a label as a child TextMesh so it floats above the circle
         CreateLabel(obj, label);
 
@@ -257,10 +257,48 @@ public class BoardLayout : MonoBehaviour
         obj.transform.localRotation = Quaternion.identity;
         obj.transform.localScale = new Vector3(cardWidth * 0.85f, cardHeight * 0.6f, 0.01f);
 
+        StyleZone(obj);
         CreateLabel(obj, label);
 
         circles[key] = obj;
         hasCard[key] = false;
+    }
+
+    /* Hides a zone's fill and outlines its edges. The fill's MeshRenderer is switched off
+     (not alpha-blended) so it's invisible under any pipeline/shader; HighlightCircle
+     re-enables it to flag valid move targets. */
+    void StyleZone(GameObject obj)
+    {
+        Renderer rend = obj.GetComponent<Renderer>();
+        if (rend != null)
+        {
+            // Sprites/Default is in Always Included Shaders, so Shader.Find still finds it in a build
+            if (sZoneFillMaterialTemplate == null)
+                sZoneFillMaterialTemplate = new Material(Shader.Find("Sprites/Default"));
+
+            Material mat = new Material(sZoneFillMaterialTemplate) { color = fillColor };
+            rend.material = mat;
+            rend.enabled = fillColor.a > 0.001f;
+        }
+
+        LineRenderer outline = obj.AddComponent<LineRenderer>();
+        outline.useWorldSpace = false;
+        outline.loop = true;
+        outline.positionCount = 4;
+        const float z = -0.05f; // between the quad (z=0) and its label (z=-0.1), avoids z-fighting
+        outline.SetPositions(new[]
+        {
+            new Vector3(-0.5f, -0.5f, z),
+            new Vector3(-0.5f, 0.5f, z),
+            new Vector3(0.5f, 0.5f, z),
+            new Vector3(0.5f, -0.5f, z),
+        });
+        outline.widthMultiplier = outlineWidth;
+        outline.material = new Material(Shader.Find("Sprites/Default"));
+        outline.startColor = outlineColor;
+        outline.endColor = outlineColor;
+        outline.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        outline.receiveShadows = false;
     }
 
     // Creates a TextMesh label child on a circle or zone marker
@@ -328,18 +366,22 @@ public class BoardLayout : MonoBehaviour
         return obj;
     }
 
-    // Highlights a circle by tinting it a given color
+    /* Tints a circle. The fill renderer is off by default (see StyleZone), so it's enabled
+     here while the color is visible and disabled again on reset to fillColor. */
     public void HighlightCircle(string key, Color color)
     {
         if (!circles.TryGetValue(key, out GameObject obj)) return;
         Renderer rend = obj.GetComponent<Renderer>();
-        if (rend != null) rend.material.color = color;
+        if (rend == null) return;
+
+        rend.material.color = color;
+        rend.enabled = color.a > 0.001f;
     }
 
-    // Resets a circle back to white
+    // Resets a circle back to its default transparent fill
     public void ResetCircleColor(string key)
     {
-        HighlightCircle(key, Color.white);
+        HighlightCircle(key, fillColor);
     }
 
     // Highlights all valid circles for a given player action
@@ -390,7 +432,7 @@ public class BoardLayout : MonoBehaviour
             ResetCircleColor(key);
     }
 
-    // Syncs which circles show as occupied based on the current GameState — called via OnGameStateUpdated
+    // Syncs which circles show as occupied from the GameState (via OnGameStateUpdated)
     public void SyncFromGameState(GameState gs)
     {
         foreach (PlayerState ps in gs.players)

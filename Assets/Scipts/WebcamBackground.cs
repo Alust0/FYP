@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-// Displays the webcam feed as the background when running in the Unity Editor or standalone.
-// On a real AR device, AR Foundation handles the camera feed automatically.
+/* Displays the webcam feed as the background in the Unity Editor or standalone.
+ On a real AR device, AR Foundation handles the camera feed. */
 public class WebcamBackground : MonoBehaviour
 {
     [Header("Settings")]
@@ -39,8 +39,7 @@ public class WebcamBackground : MonoBehaviour
     //     #endif
     // }
 
-    // Starts the webcam and wires it to a full-screen RawImage.
-    // Reuses the existing WebcamCanvas if one is already in the scene, otherwise creates one.
+    // Starts the webcam on a full-screen RawImage, reusing the scene's WebcamCanvas if present
     void SetupWebcam()
     {
         WebCamDevice[] devices;
@@ -50,8 +49,8 @@ public class WebcamBackground : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            // A connected camera (often virtual-camera software like OBS/DroidCam/iVCam)
-            // can report a device name with invalid bytes, which crashes this call.
+            /* A connected camera (often virtual, like OBS/DroidCam/iVCam) can report a device
+             name with invalid bytes, which crashes this call. */
             Debug.LogError("[Webcam] Failed to enumerate webcam devices — a connected camera driver may be reporting an invalid name: " + e.Message);
             return;
         }

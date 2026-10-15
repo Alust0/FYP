@@ -3,9 +3,8 @@ using UnityEngine.UI;
 using TMPro;
 using Vuforia;
 
-// Shows a pulsing scan frame + status text while Cloud Reco is actively
-// searching, and flashes a "found" state briefly when a match comes in.
-// Attach to the same GameObject as your CloudRecoBehaviour.
+/* Shows a pulsing scan frame + status text while Cloud Reco is searching, and briefly flashes
+ a "found" state on a match. Attach to the same GameObject as your CloudRecoBehaviour. */
 [RequireComponent(typeof(CloudRecoBehaviour))]
 public class ScanningIndicatorUI : MonoBehaviour
 {
@@ -55,8 +54,7 @@ public class ScanningIndicatorUI : MonoBehaviour
             return;
         }
 
-        // Idle pulsing while actively scanning, gives visual confirmation
-        // that recognition is still alive and searching each frame.
+        // Idle pulse while scanning, to show recognition is still alive
         float alpha = Mathf.Lerp(pulseMinAlpha, pulseMaxAlpha,
             (Mathf.Sin(Time.time * pulseSpeed) + 1f) / 2f);
 

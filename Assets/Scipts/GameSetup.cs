@@ -1,8 +1,7 @@
 using UnityEngine;
 
-// Creates the two empty PlayerState slots GameState needs at startup.
-// Decks/hands are no longer pre-populated here — cards are physical now and
-// their zone/state comes from VuforiaCardOverlayManager as they're scanned.
+/* Creates the two empty PlayerState slots GameState needs at startup. Cards are physical
+ now: their zone/state comes from VuforiaCardOverlayManager as they're scanned. */
 public class GameSetup : MonoBehaviour
 {
     void Start()
