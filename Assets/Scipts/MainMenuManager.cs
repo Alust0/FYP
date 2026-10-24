@@ -1,10 +1,11 @@
-using Firebase.Auth;
 using Unity.Services.Authentication;
-using Unity.Services.Authentication.PlayerAccounts;
 using Unity.Services.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if !UNITY_WSA
+using Firebase.Auth;
+#endif
 
 public class MainMenuManager : MonoBehaviour
 {
@@ -31,11 +32,10 @@ public class MainMenuManager : MonoBehaviour
     {
         // Skipped when the menu scene was opened directly in the editor without logging in
         if (UnityServices.State == ServicesInitializationState.Initialized)
-        {
             AuthenticationService.Instance.SignOut(true);
-            PlayerAccountService.Instance.SignOut();
-        }
+#if !UNITY_WSA
         FirebaseAuth.DefaultInstance.SignOut();
+#endif
         SceneManager.LoadScene(loginSceneName);
     }
 }
