@@ -40,6 +40,14 @@ public class BoardLayout : MonoBehaviour
     // Tracks which circles have a card placed on them
     private Dictionary<string, bool> hasCard = new Dictionary<string, bool>();
 
+    /* Each zone's area in board-local XY (the board's own coordinates). Zones are spaced by
+     colGap/rowGap, so these never overlap and a point is in at most one zone. */
+    readonly Dictionary<string, Rect> mZoneRects = new Dictionary<string, Rect>();
+
+    [Header("Zone Detection")]
+    [Tooltip("Board units a card can drift past its current zone's edge before it counts as leaving, so a card on an edge doesn't flicker between zones.")]
+    public float zoneStickMargin = 0.1f;
+
     /* Pairs a zone key (e.g. "P1_Vanguard") with a Vuforia Image Target in the scene, so the
      zone tracks the real playmat instead of a procedural quad. Assign in the Inspector. */
     [System.Serializable]
@@ -52,15 +60,14 @@ public class BoardLayout : MonoBehaviour
     [Header("AR Zone Markers (optional) — overrides the procedural quad for matching keys")]
     public List<ArZoneMarker> arZoneMarkers = new List<ArZoneMarker>();
 
-    // SinglePlayer spawns only P1's half (one device per player); Multiplayer spawns both
+    /* SinglePlayer: only P1's half, laid out vertically (one device per player).
+     Multiplayer: both halves side by side horizontally, P1 on the left. */
     public enum BoardMode { SinglePlayer, Multiplayer }
-
-    // Vertical: P1/P2 stacked top/bottom. Horizontal: P1/P2 side by side.
-    public enum LayoutOrientation { Vertical, Horizontal }
 
     [Header("Layout")]
     public BoardMode boardMode = BoardMode.Multiplayer;
-    public LayoutOrientation layoutOrientation = LayoutOrientation.Vertical;
+
+    bool IsHorizontal => boardMode == BoardMode.Multiplayer;
 
     [Header("Fit To Camera")]
     [Tooltip("Scales the whole board (unparented preview mode only) so it fits within the camera's view instead of using raw editor units.")]
@@ -92,6 +99,7 @@ public class BoardLayout : MonoBehaviour
             if (marker.trackedObject == null || string.IsNullOrEmpty(marker.key)) continue;
             circles[marker.key] = marker.trackedObject;
             hasCard[marker.key] = false;
+            mZoneRects.Remove(marker.key); // its area now follows the marker, see TryGetZoneRect
         }
 
         if (fitToCamera)
@@ -169,8 +177,8 @@ public class BoardLayout : MonoBehaviour
     /* Spawns the full field for one player:
      [ Damage ][ LB ][ CB ][ RB ][ Drop ][ OOG ]
      [ Order ][ LF ][ VG ][ RF ][ Deck ][ Ride ]
-     [ ][ ][ GD ][ TG ][ Bind ]
-     Vertical runs this grid left-to-right with players stacked; Horizontal transposes it. */
+     [ Crest ][ ][ GD ][ TG ][ Bind ]
+     Single Player runs this grid left-to-right (vertical); Multiplayer turns it 90° (horizontal). */
     void SpawnPlayerField(bool isOpponent)
     {
         string prefix = isOpponent ? "P2" : "P1";
@@ -193,11 +201,12 @@ public class BoardLayout : MonoBehaviour
         float rightSideCol = rightCol + stepX + 0.1f;
         float farRightSideCol = rightSideCol + stepX + 0.1f; // OOG and Ride are one further out
 
-        /* Maps (position across row, distance from center line) to a position.
-         Vertical: rows along Y, columns along X. Horizontal: the reverse. */
-        Vector3 Pos(float col, float dist) => layoutOrientation == LayoutOrientation.Vertical
-            ? new Vector3(col, flip * dist, 0f)
-            : new Vector3(flip * dist, col, 0f);
+        /* Maps (position across row, distance from center line) to a position. P2 is P1 turned
+         180° (players face each other), and horizontal is vertical turned 90° with P1 on the left,
+         so each player's Left/Right and Deck/Drop sides match their real playmat. */
+        Vector3 Pos(float col, float dist) => IsHorizontal
+            ? new Vector3(flip * dist, flip * col, 0f)
+            : new Vector3(-flip * col, flip * dist, 0f);
 
         // Back row circles
         SpawnCircle(prefix + "_LeftBack", Pos(leftCol, backRowDist), "Left \nBack");
@@ -217,6 +226,7 @@ public class BoardLayout : MonoBehaviour
         // Side zones
         SpawnZoneMarker(prefix + "_Damage", Pos(leftSideCol, backRowDist), "Damage");
         SpawnZoneMarker(prefix + "_Order", Pos(leftSideCol, frontRowDist), "Order");
+        SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest");
 
         SpawnZoneMarker(prefix + "_Drop", Pos(rightSideCol, backRowDist), "Drop");
         SpawnZoneMarker(prefix + "_Deck", Pos(rightSideCol, frontRowDist), "Deck");
@@ -235,15 +245,15 @@ public class BoardLayout : MonoBehaviour
         obj.name = key;
         obj.transform.localPosition = position;
         obj.transform.localRotation = Quaternion.identity;
-        obj.transform.localScale = new Vector3(cardWidth, cardHeight, 0.01f);
+        Vector2 size = ZoneSize(cardWidth, cardHeight);
+        obj.transform.localScale = new Vector3(size.x, size.y, 0.01f);
 
         StyleZone(obj);
 
         // Create a label as a child TextMesh so it floats above the circle
         CreateLabel(obj, label);
 
-        circles[key] = obj;
-        hasCard[key] = false;
+        RegisterZone(key, obj, position, size);
     }
 
     // Instantiates a zone marker with a visible label
@@ -255,13 +265,75 @@ public class BoardLayout : MonoBehaviour
         obj.name = key;
         obj.transform.localPosition = position;
         obj.transform.localRotation = Quaternion.identity;
-        obj.transform.localScale = new Vector3(cardWidth * 0.85f, cardHeight * 0.6f, 0.01f);
+        Vector2 size = ZoneSize(cardWidth * 0.85f, cardHeight * 0.6f);
+        obj.transform.localScale = new Vector3(size.x, size.y, 0.01f);
 
         StyleZone(obj);
         CreateLabel(obj, label);
 
+        RegisterZone(key, obj, position, size);
+    }
+
+    // Horizontal turns the playmat 90°, so each zone's width and height swap with it
+    Vector2 ZoneSize(float width, float height) => IsHorizontal
+        ? new Vector2(height, width)
+        : new Vector2(width, height);
+
+    void RegisterZone(string key, GameObject obj, Vector3 position, Vector2 size)
+    {
         circles[key] = obj;
         hasCard[key] = false;
+        mZoneRects[key] = new Rect((Vector2)position - size * 0.5f, size);
+    }
+
+    // World direction a standing card's long side runs along; a rested card is turned 90° from it
+    public Vector3 CardLengthAxis => IsHorizontal ? transform.right : transform.up;
+
+    /* Which zone a screen point (e.g. a tracked card's center) is in. The point is projected
+     onto the board plane, so it works wherever the camera is and at any scale. currentKey
+     gets zoneStickMargin of slack so a card sitting on an edge keeps its zone. */
+    public string ZoneAtScreenPoint(Vector2 screenPoint, Camera cam, string currentKey = null)
+    {
+        if (!TryScreenToBoard(screenPoint, cam, out Vector2 point)) return null;
+
+        if (currentKey != null && TryGetZoneRect(currentKey, cam, out Rect current))
+        {
+            Rect padded = new Rect(current.xMin - zoneStickMargin, current.yMin - zoneStickMargin,
+                current.width + 2f * zoneStickMargin, current.height + 2f * zoneStickMargin);
+            if (padded.Contains(point)) return currentKey;
+        }
+
+        foreach (string key in circles.Keys)
+            if (TryGetZoneRect(key, cam, out Rect rect) && rect.Contains(point))
+                return key;
+
+        return null;
+    }
+
+    // Converts a screen point to board-local XY by casting it onto the board plane
+    public bool TryScreenToBoard(Vector2 screenPoint, Camera cam, out Vector2 boardPoint)
+    {
+        boardPoint = default;
+        Plane boardPlane = new Plane(transform.forward, transform.position); // zones lie in local XY
+        Ray ray = cam.ScreenPointToRay(screenPoint);
+        if (!boardPlane.Raycast(ray, out float enter)) return false;
+
+        boardPoint = transform.InverseTransformPoint(ray.GetPoint(enter));
+        return true;
+    }
+
+    // An AR marker zone has no fixed rect: it's a card-sized area wherever the marker shows on the board
+    bool TryGetZoneRect(string key, Camera cam, out Rect rect)
+    {
+        if (mZoneRects.TryGetValue(key, out rect)) return true;
+        if (!circles.TryGetValue(key, out GameObject obj) || obj == null) return false;
+
+        Vector3 screen = cam.WorldToScreenPoint(obj.transform.position);
+        if (screen.z <= 0f || !TryScreenToBoard(screen, cam, out Vector2 center)) return false;
+
+        Vector2 size = ZoneSize(cardWidth, cardHeight);
+        rect = new Rect(center - size * 0.5f, size);
+        return true;
     }
 
     /* Hides a zone's fill and outlines its edges. The fill's MeshRenderer is switched off
@@ -432,21 +504,15 @@ public class BoardLayout : MonoBehaviour
             ResetCircleColor(key);
     }
 
-    // Syncs which circles show as occupied from the GameState (via OnGameStateUpdated)
+    // Syncs which zones show as occupied from the GameState (via OnGameStateUpdated)
     public void SyncFromGameState(GameState gs)
     {
-        foreach (PlayerState ps in gs.players)
+        foreach (string key in new List<string>(circles.Keys))
         {
+            PlayerState ps = gs.players[key.StartsWith("P1") ? 0 : 1];
             if (ps == null) continue;
-            string p = ps.CirclePrefix;
 
-            SetCircleOccupied(p + "_Vanguard", ps.vanguardCircle != null);
-            SetCircleOccupied(p + "_LeftFront", ps.frontRowRearguards[0] != null);
-            SetCircleOccupied(p + "_RightFront", ps.frontRowRearguards[1] != null);
-            SetCircleOccupied(p + "_LeftBack", ps.backRowRearguards[0] != null);
-            SetCircleOccupied(p + "_RightBack", ps.backRowRearguards[1] != null);
-            SetCircleOccupied(p + "_CenterBack", ps.centerBackRearguard != null);
-            SetCircleOccupied(p + "_Guardian", ps.guardianCircle.Count > 0);
+            SetCircleOccupied(key, ps.CountInZone(key.Substring(3)) > 0); // suffix after "P1_"/"P2_"
         }
     }
 

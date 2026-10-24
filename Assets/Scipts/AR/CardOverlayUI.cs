@@ -124,7 +124,7 @@ public class CardOverlayUI : MonoBehaviour
         else if (modifier < 0) 
             powerText.color = Color.red;
         else 
-            powerText.color = Color.white;
+            powerText.color = Color.black;
     }
 
     // Updates the critical display

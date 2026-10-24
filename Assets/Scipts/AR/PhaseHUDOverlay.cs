@@ -1,8 +1,9 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// Always-on-screen HUD showing phase, damage counts, deck and hand sizes
+// Always-on-screen HUD showing the phase and each player's zone counts
 public class PhaseHUDOverlay : MonoBehaviour
 {
     [Header("Phase Display")]
@@ -10,15 +11,18 @@ public class PhaseHUDOverlay : MonoBehaviour
     public TextMeshProUGUI turnPlayerText;
     public Image phaseIcon;
 
-    [Header("Player 1 Stats")]
-    public TextMeshProUGUI damageCounterP1;
-    public TextMeshProUGUI deckCountP1;
-    public TextMeshProUGUI handCountP1;
+    // One count line on the HUD, e.g. P1's "Drop: 3"
+    [System.Serializable]
+    public class ZoneCounter
+    {
+        public int playerIndex;
+        public string zone; // PlayerState zone name, or "CB" for face-up damage
+        public string label;
+        public TextMeshProUGUI text;
+    }
 
-    [Header("Player 2 Stats")]
-    public TextMeshProUGUI damageCounterP2;
-    public TextMeshProUGUI deckCountP2;
-    public TextMeshProUGUI handCountP2;
+    [Header("Zone Counts")]
+    public List<ZoneCounter> zoneCounters = new List<ZoneCounter>();
 
     [Header("Phase Icons")]
     public Sprite standIcon;
@@ -48,30 +52,19 @@ public class PhaseHUDOverlay : MonoBehaviour
         if (phaseIcon != null) phaseIcon.sprite = GetPhaseSprite(newPhase);
     }
 
-    // Updates all player stat counters
+    // Updates every zone count line
     public void OnGameStateUpdated(GameState state)
     {
-        if (state.players[0] == null || state.players[1] == null) return;
-
-        PlayerState p1 = state.players[0];
-        PlayerState p2 = state.players[1];
-
-        if (damageCounterP1 != null)
+        foreach (ZoneCounter counter in zoneCounters)
         {
-            damageCounterP1.text = "DMG: " + p1.damageZone.Count + "/6";
-            damageCounterP1.color = p1.damageZone.Count >= 5 ? Color.red : Color.white; // red at 5 damage
-        }
+            PlayerState player = state.players[counter.playerIndex];
+            if (counter.text == null || player == null) continue;
 
-        if (damageCounterP2 != null)
-        {
-            damageCounterP2.text = "DMG: " + p2.damageZone.Count + "/6";
-            damageCounterP2.color = p2.damageZone.Count >= 5 ? Color.red : Color.white;
+            bool isDamage = counter.zone == "Damage";
+            int count = counter.zone == "CB" ? player.FaceUpDamage : player.CountInZone(counter.zone);
+            counter.text.text = counter.label + ": " + count + (isDamage ? "/6" : "");
+            counter.text.color = isDamage && count >= 5 ? Color.red : Color.white; // red at 5 damage
         }
-
-        if (deckCountP1 != null) deckCountP1.text = "Deck: " + p1.mainDeck.Count;
-        if (deckCountP2 != null) deckCountP2.text = "Deck: " + p2.mainDeck.Count;
-        if (handCountP1 != null) handCountP1.text = "Hand: " + p1.hand.Count;
-        if (handCountP2 != null) handCountP2.text = "Hand: " + p2.hand.Count;
     }
 
     // Returns a human readable phase label

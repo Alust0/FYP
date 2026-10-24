@@ -37,6 +37,7 @@ public class NotificationOverlay : MonoBehaviour
         GameState.OnPersonaRide += ShowPersonaRide;
         GameState.OnTriggerActivated += ShowTrigger;
         GameState.OnGiftReceived += ShowGift;
+        GameState.OnRuleNotice += ShowRuleNotice;
     }
 
     void OnDisable()
@@ -44,6 +45,13 @@ public class NotificationOverlay : MonoBehaviour
         GameState.OnPersonaRide -= ShowPersonaRide;
         GameState.OnTriggerActivated -= ShowTrigger;
         GameState.OnGiftReceived -= ShowGift;
+        GameState.OnRuleNotice -= ShowRuleNotice;
+    }
+
+    // Shows a referee message from the RulesEngine, e.g. a phase reminder or a rule warning
+    public void ShowRuleNotice(string title, string body)
+    {
+        ShowNotification(title, body, null);
     }
 
     // Shows the Persona Ride notification

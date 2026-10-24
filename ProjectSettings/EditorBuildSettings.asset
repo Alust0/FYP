@@ -6,8 +6,20 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Start.unity
+    path: Assets/Scenes/Menu.unity
+    guid: 9db3dd3720b04614a8616b51210d889c
+  - enabled: 1
+    path: Assets/Scenes/Ingame.unity
     guid: 742065a2439dbce4d87389bb354dad69
+  - enabled: 1
+    path: Assets/Scenes/Logs.unity
+    guid: 4d6d7792ad1ef3644815729e6894a116
+  - enabled: 1
+    path: Assets/Scenes/Deck.unity
+    guid: 98829a04df9c3434fbd30153d25d249c
+  - enabled: 1
+    path: Assets/Scenes/Login.unity
+    guid: 88bb4896b4333f44c95a5be3e4461bc2
   m_configObjects:
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 880d0a45463874a4a812f99fb0816f5c, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}

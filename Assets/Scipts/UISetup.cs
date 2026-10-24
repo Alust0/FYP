@@ -12,6 +12,12 @@ public class UISetup : MonoBehaviour
     private NotificationOverlay notificationOverlay;
     private AROverlayEventBridge eventBridge;
 
+    // HUD count rows per player: PlayerState zone name ("CB" = face-up damage) and its label
+    static readonly (string zone, string label)[] HudZones =
+    {
+        ("Damage", "DMG"), ("CB", "CB"), ("Soul", "Soul"), ("Drop", "Drop"), ("Deck", "Deck"),
+    };
+
     void Awake()
     {
         // Skip setup if the canvas already exists (earlier play session, or pre-built scene objects)
@@ -52,7 +58,7 @@ public class UISetup : MonoBehaviour
             new Vector2(0f, 1f), // anchor top-left
             new Vector2(0f, 1f),
             new Vector2(10f, -10f), // position top-left with padding
-            new Vector2(600f, 220f)); // width height
+            new Vector2(600f, 280f)); // width height
 
         // Make panel semi-transparent dark background
         Image img = hudPanel.GetComponent<Image>();
@@ -67,26 +73,60 @@ public class UISetup : MonoBehaviour
         CreateText("P1Label", hudPanel.transform, new Vector2(10f, -100f), new Vector2(280f, 25f), "── Player 1 ──", 18, TextAlignmentOptions.Left);
         CreateText("P2Label", hudPanel.transform, new Vector2(300f, -100f), new Vector2(280f, 25f), "── Player 2 ──", 18, TextAlignmentOptions.Left);
 
-        // Player 1 stats
-        TextMeshProUGUI damageP1 = CreateText("DamageP1", hudPanel.transform, new Vector2(10f, -130f), new Vector2(280f, 28f), "DMG: 0/6", 20, TextAlignmentOptions.Left);
-        TextMeshProUGUI deckP1 = CreateText("DeckP1", hudPanel.transform, new Vector2(10f, -160f), new Vector2(140f, 25f), "Deck: 50", 18, TextAlignmentOptions.Left);
-        TextMeshProUGUI handP1 = CreateText("HandP1", hudPanel.transform, new Vector2(150f, -160f), new Vector2(140f, 25f), "Hand: 5", 18, TextAlignmentOptions.Left);
-
-        // Player 2 stats
-        TextMeshProUGUI damageP2 = CreateText("DamageP2", hudPanel.transform, new Vector2(300f, -130f), new Vector2(280f, 28f), "DMG: 0/6", 20, TextAlignmentOptions.Left);
-        TextMeshProUGUI deckP2 = CreateText("DeckP2", hudPanel.transform, new Vector2(300f, -160f), new Vector2(140f, 25f), "Deck: 50", 18, TextAlignmentOptions.Left);
-        TextMeshProUGUI handP2 = CreateText("HandP2", hudPanel.transform, new Vector2(440f, -160f), new Vector2(140f, 25f), "Hand: 5", 18, TextAlignmentOptions.Left);
-
-        // Attach PhaseHUDOverlay and assign all fields
         phaseHUD = hudPanel.AddComponent<PhaseHUDOverlay>();
+
+        // A count line per player and zone, with -/+ buttons to fix counts the camera gets wrong
+        for (int player = 0; player < 2; player++)
+        {
+            for (int row = 0; row < HudZones.Length; row++)
+            {
+                (string zone, string label) = HudZones[row];
+                Vector2 pos = new Vector2(10f + player * 290f, -130f - row * 28f);
+
+                TextMeshProUGUI countText = CreateText(label + "P" + (player + 1), hudPanel.transform, pos, new Vector2(160f, 26f), label + ": 0", 18, TextAlignmentOptions.Left);
+                CreateCountButton(hudPanel.transform, pos + new Vector2(170f, 0f), "-", player, zone, -1);
+                CreateCountButton(hudPanel.transform, pos + new Vector2(210f, 0f), "+", player, zone, 1);
+
+                phaseHUD.zoneCounters.Add(new PhaseHUDOverlay.ZoneCounter { playerIndex = player, zone = zone, label = label, text = countText });
+            }
+        }
+
+        // Ends the current phase; Space does the same, and gestures will later
+        GameObject nextBtnObj = CreatePanel("NextPhaseButton", hudPanel.transform,
+            new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(150f, 40f));
+        nextBtnObj.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.2f);
+        Button nextBtn = nextBtnObj.AddComponent<Button>();
+        nextBtn.onClick.AddListener(() => FindFirstObjectByType<RulesEngine>()?.AdvancePhase());
+        CreateText("Label", nextBtnObj.transform, new Vector2(0f, -5f), new Vector2(150f, 30f), "Next Phase >", 20, TextAlignmentOptions.Center);
+
         phaseHUD.phaseText = phaseText;
         phaseHUD.turnPlayerText = turnPlayerText;
-        phaseHUD.damageCounterP1 = damageP1;
-        phaseHUD.damageCounterP2 = damageP2;
-        phaseHUD.deckCountP1 = deckP1;
-        phaseHUD.deckCountP2 = deckP2;
-        phaseHUD.handCountP1 = handP1;
-        phaseHUD.handCountP2 = handP2;
+    }
+
+    // A small HUD button that corrects one player's zone count by hand
+    void CreateCountButton(Transform parent, Vector2 position, string label, int playerIndex, string zone, int delta)
+    {
+        GameObject btnObj = CreatePanel("CountButton", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), position, new Vector2(34f, 24f));
+        btnObj.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.2f);
+        btnObj.AddComponent<Button>().onClick.AddListener(() => AdjustZoneCount(playerIndex, zone, delta));
+        CreateText("Label", btnObj.transform, Vector2.zero, new Vector2(34f, 24f), label, 18, TextAlignmentOptions.Center);
+    }
+
+    static void AdjustZoneCount(int playerIndex, string zone, int delta)
+    {
+        GameState gs = GameState.Instance;
+        PlayerState player = gs != null ? gs.players[playerIndex] : null;
+        if (player == null) return;
+
+        if (zone != "CB")
+        {
+            gs.AdjustCount(player, zone, delta);
+            return;
+        }
+
+        // CB counts face-up damage, so "-" pays Counter Blast by turning one more damage face down
+        if (delta < 0 && player.FaceUpDamage == 0) return;
+        gs.AdjustCount(player, "FaceDownDamage", -delta);
     }
 
     // Creates the battle overlay panel in the center of the screen

@@ -9,9 +9,8 @@ using Vuforia;
  Replaces the ARFoundation-based CardOverlayManager, which can't run alongside Cloud Reco's
  camera pipeline.
 
- Zone placement is nearest-neighbor against BoardLayout.circles, so each zone key (e.g.
- "P1_Vanguard") must resolve to a GameObject that tracks the real playmat: a Vuforia Image
- Target (BoardLayout.arZoneMarkers) or, for testing, BoardLayout's procedural quad. */
+ Zone placement projects each card's on-screen center onto the board (BoardLayout.ZoneAtScreenPoint),
+ so the real playmat must line up with the zones drawn on screen. */
 public class VuforiaCardOverlayManager : MonoBehaviour
 {
     [Header("Scene References")]
@@ -22,9 +21,19 @@ public class VuforiaCardOverlayManager : MonoBehaviour
     [Tooltip("One CloudRecoBehaviour per Vuforia Cloud database (DSeries1/2/3, etc). Each database has its own Access/Secret key pair and Vuforia can't search more than one per query, so every database needs its own CloudRecoBehaviour running at once. Leave empty to auto-collect every CloudRecoBehaviour under this GameObject.")]
     public List<CloudRecoBehaviour> cloudRecoBehaviours = new List<CloudRecoBehaviour>();
 
+    [Header("Stand / Rest")]
+    [Tooltip("Degrees a card must turn from upright on screen (vs the board's card axis) to count as rested.")]
+    [Range(10f, 90f)] public float restAngle = 55f;
+    [Tooltip("Degrees from upright below which a rested card counts as standing again. The gap to restAngle stops flicker.")]
+    [Range(0f, 80f)] public float standAngle = 35f;
+
+    [Header("Counter Blast")]
+    [Tooltip("Seconds a damage-zone card must stay unseen before it counts as flipped face down. A hand briefly covering it shouldn't count.")]
+    public float faceDownAfterSeconds = 1.5f;
+
     [Header("Zone Detection")]
-    [Tooltip("Max distance, in the same units as the zone marker transforms, for a card to count as 'on' a zone. Needs tuning once measured against the real playmat.")]
-    public float maxZoneDistance = 0.15f;
+    [Tooltip("Seconds a card must stay over a zone before it counts as placed there, so sliding a card across the board doesn't enter every zone on the way.")]
+    public float zoneSettleSeconds = 0.4f;
 
     [Header("Duplicate Targets")]
     [Tooltip("Two tracked targets whose centers are closer on screen than this fraction of a card's longer side count as the same physical card, and only one of them is shown. Raise it if duplicates still slip through, lower it if neighbouring cards hide each other.")]
@@ -32,8 +41,11 @@ public class VuforiaCardOverlayManager : MonoBehaviour
     [Tooltip("A new match also counts as a duplicate of a card last tracked up to this many seconds ago, in case Vuforia drops the original as the duplicate starts tracking. Keep it short: placing a different card on a circle right after lifting one off must not count.")]
     [Range(0f, 1f)] public float duplicateGraceSeconds = 0.25f;
 
-    readonly Dictionary<CloudRecoBehaviour, Action<CloudRecoBehaviour.CloudRecoSearchResult>> mHandlers =
-        new Dictionary<CloudRecoBehaviour, Action<CloudRecoBehaviour.CloudRecoSearchResult>>();
+    readonly List<Action> mUnregisterHandlers = new List<Action>();
+
+    // Last query error per database, so a failing one logs once instead of every query
+    readonly Dictionary<CloudRecoBehaviour, CloudRecoBehaviour.QueryError> mLastQueryError =
+        new Dictionary<CloudRecoBehaviour, CloudRecoBehaviour.QueryError>();
 
     class TrackedCard
     {
@@ -43,6 +55,8 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         public GameObject overlay;
         public CardOverlayUI overlayUI;
         public string currentZoneKey;
+        public string pendingZoneKey; // zone it's over now, committed after zoneSettleSeconds
+        public float pendingSince;
         public bool hasPose; // false while Vuforia has lost this target (out of view, occluded, etc.)
         public TrackedCard duplicateOf; // the tracked target already showing this same physical card, if any
         public string cardNumber; // Cloud Reco metadata, e.g. "DZ-BT07-024"
@@ -70,27 +84,60 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
         {
             CloudRecoBehaviour captured = cloudReco;
-            Action<CloudRecoBehaviour.CloudRecoSearchResult> handler = result => OnNewSearchResult(captured, result);
-            mHandlers[captured] = handler;
-            captured.RegisterOnNewSearchResultEventHandler(handler);
+            Action<CloudRecoBehaviour.CloudRecoSearchResult> onResult = result => OnNewSearchResult(captured, result);
+            Action<CloudRecoBehaviour> onReady = _ => Debug.Log("[CloudReco] " + Describe(captured) + " initialized, scanning.");
+            Action<CloudRecoBehaviour.InitError> onInitError = error => Debug.LogError("[CloudReco] " + Describe(captured) + " failed to initialize: " + error);
+            Action<CloudRecoBehaviour.QueryError> onQueryError = error => OnQueryError(captured, error);
+
+            captured.RegisterOnNewSearchResultEventHandler(onResult);
+            captured.RegisterOnInitializedEventHandler(onReady);
+            captured.RegisterOnInitErrorEventHandler(onInitError);
+            captured.RegisterOnUpdateErrorEventHandler(onQueryError);
+
+            mUnregisterHandlers.Add(() =>
+            {
+                captured.UnregisterOnNewSearchResultEventHandler(onResult);
+                captured.UnregisterOnInitializedEventHandler(onReady);
+                captured.UnregisterOnInitErrorEventHandler(onInitError);
+                captured.UnregisterOnUpdateErrorEventHandler(onQueryError);
+            });
         }
     }
 
     void OnDisable()
     {
-        foreach (KeyValuePair<CloudRecoBehaviour, Action<CloudRecoBehaviour.CloudRecoSearchResult>> kvp in mHandlers)
-            kvp.Key.UnregisterOnNewSearchResultEventHandler(kvp.Value);
-        mHandlers.Clear();
+        foreach (Action unregister in mUnregisterHandlers) unregister();
+        mUnregisterHandlers.Clear();
+    }
+
+    void OnQueryError(CloudRecoBehaviour source, CloudRecoBehaviour.QueryError error)
+    {
+        if (mLastQueryError.TryGetValue(source, out CloudRecoBehaviour.QueryError last) && last == error) return;
+        mLastQueryError[source] = error;
+        Debug.LogError("[CloudReco] " + Describe(source) + " query failed: " + error);
+    }
+
+    // GameObject name plus the start of its access key, to tell the databases apart in logs
+    static string Describe(CloudRecoBehaviour cloudReco)
+    {
+        string key = cloudReco.AccessKey ?? "";
+        return "'" + cloudReco.name + "' (key " + (key.Length > 8 ? key.Substring(0, 8) + "..." : key) + ")";
     }
 
     void OnNewSearchResult(CloudRecoBehaviour source, CloudRecoBehaviour.CloudRecoSearchResult result)
     {
         if (mTrackedCards.ContainsKey(result.UniqueTargetId)) return; // tracking physical card
 
+        Debug.Log("[CloudReco] " + Describe(source) + " matched '" + result.TargetName + "', metadata: '" + result.MetaData + "'");
+
         /* A unique name per result (not one shared template GameObject) lets multiple
          physical cards stay tracked on the board at the same time. */
         ObserverBehaviour target = source.EnableObservers(result, "CardTarget_" + result.UniqueTargetId);
-        if (target == null) return;
+        if (target == null)
+        {
+            Debug.LogWarning("[CloudReco] EnableObservers returned null for '" + result.TargetName + "'");
+            return;
+        }
 
         GameObject overlay = BuildOverlay(target.transform);
         CardOverlayUI ui = overlay.GetComponent<CardOverlayUI>();
@@ -216,16 +263,33 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         CheckNewMatches();
         ResolveDuplicates();
 
-        if (board == null) return;
+        Camera cam = Camera.main;
+        if (board == null || cam == null) return;
 
         foreach (TrackedCard tracked in mTrackedCards.Values)
         {
-            if (tracked.target == null || tracked.instance == null || !tracked.hasPose) continue; // instance pending resolution, or target currently untracked
+            if (tracked.target == null || tracked.instance == null) continue; // instance pending resolution
             if (tracked.duplicateOf != null) continue; // another target is already standing for this physical card
 
-            UpdateOrientation(tracked);
-            UpdateZone(tracked);
+            UpdateFacing(tracked);
+            if (!tracked.hasPose) continue; // target currently untracked
+
+            UpdateOrientation(tracked, cam);
+            UpdateZone(tracked, cam);
         }
+    }
+
+    /* Vuforia can't see a face-down card, so a damage card that stays unseen counts as flipped
+     (Counter Blast) and flips back face up once seen again. */
+    void UpdateFacing(TrackedCard tracked)
+    {
+        GameState gs = GameState.Instance;
+        if (gs == null) return;
+
+        if (tracked.hasPose)
+            gs.SetFacing(tracked.instance, CardFacing.FaceUp);
+        else if (tracked.instance.zone == "Damage" && Time.time - tracked.lastSeenTime > faceDownAfterSeconds)
+            gs.SetFacing(tracked.instance, CardFacing.FaceDown);
     }
 
     void RefreshOverlayVisibility(TrackedCard tracked)
@@ -303,65 +367,59 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         return 2f * Mathf.Max(toSideEdge.magnitude, toTopEdge.magnitude);
     }
 
-    /* Stand vs rest, from the tracked card's rotation. The axis/threshold depends on how
-     the target is defined in Vuforia and needs tuning against real cards. */
-    void UpdateOrientation(TrackedCard tracked)
+    /* Stand vs rest, from the card's angle on screen against the board's card axis, so it
+     doesn't depend on how the camera is mounted. Upside down still counts as standing. */
+    void UpdateOrientation(TrackedCard tracked, Camera cam)
     {
-        float zRot = tracked.target.transform.eulerAngles.z;
-        bool isRested = zRot > 60f && zRot < 120f;
+        Transform t = tracked.target.transform;
+        Vector2 cardAxis = ScreenDirection(cam, t.position, t.forward); // image targets run along local Z
+        Vector2 boardAxis = ScreenDirection(cam, board.transform.position, board.CardLengthAxis);
 
-        tracked.instance.orientation = isRested ? CardOrientation.Rest : CardOrientation.Stand;
-        tracked.overlayUI?.SetRestIndicator(isRested);
+        float angle = Vector2.Angle(cardAxis, boardAxis);
+        float fromUpright = Mathf.Min(angle, 180f - angle);
+
+        CardOrientation orientation = tracked.instance.orientation; // kept between the two thresholds
+        if (fromUpright > restAngle) orientation = CardOrientation.Rest;
+        else if (fromUpright < standAngle) orientation = CardOrientation.Stand;
+
+        GameState.Instance?.SetOrientation(tracked.instance, orientation);
+        tracked.overlayUI?.SetRestIndicator(orientation == CardOrientation.Rest);
     }
 
-    // Finds the nearest registered board zone and, if within range, moves the card into it
-    void UpdateZone(TrackedCard tracked)
+    // On-screen direction of a world direction at a point; the step scales with distance to stay scale-free
+    static Vector2 ScreenDirection(Camera cam, Vector3 origin, Vector3 direction)
     {
-        string bestKey = null;
-        float bestDist = maxZoneDistance;
+        float step = 0.05f * Vector3.Distance(cam.transform.position, origin);
+        return (Vector2)(cam.WorldToScreenPoint(origin + direction * step) - cam.WorldToScreenPoint(origin));
+    }
 
-        foreach (KeyValuePair<string, GameObject> kvp in board.circles)
+    // Moves the card into whichever board zone its on-screen center falls in
+    void UpdateZone(TrackedCard tracked, Camera cam)
+    {
+        Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
+        string key = screen.z > 0f ? board.ZoneAtScreenPoint(screen, cam, tracked.currentZoneKey) : null;
+
+        if (key != tracked.pendingZoneKey)
         {
-            float dist = Vector3.Distance(tracked.target.transform.position, kvp.Value.transform.position);
-            if (dist < bestDist)
-            {
-                bestDist = dist;
-                bestKey = kvp.Key;
-            }
+            tracked.pendingZoneKey = key;
+            tracked.pendingSince = Time.time;
         }
 
-        SetZone(tracked, bestKey);
+        if (Time.time - tracked.pendingSince >= zoneSettleSeconds)
+            SetZone(tracked, key);
     }
 
     // Moves the card into the given board zone, or off the board entirely when key is null
     void SetZone(TrackedCard tracked, string key)
     {
         if (key == tracked.currentZoneKey) return; // no change
-
-        if (tracked.currentZoneKey != null)
-        {
-            board.RemoveCardFromCircle(tracked.currentZoneKey);
-            tracked.owner?.RemoveCardFromAllZones(tracked.instance);
-        }
-
         tracked.currentZoneKey = key;
 
-        if (key == null)
-        {
-            tracked.owner = null;
-        }
-        else
-        {
-            string prefix = key.Substring(0, 2); // "P1" or "P2"
-            string suffix = key.Substring(3); // after "P1_"/"P2_"
-            GameState gs = GameState.Instance;
-            tracked.owner = gs != null ? gs.players[prefix == "P1" ? 0 : 1] : null;
+        GameState gs = GameState.Instance;
+        if (gs == null) return;
 
-            if (tracked.owner != null && tracked.owner.PlaceCardInZone(tracked.instance, suffix))
-                board.PlaceCardOnCircle(key);
-        }
-
-        GameState.Instance?.BroadcastState();
+        tracked.owner = key == null ? null : gs.players[key.StartsWith("P1") ? 0 : 1];
+        gs.MoveCard(tracked.instance, tracked.owner, key?.Substring(3)); // suffix after "P1_"/"P2_"
     }
 
     // Builds a minimal overlay canvas when no custom prefab is assigned
@@ -389,9 +447,9 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         RectTransform canvasRT = canvasObj.GetComponent<RectTransform>();
         canvasRT.sizeDelta = new Vector2(630f, 880f);
 
-        TextMeshProUGUI nameText = CreateText(canvasObj.transform, "CardName", new Vector2(0f, 0.85f), new Vector2(1f, 1f), 60, Color.white);
-        TextMeshProUGUI powerText = CreateText(canvasObj.transform, "Power", new Vector2(0f, 0.4f), new Vector2(1f, 0.7f), 80, Color.white);
-        TextMeshProUGUI critText = CreateText(canvasObj.transform, "Critical", new Vector2(0f, 0.25f), new Vector2(1f, 0.4f), 50, Color.red);
+        TextMeshProUGUI nameText = CreateText(canvasObj.transform, "CardName", new Vector2(0f, 0.85f), new Vector2(1f, 1f), 60, Color.black);
+        TextMeshProUGUI powerText = CreateText(canvasObj.transform, "Power", new Vector2(0f, 0.4f), new Vector2(1f, 0.7f), 80, Color.black);
+        TextMeshProUGUI critText = CreateText(canvasObj.transform, "Critical", new Vector2(0f, 0.25f), new Vector2(1f, 0.4f), 50, Color.black);
 
         // Small tap target in the corner opens the detail panel built below
         GameObject toggleBtnObj = new GameObject("DetailToggleButton");
@@ -404,7 +462,7 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         UnityEngine.UI.Image toggleBg = toggleBtnObj.AddComponent<UnityEngine.UI.Image>();
         toggleBg.color = new Color(1f, 1f, 1f, 0.25f);
         Button toggleBtn = toggleBtnObj.AddComponent<Button>();
-        CreateText(toggleBtnObj.transform, "Label", Vector2.zero, Vector2.one, 40, Color.white).text = "i";
+        CreateText(toggleBtnObj.transform, "Label", Vector2.zero, Vector2.one, 40, Color.black).text = "i";
 
         /* Detail panel (clan/race/skill badge/flavor/rarity): hidden until toggled, then
          billboards toward the camera (see CardOverlayUI.LateUpdate) so body text is readable. */
@@ -419,12 +477,12 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         RectTransform detailRT = detailObj.GetComponent<RectTransform>();
         detailRT.sizeDelta = new Vector2(630f, 500f);
         UnityEngine.UI.Image detailBg = detailObj.AddComponent<UnityEngine.UI.Image>();
-        detailBg.color = new Color(0f, 0f, 0f, 0.85f);
+        detailBg.color = new Color(1f, 1f, 1f, 0.85f); // light so the black text reads
 
-        TextMeshProUGUI clanRaceText = CreateText(detailObj.transform, "ClanRace", new Vector2(0f, 0.82f), new Vector2(1f, 1f), 34, Color.white);
-        TextMeshProUGUI skillBadgeText = CreateText(detailObj.transform, "SkillBadge", new Vector2(0f, 0.68f), new Vector2(1f, 0.82f), 28, Color.cyan);
-        TextMeshProUGUI flavorBodyText = CreateText(detailObj.transform, "Flavor", new Vector2(0.05f, 0.16f), new Vector2(0.95f, 0.65f), 24, Color.gray);
-        TextMeshProUGUI rarityTextTmp = CreateText(detailObj.transform, "Rarity", new Vector2(0f, 0f), new Vector2(1f, 0.16f), 24, Color.yellow);
+        TextMeshProUGUI clanRaceText = CreateText(detailObj.transform, "ClanRace", new Vector2(0f, 0.82f), new Vector2(1f, 1f), 34, Color.black);
+        TextMeshProUGUI skillBadgeText = CreateText(detailObj.transform, "SkillBadge", new Vector2(0f, 0.68f), new Vector2(1f, 0.82f), 28, Color.black);
+        TextMeshProUGUI flavorBodyText = CreateText(detailObj.transform, "Flavor", new Vector2(0.05f, 0.16f), new Vector2(0.95f, 0.65f), 24, Color.black);
+        TextMeshProUGUI rarityTextTmp = CreateText(detailObj.transform, "Rarity", new Vector2(0f, 0f), new Vector2(1f, 0.16f), 24, Color.black);
 
         CardOverlayUI ui = canvasObj.AddComponent<CardOverlayUI>();
         ui.cardNameText = nameText;

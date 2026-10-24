@@ -93,6 +93,8 @@ public class CardInstance
     public bool isMusicOrder;
     public bool cannotDriveCheckThisTurn;
     public bool hasDriveByEffect;
+    public PlayerState zoneOwner; // whose side of the board it's on, null when off the board
+    public string zone; // BoardLayout key suffix, e.g. "Vanguard", or "Soul"; null when off the board
 
     public CardInstance(CardData cardData)
     {
@@ -128,13 +130,18 @@ public class PlayerState
     public CardInstance centerBackRearguard; // behind the vanguard column
     public List<CardInstance> guardianCircle = new List<CardInstance>(); // cleared each battle
     public List<CardInstance> hand = new List<CardInstance>();
-    public Stack<CardInstance> mainDeck = new Stack<CardInstance>(); // exactly 50 cards
+    public List<CardInstance> mainDeck = new List<CardInstance>(); // only cards seen placed on it; the face-down deck is invisible
     public List<CardInstance> rideDeck = new List<CardInstance>(); // grade 0 to 3
     public List<CardInstance> dropZone = new List<CardInstance>();
     public List<CardInstance> soul = new List<CardInstance>(); // cards under vanguard
     public List<CardInstance> damageZone = new List<CardInstance>(); // lose at 6
     public List<CardInstance> orderZone = new List<CardInstance>(); // active set orders
+    public List<CardInstance> crestZone = new List<CardInstance>(); // crests, e.g. Energy Generator
+    public List<CardInstance> bindZone = new List<CardInstance>();
+    public List<CardInstance> triggerZone = new List<CardInstance>(); // card being drive/damage checked
+    public List<CardInstance> removedZone = new List<CardInstance>(); // Out of Game
     public List<CardInstance> gZone = new List<CardInstance>(); // shares space with order zone on playmat
+    public CardInstance previousVanguard; // what the last vanguard placement rode over; null if the circle was empty
     public List<GiftMarker> giftMarkers = new List<GiftMarker>();
     public GiftType chosenForceType = GiftType.None;
     public GiftType chosenAccelType = GiftType.None;
@@ -158,21 +165,67 @@ public class PlayerState
         if (centerBackRearguard != null) yield return centerBackRearguard;
     }
 
-    // Draws the top card from the main deck into hand
-    public void DrawCard(int count = 1)
+    /* Cards in a zone the camera can't count one by one: the face-down deck, soul charges, and
+     extra copies of a card (Cloud Reco tracks only one copy per card). Added to the tracked
+     cards, and can go negative to remove a tracked card that left unseen. "FaceDownDamage"
+     counts Counter Blast paid with untracked damage. */
+    public Dictionary<string, int> untrackedCards = new Dictionary<string, int>();
+
+    public int Untracked(string zone) => untrackedCards.TryGetValue(zone, out int n) ? n : 0;
+
+    // Damage still face up, i.e. what's left to pay Counter Blast with
+    public int FaceUpDamage => Mathf.Max(0,
+        damageZone.Count(c => c.facing == CardFacing.FaceUp) + Untracked("Damage") - Untracked("FaceDownDamage"));
+
+    // Changes a zone's count without a tracked card, never below zero cards in total
+    public void AdjustCount(string zone, int delta)
     {
-        for (int i = 0; i < count; i++)
+        int tracked = CountInZone(zone) - Untracked(zone);
+        untrackedCards[zone] = Mathf.Max(-tracked, Untracked(zone) + delta);
+    }
+
+    // Multi-card zone for a BoardLayout key suffix; null for single-card circles and unknown names
+    public List<CardInstance> ZoneList(string zone)
+    {
+        switch (zone)
         {
-            if (mainDeck.Count == 0) return;
-            hand.Add(mainDeck.Pop());
+            case "Guardian": return guardianCircle;
+            case "Damage": return damageZone;
+            case "Drop": return dropZone;
+            case "Deck": return mainDeck;
+            case "RideDeck": return rideDeck;
+            case "Order": return orderZone;
+            case "Crest": return crestZone;
+            case "Bind": return bindZone;
+            case "Trigger": return triggerZone;
+            case "OOG": return removedZone;
+            case "Soul": return soul;
+            default: return null;
         }
     }
 
-    // Returns true if the main deck is empty
-    public bool IsDeckEmpty() => mainDeck.Count == 0;
+    // The card on a single-card circle; null if empty or not a circle
+    public CardInstance CardOnCircle(string zone)
+    {
+        switch (zone)
+        {
+            case "Vanguard": return vanguardCircle;
+            case "LeftFront": return frontRowRearguards[0];
+            case "RightFront": return frontRowRearguards[1];
+            case "LeftBack": return backRowRearguards[0];
+            case "RightBack": return backRowRearguards[1];
+            case "CenterBack": return centerBackRearguard;
+            default: return null;
+        }
+    }
 
-    // Returns true if both vanguard circle and soul are empty
-    public bool HasNoVanguard() => vanguardCircle == null && soul.Count == 0;
+    // Tracked cards in a zone plus its untracked count
+    public int CountInZone(string zone)
+    {
+        List<CardInstance> list = ZoneList(zone);
+        int tracked = list != null ? list.Count : (CardOnCircle(zone) != null ? 1 : 0);
+        return tracked + Untracked(zone);
+    }
 
     // Removes a card from whichever zone it occupies, e.g. when a scanned card moves zones
     public void RemoveCardFromAllZones(CardInstance card)
@@ -181,30 +234,39 @@ public class PlayerState
         if (centerBackRearguard == card) centerBackRearguard = null;
         for (int i = 0; i < frontRowRearguards.Length; i++) if (frontRowRearguards[i] == card) frontRowRearguards[i] = null;
         for (int i = 0; i < backRowRearguards.Length; i++) if (backRowRearguards[i] == card) backRowRearguards[i] = null;
-        guardianCircle.Remove(card);
-        damageZone.Remove(card);
-        dropZone.Remove(card);
+
+        if (card.zone != null) ZoneList(card.zone)?.Remove(card);
     }
 
     /* Places a card into the zone named by a BoardLayout circle-key suffix (the part after
-     "P1_"/"P2_", e.g. "Vanguard"). Returns false for zones that aren't modeled (deck, order zone, etc). */
+     "P1_"/"P2_", e.g. "Vanguard"). Returns false for unknown zone names. */
     public bool PlaceCardInZone(CardInstance card, string zoneSuffix)
     {
         RemoveCardFromAllZones(card);
 
         switch (zoneSuffix)
         {
-            case "Vanguard": vanguardCircle = card; return true;
+            case "Vanguard":
+                // Riding: the old vanguard is now under the new one, i.e. in the soul
+                previousVanguard = vanguardCircle; // null when placed on an empty circle
+                if (previousVanguard != null)
+                {
+                    soul.Add(previousVanguard);
+                    previousVanguard.zone = "Soul";
+                }
+                vanguardCircle = card;
+                return true;
             case "LeftFront": frontRowRearguards[0] = card; return true;
             case "RightFront": frontRowRearguards[1] = card; return true;
             case "LeftBack": backRowRearguards[0] = card; return true;
             case "RightBack": backRowRearguards[1] = card; return true;
             case "CenterBack": centerBackRearguard = card; return true;
-            case "Guardian": guardianCircle.Add(card); return true;
-            case "Damage": damageZone.Add(card); return true;
-            case "Drop": dropZone.Add(card); return true;
-            default: return false;
         }
+
+        List<CardInstance> list = ZoneList(zoneSuffix);
+        if (list == null) return false;
+        list.Add(card);
+        return true;
     }
 }
 
@@ -232,6 +294,12 @@ public class GameState : MonoBehaviour
     public static System.Action<TriggerIcon, string> OnTriggerActivated;
     public static System.Action<string, int, int> OnCardPowerChanged;
     public static System.Action<string, string> OnRulePrompt;
+    public static System.Action<string, string> OnRuleNotice; // title, body — board-wide referee messages
+
+    // Tracker-driven card changes; the card's zone/orientation/facing is already updated when these fire
+    public static System.Action<CardInstance, PlayerState, string> OnCardMoved; // card, previous owner, previous zone
+    public static System.Action<CardInstance> OnCardOrientationChanged;
+    public static System.Action<CardInstance> OnCardFacingChanged;
 
     void Awake()
     {
@@ -245,32 +313,65 @@ public class GameState : MonoBehaviour
     // Returns the opponent of the current player
     public PlayerState Opponent => players[1 - currentPlayerIndex];
 
-    // Checks all loss conditions for both players
+    /* Moves a card to a zone, or off the board when owner/zone is null. Trackers (Vuforia, or
+     OpenCV later) only ever call this, SetOrientation and SetFacing, so the rules don't care which one runs. */
+    public void MoveCard(CardInstance card, PlayerState owner, string zone)
+    {
+        if (card.zoneOwner == owner && card.zone == zone) return;
+
+        PlayerState fromOwner = card.zoneOwner;
+        string fromZone = card.zone;
+        fromOwner?.RemoveCardFromAllZones(card);
+        card.zoneOwner = null;
+        card.zone = null;
+
+        if (owner != null && zone != null && owner.PlaceCardInZone(card, zone))
+        {
+            card.zoneOwner = owner;
+            card.zone = zone;
+        }
+
+        OnCardMoved?.Invoke(card, fromOwner, fromZone);
+        BroadcastState();
+    }
+
+    public void SetOrientation(CardInstance card, CardOrientation orientation)
+    {
+        if (card.orientation == orientation) return;
+        card.orientation = orientation;
+        OnCardOrientationChanged?.Invoke(card);
+    }
+
+    // Corrects a zone count by hand (HUD +/- now, gestures later) or from rules bookkeeping
+    public void AdjustCount(PlayerState player, string zone, int delta)
+    {
+        player.AdjustCount(zone, delta);
+        CheckWinCondition();
+        BroadcastState();
+    }
+
+    public void SetFacing(CardInstance card, CardFacing facing)
+    {
+        if (card.facing == facing) return;
+        card.facing = facing;
+        OnCardFacingChanged?.Invoke(card);
+        BroadcastState();
+    }
+
+    /* Only six damage ends the game: the camera can't see the face-down deck, and a vanguard
+     hidden under a hand isn't really gone, so deck-out and no-vanguard aren't auto-checked. */
     public void CheckWinCondition()
     {
-        bool p0Loses = players[0].damageZone.Count >= 6 // six damage
-                    || players[0].IsDeckEmpty() // empty deck
-                    || players[0].HasNoVanguard(); // no vanguard
+        if (gameOver || players[0] == null || players[1] == null) return;
 
-        bool p1Loses = players[1].damageZone.Count >= 6
-                    || players[1].IsDeckEmpty()
-                    || players[1].HasNoVanguard();
+        bool p0Loses = players[0].CountInZone("Damage") >= 6;
+        bool p1Loses = players[1].CountInZone("Damage") >= 6;
+        if (!p0Loses && !p1Loses) return;
 
-        if (p0Loses && p1Loses)
-        {
-            Debug.Log("DRAW");
-            gameOver = true;
-        }
-        else if (p0Loses)
-        {
-            Debug.Log(players[0].playerName + " LOSES");
-            gameOver = true;
-        }
-        else if (p1Loses)
-        {
-            Debug.Log(players[1].playerName + " LOSES");
-            gameOver = true;
-        }
+        gameOver = true;
+        string result = p0Loses && p1Loses ? "Draw" : (p0Loses ? players[1] : players[0]).playerName + " wins";
+        Debug.Log("GAME OVER: " + result);
+        OnRuleNotice?.Invoke("Game Over", result + " — 6 damage reached.");
     }
 
     // Broadcasts the current phase and game state to all listeners
