@@ -38,9 +38,10 @@ public class UpgradeCameraQuality : MonoBehaviour
             bool triggerSet = cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_TRIGGERAUTO);
             Debug.Log($"[CameraDiag] Fallback SetFocusMode(TRIGGERAUTO) returned: {triggerSet}");
 
-            // Both fail on a PC webcam (Vuforia can't control its focus), so ask the driver directly
+            /* Both fail on a PC webcam (Vuforia can't control its focus), so ask the driver directly.
+             In the editor only for this window's camera, leaving the other window's alone. */
             if (!triggerSet)
-                WebcamAutoFocus.Enable();
+                WebcamAutoFocus.Enable(Application.isEditor ? CameraChoice.Current : null);
         }
 
         // Confirm what resolution Vuforia is actually using right now

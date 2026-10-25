@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 // Spawns and positions all card circles matching the official Vanguard D format playmat
@@ -21,15 +22,14 @@ public class BoardLayout : MonoBehaviour
      the near clip plane doesn't cut it out. Ignored once parented under an Image Target. */
     public float distanceFromCameraIfUnparented = 3f;
 
-    // Font size for zone label text
-    public int labelFontSize = 14;
-
     [Header("Zone Appearance")]
     [Tooltip("Base fill color for zones — alpha 0 keeps them fully transparent so only the outline shows. Also used to reset a zone after HighlightCircle.")]
     public Color fillColor = new Color(1f, 1f, 1f, 0f);
     [Tooltip("Color of the box outline drawn around each zone.")]
     public Color outlineColor = Color.black;
-    public float outlineWidth = 0.02f;
+    public float outlineWidth = 0.006f;
+    [Tooltip("Zone name text; it shrinks to fit inside its box.")]
+    public Color labelColor = Color.white;
 
     // Cloned per zone so HighlightCircle can tint one without affecting the rest
     static Material sZoneFillMaterialTemplate;
@@ -43,6 +43,8 @@ public class BoardLayout : MonoBehaviour
     /* Each zone's area in board-local XY (the board's own coordinates). Zones are spaced by
      colGap/rowGap, so these never overlap and a point is in at most one zone. */
     readonly Dictionary<string, Rect> mZoneRects = new Dictionary<string, Rect>();
+    readonly Dictionary<string, Rect> mDefaultZoneRects = new Dictionary<string, Rect>(); // as spawned, for ResetZoneLayouts
+    readonly HashSet<string> mHiddenZones = new HashSet<string>(); // hidden in calibration: not drawn, never matched
 
     [Header("Zone Detection")]
     [Tooltip("Board units a card can drift past its current zone's edge before it counts as leaving, so a card on an edge doesn't flicker between zones.")]
@@ -60,14 +62,24 @@ public class BoardLayout : MonoBehaviour
     [Header("AR Zone Markers (optional) — overrides the procedural quad for matching keys")]
     public List<ArZoneMarker> arZoneMarkers = new List<ArZoneMarker>();
 
-    /* SinglePlayer: only P1's half, laid out vertically (one device per player).
-     Multiplayer: both halves side by side horizontally, P1 on the left. */
-    public enum BoardMode { SinglePlayer, Multiplayer }
+    /* Multiplayer: only P1's half, laid out vertically (each player on their own PC and camera).
+     OverTheBoard: both halves side by side horizontally on one PC, P1 on the left.
+     Order matters: scenes save this as a number (0 = Multiplayer, 1 = OverTheBoard). */
+    public enum BoardMode { Multiplayer, OverTheBoard }
 
     [Header("Layout")]
-    public BoardMode boardMode = BoardMode.Multiplayer;
+    public BoardMode boardMode = BoardMode.OverTheBoard;
 
-    bool IsHorizontal => boardMode == BoardMode.Multiplayer;
+    bool IsHorizontal => boardMode == BoardMode.OverTheBoard;
+
+    // In Awake so DeckTargetLoader sees the mode in its Start
+    void Awake()
+    {
+        if (MatchSession.IsOnline) boardMode = BoardMode.Multiplayer;
+    }
+
+    // Online, this PC's own half is always drawn as P1, whichever seat it has in the match
+    static int SeatOfZone(string key) => key.StartsWith("P1") ? MatchSession.LocalSeat : MatchSession.RemoteSeat;
 
     [Header("Fit To Camera")]
     [Tooltip("Scales the whole board (unparented preview mode only) so it fits within the camera's view instead of using raw editor units.")]
@@ -90,7 +102,7 @@ public class BoardLayout : MonoBehaviour
 
         SpawnPlayerField(isOpponent: false); // P1 bottom half
 
-        if (boardMode == BoardMode.Multiplayer)
+        if (boardMode == BoardMode.OverTheBoard)
             SpawnPlayerField(isOpponent: true); // P2 top half flipped
 
         // Real AR-tracked zone markers take priority over the procedural quads above
@@ -127,9 +139,9 @@ public class BoardLayout : MonoBehaviour
     }
 
     /* Scales the board to fit what the main camera sees at its distance, then centers the
-     content (not this transform's pivot) on the camera's forward axis. Single Player only
+     content (not this transform's pivot) on the camera's forward axis. Multiplayer only
      spawns one side, so the content isn't symmetric around the local origin. */
-    void FitToCamera()
+    public void FitToCamera()
     {
         Camera cam = Camera.main;
         if (cam == null) return;
@@ -178,7 +190,7 @@ public class BoardLayout : MonoBehaviour
      [ Damage ][ LB ][ CB ][ RB ][ Drop ][ OOG ]
      [ Order ][ LF ][ VG ][ RF ][ Deck ][ Ride ]
      [ Crest ][ ][ GD ][ TG ][ Bind ]
-     Single Player runs this grid left-to-right (vertical); Multiplayer turns it 90° (horizontal). */
+     Multiplayer runs this grid left-to-right (vertical); OverTheBoard turns it 90° (horizontal). */
     void SpawnPlayerField(bool isOpponent)
     {
         string prefix = isOpponent ? "P2" : "P1";
@@ -208,64 +220,59 @@ public class BoardLayout : MonoBehaviour
             ? new Vector3(flip * dist, flip * col, 0f)
             : new Vector3(-flip * col, flip * dist, 0f);
 
+        /* Zone sizes as the player sees them (across, toward them). Unit circles are squares
+         the width of the mat's circles; sideways ones (Trigger) are 90% so they don't overlap Guardian. */
+        Vector2 unitCircle = new Vector2(cardWidth, cardWidth);
+        Vector2 cardArea = new Vector2(cardWidth, cardHeight);
+        Vector2 sideways = new Vector2(cardHeight, cardWidth) * 0.9f;
+        Vector2 smallArea = new Vector2(cardWidth * 0.85f, cardHeight * 0.6f);
+        Vector2 smallLabel = new Vector2(cardWidth, cardHeight) * 0.6f;
+
         // Back row circles
-        SpawnCircle(prefix + "_LeftBack", Pos(leftCol, backRowDist), "Left \nBack");
-        SpawnCircle(prefix + "_CenterBack", Pos(centerCol, backRowDist), "Center \nBack");
-        SpawnCircle(prefix + "_RightBack", Pos(rightCol, backRowDist), "Right \nBack");
+        SpawnCircle(prefix + "_LeftBack", Pos(leftCol, backRowDist), "Left Back", unitCircle);
+        SpawnCircle(prefix + "_CenterBack", Pos(centerCol, backRowDist), "Center Back", unitCircle);
+        SpawnCircle(prefix + "_RightBack", Pos(rightCol, backRowDist), "Right Back", unitCircle);
 
         // Front row circles
-        SpawnCircle(prefix + "_LeftFront", Pos(leftCol, frontRowDist), "Left \nFront");
-        SpawnCircle(prefix + "_Vanguard", Pos(centerCol, frontRowDist), "Vanguard");
-        SpawnCircle(prefix + "_RightFront", Pos(rightCol, frontRowDist), "Right \nFront");
+        SpawnCircle(prefix + "_LeftFront", Pos(leftCol, frontRowDist), "Left Front", unitCircle);
+        SpawnCircle(prefix + "_Vanguard", Pos(centerCol, frontRowDist), "Vanguard", unitCircle);
+        SpawnCircle(prefix + "_RightFront", Pos(rightCol, frontRowDist), "Right Front", unitCircle);
 
         // Third row: Guardian center, Trigger right of Guardian, Bind right of Trigger
-        SpawnCircle(prefix + "_Guardian", Pos(centerCol, thirdRowDist), "Guardian");
-        SpawnCircle(prefix + "_Trigger", Pos(rightCol, thirdRowDist), "Trigger");
-        SpawnCircle(prefix + "_Bind", Pos(rightSideCol, thirdRowDist), "Bind");
+        SpawnCircle(prefix + "_Guardian", Pos(centerCol, thirdRowDist), "Guardian", unitCircle);
+        SpawnCircle(prefix + "_Trigger", Pos(rightCol, thirdRowDist), "Trigger", sideways);
+        SpawnCircle(prefix + "_Bind", Pos(rightSideCol, thirdRowDist), "Bind", cardArea);
 
         // Side zones
-        SpawnZoneMarker(prefix + "_Damage", Pos(leftSideCol, backRowDist), "Damage");
-        SpawnZoneMarker(prefix + "_Order", Pos(leftSideCol, frontRowDist), "Order");
-        SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest");
+        SpawnZoneMarker(prefix + "_Damage", Pos(leftSideCol, backRowDist), "Damage", cardArea);
+        SpawnZoneMarker(prefix + "_Order", Pos(leftSideCol, frontRowDist), "Order", smallArea);
+        SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest", smallArea);
 
-        SpawnZoneMarker(prefix + "_Drop", Pos(rightSideCol, backRowDist), "Drop");
-        SpawnZoneMarker(prefix + "_Deck", Pos(rightSideCol, frontRowDist), "Deck");
-        SpawnZoneMarker(prefix + "_RideDeck", Pos(farRightSideCol, frontRowDist), "Ride \nDeck");
+        SpawnZoneMarker(prefix + "_Drop", Pos(rightSideCol, backRowDist), "Drop", cardArea);
+        SpawnZoneMarker(prefix + "_Deck", Pos(rightSideCol, frontRowDist), "Deck", cardArea);
+        SpawnZoneMarker(prefix + "_RideDeck", Pos(farRightSideCol, frontRowDist), "Ride Deck", smallLabel);
 
         // Out of Game zone beside Drop
-        SpawnZoneMarker(prefix + "_OOG", Pos(farRightSideCol, backRowDist), "Out \nof \nGame");
+        SpawnZoneMarker(prefix + "_OOG", Pos(farRightSideCol, backRowDist), "Out of Game", smallLabel);
     }
 
     // Instantiates a card circle with a visible label that hides when a card is placed
-    void SpawnCircle(string key, Vector3 position, string label)
-    {
-        if (circlePrefab == null) { Debug.LogWarning("circlePrefab not assigned."); return; }
-
-        GameObject obj = Instantiate(circlePrefab, transform);
-        obj.name = key;
-        obj.transform.localPosition = position;
-        obj.transform.localRotation = Quaternion.identity;
-        Vector2 size = ZoneSize(cardWidth, cardHeight);
-        obj.transform.localScale = new Vector3(size.x, size.y, 0.01f);
-
-        StyleZone(obj);
-
-        // Create a label as a child TextMesh so it floats above the circle
-        CreateLabel(obj, label);
-
-        RegisterZone(key, obj, position, size);
-    }
+    void SpawnCircle(string key, Vector3 position, string label, Vector2 playerSize) =>
+        SpawnZone(circlePrefab, key, position, label, playerSize);
 
     // Instantiates a zone marker with a visible label
-    void SpawnZoneMarker(string key, Vector3 position, string label)
-    {
-        if (zoneMarkerPrefab == null) { Debug.LogWarning("zoneMarkerPrefab not assigned."); return; }
+    void SpawnZoneMarker(string key, Vector3 position, string label, Vector2 playerSize) =>
+        SpawnZone(zoneMarkerPrefab, key, position, label, playerSize);
 
-        GameObject obj = Instantiate(zoneMarkerPrefab, transform);
+    void SpawnZone(GameObject prefab, string key, Vector3 position, string label, Vector2 playerSize)
+    {
+        if (prefab == null) { Debug.LogWarning("Zone prefab not assigned for " + key); return; }
+
+        GameObject obj = Instantiate(prefab, transform);
         obj.name = key;
         obj.transform.localPosition = position;
         obj.transform.localRotation = Quaternion.identity;
-        Vector2 size = ZoneSize(cardWidth * 0.85f, cardHeight * 0.6f);
+        Vector2 size = ZoneSize(playerSize.x, playerSize.y);
         obj.transform.localScale = new Vector3(size.x, size.y, 0.01f);
 
         StyleZone(obj);
@@ -284,6 +291,52 @@ public class BoardLayout : MonoBehaviour
         circles[key] = obj;
         hasCard[key] = false;
         mZoneRects[key] = new Rect((Vector2)position - size * 0.5f, size);
+        mDefaultZoneRects[key] = mZoneRects[key];
+    }
+
+    /* Which player a card in this zone belongs to. Over The Board, both Guardian zones sit on the
+     mat's one shared circle, so a guard there belongs to the defender, not the turn player. */
+    public PlayerState ZoneOwner(GameState gs, string key)
+    {
+        if (key == null) return null;
+        if (boardMode == BoardMode.OverTheBoard && key.EndsWith("_Guardian")) return gs.Opponent;
+        return gs.players[SeatOfZone(key)];
+    }
+
+    // A zone's area in board-local XY; false for AR marker zones, which have no fixed area
+    public bool TryGetZoneLayout(string key, out Rect rect) => mZoneRects.TryGetValue(key, out rect);
+
+    // Moves/resizes one zone (BoardCalibrator), keeping its drawn box and detection area in step
+    public void SetZoneLayout(string key, Rect rect)
+    {
+        if (!mZoneRects.ContainsKey(key) || !circles.TryGetValue(key, out GameObject obj)) return;
+
+        mZoneRects[key] = rect;
+        obj.transform.localPosition = new Vector3(rect.center.x, rect.center.y, obj.transform.localPosition.z);
+        obj.transform.localScale = new Vector3(rect.width, rect.height, obj.transform.localScale.z);
+        FitLabel(obj);
+    }
+
+    // Hidden zones aren't drawn and never match a card, for zones the real playmat doesn't have
+    public void SetZoneHidden(string key, bool hidden)
+    {
+        if (!circles.TryGetValue(key, out GameObject obj)) return;
+
+        if (hidden) mHiddenZones.Add(key);
+        else mHiddenZones.Remove(key);
+        obj.SetActive(!hidden);
+    }
+
+    public bool IsZoneHidden(string key) => mHiddenZones.Contains(key);
+
+    // Back to the spawned layout with every zone shown
+    public void ResetZoneLayouts()
+    {
+        foreach (KeyValuePair<string, Rect> zone in mDefaultZoneRects)
+        {
+            SetZoneLayout(zone.Key, zone.Value);
+            SetZoneHidden(zone.Key, false);
+        }
     }
 
     // World direction a standing card's long side runs along; a rested card is turned 90° from it
@@ -296,7 +349,7 @@ public class BoardLayout : MonoBehaviour
     {
         if (!TryScreenToBoard(screenPoint, cam, out Vector2 point)) return null;
 
-        if (currentKey != null && TryGetZoneRect(currentKey, cam, out Rect current))
+        if (currentKey != null && !mHiddenZones.Contains(currentKey) && TryGetZoneRect(currentKey, cam, out Rect current))
         {
             Rect padded = new Rect(current.xMin - zoneStickMargin, current.yMin - zoneStickMargin,
                 current.width + 2f * zoneStickMargin, current.height + 2f * zoneStickMargin);
@@ -304,7 +357,7 @@ public class BoardLayout : MonoBehaviour
         }
 
         foreach (string key in circles.Keys)
-            if (TryGetZoneRect(key, cam, out Rect rect) && rect.Contains(point))
+            if (!mHiddenZones.Contains(key) && TryGetZoneRect(key, cam, out Rect rect) && rect.Contains(point))
                 return key;
 
         return null;
@@ -373,24 +426,36 @@ public class BoardLayout : MonoBehaviour
         outline.receiveShadows = false;
     }
 
-    // Creates a TextMesh label child on a circle or zone marker
+    // Creates a label child on a circle or zone marker; auto-sized so it always fits its box
     void CreateLabel(GameObject parent, string labelText)
     {
         GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(parent.transform);
+        labelObj.transform.SetParent(parent.transform, false);
 
-        // Position label slightly in front of the quad so it renders on top
+        TextMeshPro tmp = labelObj.AddComponent<TextMeshPro>();
+        tmp.text = labelText;
+        tmp.color = labelColor;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 0.05f;
+        tmp.fontSizeMax = 3f;
+
+        // Slightly in front of the quad so it renders on top
         labelObj.transform.localPosition = new Vector3(0f, 0f, -0.1f);
         labelObj.transform.localRotation = Quaternion.identity;
-        labelObj.transform.localScale = new Vector3(0.08f, 0.08f, 0.08f);
+        FitLabel(parent);
+    }
 
-        TextMesh tm = labelObj.AddComponent<TextMesh>();
-        tm.text = labelText;
-        tm.fontSize = labelFontSize;
-        tm.alignment = TextAlignment.Center;
-        tm.anchor = TextAnchor.MiddleCenter;
-        tm.color = Color.black;
-        tm.fontStyle = FontStyle.Bold;
+    /* Undoes the zone's stretch so text keeps its shape, then sizes the text area to the box.
+     Run again whenever the zone is resized. */
+    static void FitLabel(GameObject zone)
+    {
+        if (!(zone.transform.Find("Label") is RectTransform label)) return;
+
+        Vector3 zoneScale = zone.transform.localScale;
+        label.localScale = new Vector3(1f / zoneScale.x, 1f / zoneScale.y, 1f);
+        label.sizeDelta = new Vector2(zoneScale.x, zoneScale.y) * 0.85f;
     }
 
     // Call this when a card is placed on a circle — hides the label
@@ -401,8 +466,8 @@ public class BoardLayout : MonoBehaviour
         hasCard[key] = true;
 
         // Hide the label
-        TextMesh tm = obj.GetComponentInChildren<TextMesh>();
-        if (tm != null) tm.gameObject.SetActive(false);
+        Transform label = obj.transform.Find("Label");
+        if (label != null) label.gameObject.SetActive(false);
     }
 
     // Call this when a card is removed from a circle — shows the label again
@@ -413,8 +478,8 @@ public class BoardLayout : MonoBehaviour
         hasCard[key] = false;
 
         // Show the label again
-        TextMesh tm = obj.GetComponentInChildren<TextMesh>();
-        if (tm != null) tm.gameObject.SetActive(true);
+        Transform label = obj.transform.Find("Label");
+        if (label != null) label.gameObject.SetActive(true);
     }
 
     // Returns whether a circle currently has a card on it
@@ -509,7 +574,7 @@ public class BoardLayout : MonoBehaviour
     {
         foreach (string key in new List<string>(circles.Keys))
         {
-            PlayerState ps = gs.players[key.StartsWith("P1") ? 0 : 1];
+            PlayerState ps = gs.players[SeatOfZone(key)];
             if (ps == null) continue;
 
             SetCircleOccupied(key, ps.CountInZone(key.Substring(3)) > 0); // suffix after "P1_"/"P2_"

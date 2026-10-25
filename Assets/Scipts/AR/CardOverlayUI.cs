@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -45,6 +47,10 @@ public class CardOverlayUI : MonoBehaviour
     public TextMeshProUGUI skillBadgeText;
     public TextMeshProUGUI flavorBodyText;
     public TextMeshProUGUI rarityText;
+    [Tooltip("Card name, grade/power line and full skill text, for the skill panel.")]
+    public TextMeshProUGUI skillTitleText;
+    public TextMeshProUGUI skillInfoText;
+    public TextMeshProUGUI skillBodyText;
     public Button detailToggleButton;
 
     bool mDetailOpen;
@@ -57,19 +63,15 @@ public class CardOverlayUI : MonoBehaviour
             detailPanel.SetActive(false);
     }
 
-    /* The detail panel lies flat with the card by default; once opened, billboard it toward
-     the camera so long skill/flavor text stays legible. */
+    /* Once opened, the detail panel turns to match the camera, so it sits upright on screen
+     whichever way the card lies. Looking at the camera with world up instead made it spin: an
+     overhead camera looks along world up, which leaves that rotation undefined. */
     void LateUpdate()
     {
         if (!mDetailOpen || detailPanel == null) return;
 
         Camera cam = Camera.main;
-        if (cam == null) return;
-
-        Vector3 toCam = detailPanel.transform.position - cam.transform.position;
-        if (toCam.sqrMagnitude < 0.0001f) return;
-
-        detailPanel.transform.rotation = Quaternion.LookRotation(toCam, Vector3.up);
+        if (cam != null) detailPanel.transform.rotation = cam.transform.rotation;
     }
 
     public void ToggleDetailPanel()
@@ -107,8 +109,55 @@ public class CardOverlayUI : MonoBehaviour
         if (rarityText != null) 
             rarityText.text = data.rarity;
 
+        string name = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
+        if (skillTitleText != null)
+            skillTitleText.text = "<b>" + name + "</b>";
+        if (skillInfoText != null)
+            skillInfoText.text = TypeLabel(data) + "   Grade " + data.grade + "   Power " + data.power + "   Shield " + data.shield +
+                (string.IsNullOrEmpty(data.skillText) ? "" : "   " + data.skillText);
+        if (skillBodyText != null)
+        {
+            string trigger = TriggerEffect(data.triggerIcon);
+            string skill = string.IsNullOrWhiteSpace(data.abilityText) ? "<i>No skill.</i>" : FormatSkill(data.abilityText);
+            skillBodyText.text = trigger == null ? skill
+                : "<color=#b3261e><b>" + data.triggerIcon + " Trigger:</b> " + trigger + "</color>\n\n" + skill;
+        }
+
         if (rulePromptPanel != null)
             rulePromptPanel.SetActive(false); // hidden by default
+    }
+
+    /* The database's own type name when it's in English, else worked out from the card (Japanese-only
+     entries would show as missing-glyph boxes in the default font) */
+    static string TypeLabel(CardData data)
+    {
+        string type = data.cardType?.Trim();
+        if (!string.IsNullOrEmpty(type) && type.All(c => c < 128)) return type;
+
+        if (data.isOrderCard) return data.isBlitzOrder ? "Blitz Order" : "Normal Order";
+        return data.isTriggerUnit ? "Trigger Unit" : "Normal Unit";
+    }
+
+    // What the trigger does when drive or damage checked, as RulesEngine.ResolveTrigger applies it
+    static string TriggerEffect(TriggerIcon icon)
+    {
+        switch (icon)
+        {
+            case TriggerIcon.Critical: return "One of your units gets Critical +1, and one gets Power +10000 until end of turn.";
+            case TriggerIcon.Draw: return "Draw a card, and one of your units gets Power +10000 until end of turn.";
+            case TriggerIcon.Front: return "All of your front row units get Power +10000 until end of turn.";
+            case TriggerIcon.Heal: return "One of your units gets Power +10000 until end of turn. If your damage is equal to or more than your opponent's, heal 1 damage.";
+            case TriggerIcon.Stand: return "Stand one of your rear-guards, and one of your units gets Power +10000 until end of turn.";
+            case TriggerIcon.Over: return "Remove this card from the game. Draw a card, one of your units gets Power +100,000,000 until end of turn, and resolve its extra effect.";
+            default: return null;
+        }
+    }
+
+    // Skill markers like [AUTO] or [ACT] in bold blue, so each skill's start stands out
+    static string FormatSkill(string text)
+    {
+        string safe = text.Replace("<", "<noparse><</noparse>"); // card text isn't markup
+        return Regex.Replace(safe, @"\[[^\]]{1,20}\]", m => "<b><color=#1f4fa8>" + m.Value + "</color></b>");
     }
 
     // Updates the power display with color coding for modifiers

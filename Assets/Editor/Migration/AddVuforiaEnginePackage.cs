@@ -31,6 +31,10 @@ public class AddVuforiaEnginePackage
     {
         if (Application.isBatchMode)
             return;
+
+        // Multiplayer Play Mode's virtual player copies have no Packages/manifest.json of their own
+        if (!File.Exists(sManifestJsonPath))
+            return;
         
         var manifest = Manifest.JsonDeserialize(sManifestJsonPath);
 
@@ -44,6 +48,9 @@ public class AddVuforiaEnginePackage
 
     public static void ResolveDependenciesSilent()
     {
+        if (!File.Exists(sManifestJsonPath))
+            return;
+
         var manifest = Manifest.JsonDeserialize(sManifestJsonPath);
         
         var packages = GetDependencyDescriptions();

@@ -5,7 +5,8 @@ using UnityEngine.UI;
 using TMPro;
 using Vuforia;
 
-/* Drives real card state (identity, zone placement, stand/rest) from Vuforia Cloud Reco.
+/* Drives real card state (identity, zone placement, stand/rest) from Vuforia: Image Targets made
+ from the decks before the match (DeckTargetLoader), plus Cloud Reco when useCloudReco is on.
  Replaces the ARFoundation-based CardOverlayManager, which can't run alongside Cloud Reco's
  camera pipeline.
 
@@ -18,6 +19,8 @@ public class VuforiaCardOverlayManager : MonoBehaviour
     public GameObject overlayPrefab; // optional custom overlay prefab; a minimal one is built if left empty
 
     [Header("Cloud Databases")]
+    [Tooltip("Off: only cards in the loaded decks are recognised. On: Cloud Reco also searches the cloud databases, e.g. for cards outside the decks.")]
+    public bool useCloudReco = false;
     [Tooltip("One CloudRecoBehaviour per Vuforia Cloud database (DSeries1/2/3, etc). Each database has its own Access/Secret key pair and Vuforia can't search more than one per query, so every database needs its own CloudRecoBehaviour running at once. Leave empty to auto-collect every CloudRecoBehaviour under this GameObject.")]
     public List<CloudRecoBehaviour> cloudRecoBehaviours = new List<CloudRecoBehaviour>();
 
@@ -65,7 +68,7 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         public float lastSeenTime = float.NegativeInfinity; // Time.time of its last tracked frame
     }
 
-    // Keyed by Cloud Reco's UniqueTargetId — one physical card, tracked continuously
+    // Keyed by Cloud Reco's UniqueTargetId, or "Deck_" + card number for deck targets
     readonly Dictionary<string, TrackedCard> mTrackedCards = new Dictionary<string, TrackedCard>();
 
     /* In the order their card data resolved: when several targets cover one physical card,
@@ -77,10 +80,17 @@ public class VuforiaCardOverlayManager : MonoBehaviour
     {
         if (cloudRecoBehaviours == null || cloudRecoBehaviours.Count == 0)
             cloudRecoBehaviours = new List<CloudRecoBehaviour>(GetComponentsInChildren<CloudRecoBehaviour>(true));
+
+        // A disabled CloudRecoBehaviour stops querying the cloud
+        if (!useCloudReco)
+            foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
+                if (cloudReco != null) cloudReco.enabled = false;
     }
 
     void OnEnable()
     {
+        if (!useCloudReco) return;
+
         foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
         {
             CloudRecoBehaviour captured = cloudReco;
@@ -139,6 +149,19 @@ public class VuforiaCardOverlayManager : MonoBehaviour
             return;
         }
 
+        RegisterTarget(result.UniqueTargetId, target, result.MetaData);
+    }
+
+    // Called by DeckTargetLoader for each Image Target it makes from a deck card's picture
+    public void AddDeckTarget(ObserverBehaviour target, string cardNumber)
+    {
+        string key = "Deck_" + cardNumber;
+        if (mTrackedCards.ContainsKey(key)) return;
+        RegisterTarget(key, target, cardNumber);
+    }
+
+    void RegisterTarget(string key, ObserverBehaviour target, string cardNumber)
+    {
         GameObject overlay = BuildOverlay(target.transform);
         CardOverlayUI ui = overlay.GetComponent<CardOverlayUI>();
 
@@ -149,10 +172,10 @@ public class VuforiaCardOverlayManager : MonoBehaviour
             target = target,
             overlay = overlay,
             overlayUI = ui,
-            cardNumber = result.MetaData,
+            cardNumber = cardNumber,
             hasPose = target.TargetStatus.Status == Status.TRACKED,
         };
-        mTrackedCards[result.UniqueTargetId] = tracked;
+        mTrackedCards[key] = tracked;
         RefreshOverlayVisibility(tracked); // stays hidden until its card data resolves
 
         /* Vuforia freezes a lost target's transform at its last pose instead of disabling it,
@@ -418,7 +441,7 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         GameState gs = GameState.Instance;
         if (gs == null) return;
 
-        tracked.owner = key == null ? null : gs.players[key.StartsWith("P1") ? 0 : 1];
+        tracked.owner = key == null ? null : board.ZoneOwner(gs, key);
         gs.MoveCard(tracked.instance, tracked.owner, key?.Substring(3)); // suffix after "P1_"/"P2_"
     }
 
@@ -436,7 +459,6 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         canvasObj.transform.SetParent(parent, false);
         canvasObj.transform.localPosition = new Vector3(0f, 0.01f, 0f);
         canvasObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        canvasObj.transform.localScale = new Vector3(0.001f, 0.001f, 0.001f);
 
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
@@ -446,6 +468,7 @@ public class VuforiaCardOverlayManager : MonoBehaviour
 
         RectTransform canvasRT = canvasObj.GetComponent<RectTransform>();
         canvasRT.sizeDelta = new Vector2(630f, 880f);
+        canvasObj.transform.localScale = Vector3.one * OverlayScale(parent, canvasRT.sizeDelta.x);
 
         TextMeshProUGUI nameText = CreateText(canvasObj.transform, "CardName", new Vector2(0f, 0.85f), new Vector2(1f, 1f), 60, Color.black);
         TextMeshProUGUI powerText = CreateText(canvasObj.transform, "Power", new Vector2(0f, 0.4f), new Vector2(1f, 0.7f), 80, Color.black);
@@ -464,35 +487,45 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         Button toggleBtn = toggleBtnObj.AddComponent<Button>();
         CreateText(toggleBtnObj.transform, "Label", Vector2.zero, Vector2.one, 40, Color.black).text = "i";
 
-        /* Detail panel (clan/race/skill badge/flavor/rarity): hidden until toggled, then
-         billboards toward the camera (see CardOverlayUI.LateUpdate) so body text is readable. */
+        /* Skill panel: name, grade/power line and the card's full skill text. Hidden until toggled,
+         then held upright toward the camera (see CardOverlayUI.LateUpdate) so the text is readable.
+         Card-shaped and half again as big as the card, since skill text runs long. */
         GameObject detailObj = new GameObject("DetailPanel");
         detailObj.transform.SetParent(canvasObj.transform, false);
         detailObj.transform.localPosition = new Vector3(0f, 0f, -0.05f);
+        detailObj.transform.localScale = Vector3.one * 1.5f;
         Canvas detailCanvas = detailObj.AddComponent<Canvas>();
         detailCanvas.renderMode = RenderMode.WorldSpace;
         CanvasScaler detailScaler = detailObj.AddComponent<CanvasScaler>();
         detailScaler.dynamicPixelsPerUnit = 100;
         detailObj.AddComponent<GraphicRaycaster>();
         RectTransform detailRT = detailObj.GetComponent<RectTransform>();
-        detailRT.sizeDelta = new Vector2(630f, 500f);
+        detailRT.sizeDelta = new Vector2(630f, 880f);
         UnityEngine.UI.Image detailBg = detailObj.AddComponent<UnityEngine.UI.Image>();
-        detailBg.color = new Color(1f, 1f, 1f, 0.85f); // light so the black text reads
+        detailBg.color = new Color(1f, 1f, 1f, 0.92f); // light so the black text reads
 
-        TextMeshProUGUI clanRaceText = CreateText(detailObj.transform, "ClanRace", new Vector2(0f, 0.82f), new Vector2(1f, 1f), 34, Color.black);
-        TextMeshProUGUI skillBadgeText = CreateText(detailObj.transform, "SkillBadge", new Vector2(0f, 0.68f), new Vector2(1f, 0.82f), 28, Color.black);
-        TextMeshProUGUI flavorBodyText = CreateText(detailObj.transform, "Flavor", new Vector2(0.05f, 0.16f), new Vector2(0.95f, 0.65f), 24, Color.black);
-        TextMeshProUGUI rarityTextTmp = CreateText(detailObj.transform, "Rarity", new Vector2(0f, 0f), new Vector2(1f, 0.16f), 24, Color.black);
+        TextMeshProUGUI skillTitle = CreateText(detailObj.transform, "SkillTitle", new Vector2(0.04f, 0.89f), new Vector2(0.96f, 0.98f), 44, Color.black);
+        skillTitle.enableAutoSizing = true;
+        skillTitle.fontSizeMin = 24;
+        skillTitle.fontSizeMax = 44;
+        TextMeshProUGUI skillInfo = CreateText(detailObj.transform, "SkillInfo", new Vector2(0.04f, 0.83f), new Vector2(0.96f, 0.89f), 26, new Color(0.25f, 0.25f, 0.25f));
+        skillInfo.enableAutoSizing = true;
+        skillInfo.fontSizeMin = 16;
+        skillInfo.fontSizeMax = 26;
+        TextMeshProUGUI skillBody = CreateText(detailObj.transform, "SkillBody", new Vector2(0.05f, 0.03f), new Vector2(0.95f, 0.82f), 32, Color.black);
+        skillBody.alignment = TextAlignmentOptions.TopLeft;
+        skillBody.enableAutoSizing = true; // long skills shrink to fit
+        skillBody.fontSizeMin = 14;
+        skillBody.fontSizeMax = 32;
 
         CardOverlayUI ui = canvasObj.AddComponent<CardOverlayUI>();
         ui.cardNameText = nameText;
         ui.powerText = powerText;
         ui.criticalText = critText;
         ui.detailPanel = detailObj;
-        ui.clanRaceText = clanRaceText;
-        ui.skillBadgeText = skillBadgeText;
-        ui.flavorBodyText = flavorBodyText;
-        ui.rarityText = rarityTextTmp;
+        ui.skillTitleText = skillTitle;
+        ui.skillInfoText = skillInfo;
+        ui.skillBodyText = skillBody;
         ui.detailToggleButton = toggleBtn;
 
         /* ui.Awake() already ran (AddComponent calls it synchronously) before these fields
@@ -501,6 +534,18 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         detailObj.SetActive(false);
 
         return canvasObj;
+    }
+
+    /* Scale that makes the overlay canvas as wide as the card. Deck targets are real size (63 mm)
+     while Cloud Reco targets use their uploaded width, so a fixed scale only fits one of them. */
+    static float OverlayScale(Transform target, float canvasWidth)
+    {
+        if (!(target.GetComponent<ObserverBehaviour>() is ImageTargetBehaviour image)) return 0.001f;
+
+        float cardWidth = image.GetSize().x;
+        float targetScale = target.lossyScale.x;
+        if (cardWidth <= 0f || targetScale <= 0f) return 0.001f;
+        return cardWidth / (canvasWidth * targetScale);
     }
 
     TextMeshProUGUI CreateText(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, int fontSize, Color color)

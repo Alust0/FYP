@@ -70,6 +70,7 @@ namespace Vanguard.Api
             card.rarity = rarity;
             card.illustrator = illustrator;
             card.skillText = !string.IsNullOrEmpty(skill_en) ? skill_en : skill;
+            card.cardType = type;
             card.flavorText = !string.IsNullOrEmpty(flavor_en) ? flavor_en : flavor;
             card.imageUrl = image_url;
             card.grade = grade;

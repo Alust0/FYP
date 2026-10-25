@@ -68,8 +68,12 @@ public static class WebcamAutoFocus
 
     /* Applies to every webcam that reports autofocus support: DirectShow names don't match
      the device Unity picked (the Razer Kiyo X shows as "USB Video Device"), and fixed-focus
-     or virtual cameras report no support anyway. */
-    public static void Enable()
+     or virtual cameras report no support anyway.
+
+     onlyCamera limits it to the webcam with that name. Opening a camera's driver here disturbs
+     another program streaming from it, e.g. the other window when two editor windows each use
+     their own camera (CameraChoice); there it blacked out the other window's picture. */
+    public static void Enable(string onlyCamera = null)
     {
         /* 0 or 1 means COM was started (or already running) on this thread and needs a matching
          CoUninitialize; anything else means it's running in another mode and still usable. */
@@ -100,7 +104,8 @@ public static class WebcamAutoFocus
             {
                 try
                 {
-                    EnableOn(moniker);
+                    string cameraName = ReadCameraName(moniker);
+                    if (onlyCamera == null || cameraName == onlyCamera) EnableOn(moniker, cameraName);
                 }
                 catch (Exception e)
                 {
@@ -125,12 +130,11 @@ public static class WebcamAutoFocus
         }
     }
 
-    static void EnableOn(IntPtr moniker)
+    static void EnableOn(IntPtr moniker, string cameraName)
     {
         Guid baseFilterId = new Guid("56a86895-0ad4-11ce-b03a-0020af0ba770");
         Guid cameraControlId = new Guid("C6E13370-30AC-11d0-A18C-00A0C9118956");
 
-        string cameraName = ReadCameraName(moniker);
         IntPtr filter = IntPtr.Zero;
         IntPtr control = IntPtr.Zero;
 
@@ -198,6 +202,6 @@ public static class WebcamAutoFocus
             Method<ReleaseFn>(comObject, SlotRelease)(comObject);
     }
 #else
-    public static void Enable() { }
+    public static void Enable(string onlyCamera = null) { }
 #endif
 }

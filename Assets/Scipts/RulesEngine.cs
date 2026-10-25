@@ -27,6 +27,8 @@ public class RulesEngine : MonoBehaviour
     CardInstance mAttacker; // unit attacking in the current battle, null outside one
     CardInstance mBooster;
 
+    public bool IsStarted => mStarted;
+
     void OnEnable()
     {
         GameState.OnCardMoved += HandleCardMoved;
@@ -50,7 +52,7 @@ public class RulesEngine : MonoBehaviour
         gs.currentPlayerIndex = 0;
         gs.isFirstTurn = true;
         foreach (PlayerState player in gs.players)
-            player.AdjustCount("Deck", startingDeckCount);
+            if (KeepsCountFor(player)) player.AdjustCount("Deck", startingDeckCount);
         mStarted = true;
         EnterPhase(TurnPhase.StandPhase);
     }
@@ -65,6 +67,12 @@ public class RulesEngine : MonoBehaviour
     public void AdvancePhase()
     {
         if (!mStarted || gs.gameOver || mPassingTurn) return;
+
+        if (!MatchSession.IsLocal(gs.CurrentPlayer))
+        {
+            Notice("Not your turn", gs.CurrentPlayer.playerName + " ends their own phases.");
+            return;
+        }
 
         if (gs.currentPhase >= TurnPhase.BattlePhase) StartCoroutine(EndTurn());
         else EnterPhase(gs.currentPhase + 1);
@@ -81,7 +89,9 @@ public class RulesEngine : MonoBehaviour
         if (!gs.gameOver) StartNextTurn();
     }
 
-    void StartNextTurn()
+    void StartNextTurn() => StartTurn(1 - gs.currentPlayerIndex, gs.turnNumber + 1, TurnPhase.StandPhase);
+
+    void StartTurn(int playerIndex, int turnNumber, TurnPhase phase)
     {
         // "Until end of turn" power and critical bonuses wear off
         gs.ClearTurnModifiers();
@@ -89,12 +99,27 @@ public class RulesEngine : MonoBehaviour
             foreach (CardInstance card in player.AllFieldCards())
                 GameState.OnCardPowerChanged?.Invoke(card.data.cardName, card.data.power, card.powerModifier);
 
-        gs.SwapCurrentPlayer();
-        gs.turnNumber++;
-        gs.isFirstTurn = false;
+        gs.currentPlayerIndex = playerIndex;
+        gs.turnNumber = turnNumber;
+        gs.isFirstTurn = turnNumber == 1;
         mRodeThisTurn = false;
-        EnterPhase(TurnPhase.StandPhase);
+        EnterPhase(phase);
     }
+
+    /* Online: the other PC ended a phase or passed the turn (OnlineMatch), so follow it here.
+     That player's own counts, e.g. drawing from their deck, were already done on their PC. */
+    public void ApplyRemoteTurn(int playerIndex, int turnNumber, TurnPhase phase)
+    {
+        if (!mStarted || gs.gameOver) return;
+
+        if (playerIndex != gs.currentPlayerIndex || turnNumber != gs.turnNumber)
+            StartTurn(playerIndex, turnNumber, phase);
+        else if (phase != gs.currentPhase)
+            EnterPhase(phase);
+    }
+
+    // Online, each PC keeps its own player's zone counts and the opponent's arrive with their board
+    static bool KeepsCountFor(PlayerState player) => MatchSession.IsLocal(player);
 
     void EnterPhase(TurnPhase phase)
     {
@@ -114,7 +139,7 @@ public class RulesEngine : MonoBehaviour
                 break;
 
             case TurnPhase.DrawPhase:
-                gs.AdjustCount(cp, "Deck", -1);
+                if (KeepsCountFor(cp)) gs.AdjustCount(cp, "Deck", -1);
                 Notice("Draw Phase", cp.playerName + ": draw 1 card.");
                 break;
 
@@ -161,11 +186,11 @@ public class RulesEngine : MonoBehaviour
             case "Order": CheckOrder(card, isTurnPlayer); break;
             case "Guardian": CheckGuard(card, isTurnPlayer, fromZone); break;
             case "Trigger":
-                if (fromZone != "Deck") owner.AdjustCount("Deck", -1); // drive/damage check off the face-down deck
+                if (fromZone != "Deck" && KeepsCountFor(owner)) owner.AdjustCount("Deck", -1); // drive/damage check off the face-down deck
                 ResolveTrigger(card, owner);
                 break;
             case "Damage":
-                if (fromZone == null) owner.AdjustCount("Deck", -1); // damage check placed straight from the deck
+                if (fromZone == null && KeepsCountFor(owner)) owner.AdjustCount("Deck", -1); // damage check placed straight from the deck
                 gs.CheckWinCondition();
                 RefreshBattle();
                 break;

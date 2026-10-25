@@ -10,6 +10,7 @@ public class PhaseHUDOverlay : MonoBehaviour
     public TextMeshProUGUI phaseText;
     public TextMeshProUGUI turnPlayerText;
     public Image phaseIcon;
+    public string[] sideLabels = { "Left", "Right" }; // by player index, matching BoardLayout's over-the-board sides
 
     // One count line on the HUD, e.g. P1's "Drop: 3"
     [System.Serializable]
@@ -48,8 +49,19 @@ public class PhaseHUDOverlay : MonoBehaviour
     public void OnPhaseChanged(TurnPhase newPhase, string turnPlayerName)
     {
         if (phaseText != null) phaseText.text = FormatPhaseName(newPhase);
-        if (turnPlayerText != null) turnPlayerText.text = turnPlayerName + "'s Turn";
+        if (turnPlayerText != null) turnPlayerText.text = FormatTurnLabel(turnPlayerName);
         if (phaseIcon != null) phaseIcon.sprite = GetPhaseSprite(newPhase);
+    }
+
+    // e.g. "Player 1 (Left) (Turn 3)"; each player's turn counts as its own turn
+    string FormatTurnLabel(string turnPlayerName)
+    {
+        GameState gs = GameState.Instance;
+        if (gs == null) return turnPlayerName + "'s Turn";
+
+        int index = gs.currentPlayerIndex;
+        string side = index < sideLabels.Length ? " (" + sideLabels[index] + ")" : "";
+        return turnPlayerName + side + " (Turn " + gs.turnNumber + ")";
     }
 
     // Updates every zone count line

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -14,6 +15,9 @@ public class NotificationOverlay : MonoBehaviour
 
     [Header("Auto Hide Duration")]
     public float displayDuration = 3.5f;
+    [Tooltip("Shorter time per notification while more are waiting.")]
+    public float queuedDuration = 2f;
+    public int maxQueued = 5;
 
     [Header("Trigger Sprites")]
     public Sprite criticalSprite;
@@ -31,6 +35,10 @@ public class NotificationOverlay : MonoBehaviour
     public Sprite personaRideSprite;
     public Sprite strideSprite;
     private Coroutine hideCoroutine;
+
+    // Notifications wait their turn instead of replacing the one on screen
+    readonly Queue<(string title, string body, Sprite icon)> mQueue = new Queue<(string, string, Sprite)>();
+    string mShowingKey;
 
     void OnEnable()
     {
@@ -96,28 +104,44 @@ public class NotificationOverlay : MonoBehaviour
         ShowNotification(title, body, sprite);
     }
 
-    // Shows the notification panel with the given content
+    // Queues a notification; the same message already showing or waiting isn't repeated
     void ShowNotification(string title, string body, Sprite icon)
     {
         if (notificationPanel == null) return;
 
-        if (notificationTitle != null) notificationTitle.text = title;
-        if (notificationBody != null) notificationBody.text = body;
-        if (notificationIcon != null && icon != null) notificationIcon.sprite = icon;
+        string key = title + "|" + body;
+        if (key == mShowingKey) return;
+        foreach (var queued in mQueue)
+            if (queued.title + "|" + queued.body == key) return;
+        if (mQueue.Count >= maxQueued) mQueue.Dequeue(); // oldest waiting one goes
 
-        notificationPanel.SetActive(true);
-
-        // Reset auto-hide timer if a new notification comes in
-        if (hideCoroutine != null) StopCoroutine(hideCoroutine);
-        hideCoroutine = StartCoroutine(AutoHide(displayDuration));
+        mQueue.Enqueue((title, body, icon));
+        if (hideCoroutine == null) hideCoroutine = StartCoroutine(ShowQueue());
     }
 
-    // Auto hides the notification after delay
-    IEnumerator AutoHide(float delay)
+    // Shows each queued notification in turn, then hides the panel
+    IEnumerator ShowQueue()
     {
-        yield return new WaitForSeconds(delay);
-        if (notificationPanel != null)
-            notificationPanel.SetActive(false); // dismiss notification
+        while (mQueue.Count > 0)
+        {
+            (string title, string body, Sprite icon) = mQueue.Dequeue();
+            mShowingKey = title + "|" + body;
+
+            if (notificationTitle != null) notificationTitle.text = title;
+            if (notificationBody != null) notificationBody.text = body;
+            if (notificationIcon != null)
+            {
+                notificationIcon.sprite = icon;
+                notificationIcon.enabled = icon != null; // no blank white square on text-only notices
+            }
+            notificationPanel.SetActive(true);
+
+            yield return new WaitForSeconds(mQueue.Count > 0 ? queuedDuration : displayDuration);
+        }
+
+        notificationPanel.SetActive(false);
+        mShowingKey = null;
+        hideCoroutine = null;
     }
 
     // Returns a human readable trigger name

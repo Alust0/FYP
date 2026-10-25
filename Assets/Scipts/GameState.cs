@@ -38,6 +38,7 @@ public class CardData : ScriptableObject
     public string rarity;
     public string illustrator;
     public string skillText; // skill badge, e.g. "Twin Drive!!" — distinct from the full abilityText
+    public string cardType; // as the database names it, e.g. "Normal Unit", "Trigger Unit", "Normal Order"
     public string flavorText;
     public string imageUrl; // card art, for detail-panel display
     public int grade; // 0 through 4
@@ -84,6 +85,7 @@ public class GiftMarker
 // Runtime instance of a card on the field with live modifiers
 public class CardInstance
 {
+    public readonly string id = System.Guid.NewGuid().ToString("N").Substring(0, 12); // names this physical card to the other PC online
     public CardData data;
     public CardOrientation orientation = CardOrientation.Stand;
     public CardFacing facing = CardFacing.FaceUp;
