@@ -7,7 +7,10 @@ using UnityEngine;
 /* Keeps the two PCs of an online match in step through the room document (see LobbyController).
  Each PC's camera only watches its own half of the board (BoardLayout's Multiplayer mode), so it
  uploads that half and mirrors the opponent's half from theirs:
-   seat0 / seat1  {cards: [{id, number, zone, rest, faceDown}], counts: {zone: n}} — counts are untrackedCards
+   seat0 / seat1  {cards: [{id, number, zone, rest, faceDown}], counts: {zone: n}, attackTarget, said, saidN} —
+                  counts are untrackedCards; attackTarget is the circle the turn player's current attack
+                  targets; said is that player's latest voice keyword and saidN how many they've said;
+                  pick / pickN the same for where they gave a trigger's power, critical or stand
    turn           {player, number, phase} — written by whichever PC moved the turn on
  The opponent's cards go through the same GameState calls the trackers use, so the rules, HUD and
  battle overlay treat them like cards seen by a camera. Added by GameSetup when the match is online. */
@@ -45,6 +48,8 @@ public class OnlineMatch : MonoBehaviour
     float mLastBeat = float.NegativeInfinity;
     bool mOpponentGone;
     bool mReadFailing;
+    long mAppliedSaidN = -1; // the opponent's keyword count last shown; -1 until their seat is first seen
+    long mAppliedPickN = -1; // likewise their trigger picks
 
     // Keyed by the CardInstance.id the opponent's PC gave the card
     readonly Dictionary<string, RemoteCard> mRemoteCards = new Dictionary<string, RemoteCard>();
@@ -102,6 +107,17 @@ public class OnlineMatch : MonoBehaviour
         int local = MatchSession.LocalSeat;
 
         Dictionary<string, object> seat = SeatSnapshot(gs.players[local]);
+        if (gs.currentPlayerIndex == local && gs.attackTarget != null) seat["attackTarget"] = gs.attackTarget;
+        if (RulesEngine.PickCount > 0)
+        {
+            seat["pick"] = RulesEngine.LastPick;
+            seat["pickN"] = (long)RulesEngine.PickCount;
+        }
+        if (VoiceCommands.SaidCount > 0)
+        {
+            seat["said"] = VoiceCommands.LastSaid;
+            seat["saidN"] = (long)VoiceCommands.SaidCount;
+        }
         string seatJson = FirestoreRest.ToJson(seat);
         if (seatJson != mUploadedSeat)
         {
@@ -190,7 +206,9 @@ public class OnlineMatch : MonoBehaviour
             if (seatJson != mAppliedSeat)
             {
                 mAppliedSeat = seatJson;
-                ApplySeat(seat);
+                // An error in the rules must not end this coroutine, which would stop syncing for good
+                try { ApplySeat(seat); }
+                catch (Exception e) { Debug.LogException(e); }
             }
         }
     }
@@ -225,6 +243,24 @@ public class OnlineMatch : MonoBehaviour
 
     void ApplySeat(Dictionary<string, object> seat)
     {
+        /* Their latest keyword, before their cards: a guard or damage check is said before the
+         cards it's about are put down. Keywords from before this PC joined aren't news. */
+        long saidN = seat.GetLong("saidN");
+        if (mAppliedSaidN < 0) mAppliedSaidN = saidN;
+        else if (saidN > mAppliedSaidN)
+        {
+            mAppliedSaidN = saidN;
+            VoiceCommands.Instance?.HeardRemote(seat.GetString("said"), gs.players[MatchSession.RemoteSeat]);
+        }
+
+        long pickN = seat.GetLong("pickN");
+        if (mAppliedPickN < 0) mAppliedPickN = pickN;
+        else if (pickN > mAppliedPickN)
+        {
+            mAppliedPickN = pickN;
+            rules.ApplyRemotePick(seat.GetString("pick"));
+        }
+
         var seen = new HashSet<string>();
         foreach (Dictionary<string, object> card in (seat.GetList("cards") ?? new List<object>()).OfType<Dictionary<string, object>>())
         {
@@ -250,6 +286,11 @@ public class OnlineMatch : MonoBehaviour
             if (pair.Value is long n) player.untrackedCards[pair.Key] = (int)n;
 
         ApplyRemoteCards();
+
+        // Their attack's target, once its attack has arrived through ApplyRemoteCards
+        string target = seat.GetString("attackTarget");
+        if (target != null && target != gs.attackTarget && gs.currentPlayerIndex == MatchSession.RemoteSeat) rules.ChooseTarget(target);
+
         gs.CheckWinCondition();
         gs.BroadcastState();
     }
@@ -297,9 +338,6 @@ public class OnlineMatch : MonoBehaviour
             Apply(FromLocalCache());
     }
 
-    static void Notice(string title, string body)
-    {
-        Debug.Log("[OnlineMatch] " + title + ": " + body);
-        GameState.OnRuleNotice?.Invoke(title, body);
-    }
+    // Logged by MatchLog
+    static void Notice(string title, string body) => GameState.OnRuleNotice?.Invoke(title, body);
 }

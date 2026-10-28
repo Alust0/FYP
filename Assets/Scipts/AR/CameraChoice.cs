@@ -9,7 +9,7 @@ using Vuforia;
 /* Which webcam Vuforia uses in the editor, chosen per editor window. Vuforia keeps a single choice
  in the shared editor prefs, so a Multiplayer Play Mode window would otherwise use the same camera
  as the main editor. Picked in the lobby; Player 2's window defaults to a camera the main editor
- isn't using. Editor only: builds use the device's own camera. */
+ isn't using. Builds pass the choice to BuildWebcamDriver instead. */
 public static class CameraChoice
 {
     const string MainWindow = "Main";
@@ -97,7 +97,13 @@ public static class CameraChoice
      the editor the windows take turns, and a turn lasts until the camera is sending pictures. */
     public static IEnumerator StartVuforia()
     {
-        if (Application.isEditor) yield return WaitForCameraTurn();
+        if (!Application.isEditor)
+        {
+            yield return BuildWebcamDriver.Initialize(Current); // builds: Vuforia gets the chosen webcam through its driver
+            yield break;
+        }
+
+        yield return WaitForCameraTurn();
         Apply();
 
         if (!VuforiaApplication.Instance.IsInitialized)

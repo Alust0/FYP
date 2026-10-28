@@ -12,11 +12,8 @@ public class GameSetup : MonoBehaviour
         gs.players[0] = new PlayerState { playerName = MatchSession.PlayerNames[0], playerIndex = 0 };
         gs.players[1] = new PlayerState { playerName = MatchSession.PlayerNames[1], playerIndex = 1 };
 
-        if (MatchSession.IsOnline)
-        {
-            gameObject.AddComponent<OnlineMatch>();
-            gameObject.AddComponent<SplitScreenView>(); // both players' camera views
-        }
+        if (MatchSession.IsOnline) gameObject.AddComponent<OnlineMatch>();
+        gameObject.AddComponent<SplitScreenView>(); // camera views beside the sidebar; online, both players'
 
         gs.BroadcastState();
     }

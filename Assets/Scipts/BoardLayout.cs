@@ -70,6 +70,11 @@ public class BoardLayout : MonoBehaviour
     [Header("Layout")]
     public BoardMode boardMode = BoardMode.OverTheBoard;
 
+    [Tooltip("Off: the Crest zone isn't drawn or matched, as no rule uses it yet.")]
+    public bool showCrest = false;
+    [Tooltip("Off: the Bind zone isn't drawn or matched, as no rule uses it yet.")]
+    public bool showBind = false;
+
     bool IsHorizontal => boardMode == BoardMode.OverTheBoard;
 
     // In Awake so DeckTargetLoader sees the mode in its Start
@@ -241,12 +246,12 @@ public class BoardLayout : MonoBehaviour
         // Third row: Guardian center, Trigger right of Guardian, Bind right of Trigger
         SpawnCircle(prefix + "_Guardian", Pos(centerCol, thirdRowDist), "Guardian", unitCircle);
         SpawnCircle(prefix + "_Trigger", Pos(rightCol, thirdRowDist), "Trigger", sideways);
-        SpawnCircle(prefix + "_Bind", Pos(rightSideCol, thirdRowDist), "Bind", cardArea);
+        if (showBind) SpawnCircle(prefix + "_Bind", Pos(rightSideCol, thirdRowDist), "Bind", cardArea);
 
         // Side zones
         SpawnZoneMarker(prefix + "_Damage", Pos(leftSideCol, backRowDist), "Damage", cardArea);
         SpawnZoneMarker(prefix + "_Order", Pos(leftSideCol, frontRowDist), "Order", smallArea);
-        SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest", smallArea);
+        if (showCrest) SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest", smallArea);
 
         SpawnZoneMarker(prefix + "_Drop", Pos(rightSideCol, backRowDist), "Drop", cardArea);
         SpawnZoneMarker(prefix + "_Deck", Pos(rightSideCol, frontRowDist), "Deck", cardArea);
@@ -305,6 +310,23 @@ public class BoardLayout : MonoBehaviour
 
     // A zone's area in board-local XY; false for AR marker zones, which have no fixed area
     public bool TryGetZoneLayout(string key, out Rect rect) => mZoneRects.TryGetValue(key, out rect);
+
+    // A shown zone's area as fractions of the camera's view (origin bottom-left)
+    public bool TryGetZoneViewRect(string key, Camera cam, out Rect view)
+    {
+        view = Rect.zero;
+        if (key == null || cam == null || IsZoneHidden(key) || !mZoneRects.TryGetValue(key, out Rect zone)) return false;
+
+        Vector2 min = Vector2.positiveInfinity, max = Vector2.negativeInfinity;
+        foreach (Vector2 corner in new[] { zone.min, zone.max, new Vector2(zone.xMin, zone.yMax), new Vector2(zone.xMax, zone.yMin) })
+        {
+            Vector3 vp = cam.WorldToViewportPoint(transform.TransformPoint(corner));
+            min = Vector2.Min(min, vp);
+            max = Vector2.Max(max, vp);
+        }
+        view = Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        return true;
+    }
 
     // Moves/resizes one zone (BoardCalibrator), keeping its drawn box and detection area in step
     public void SetZoneLayout(string key, Rect rect)

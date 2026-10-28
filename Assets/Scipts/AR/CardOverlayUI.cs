@@ -54,6 +54,7 @@ public class CardOverlayUI : MonoBehaviour
     public Button detailToggleButton;
 
     bool mDetailOpen;
+    CardData mData;
 
     void Awake()
     {
@@ -76,13 +77,21 @@ public class CardOverlayUI : MonoBehaviour
 
     public void ToggleDetailPanel()
     {
+        CardInfoPanel.Instance?.Show(mData); // the sidebar shows it too
         mDetailOpen = !mDetailOpen;
         detailPanel?.SetActive(mDetailOpen);
+    }
+
+    public void CloseDetailPanel()
+    {
+        mDetailOpen = false;
+        detailPanel?.SetActive(false);
     }
 
     // Populates all UI fields from a CardData asset
     public void Populate(CardData data)
     {
+        mData = data;
         /* Prefer the English name: the default TMP font (LiberationSans SDF) has no CJK
          glyphs, so Japanese-only names render as missing-glyph boxes. */
         if (cardNameText != null)
@@ -129,7 +138,7 @@ public class CardOverlayUI : MonoBehaviour
 
     /* The database's own type name when it's in English, else worked out from the card (Japanese-only
      entries would show as missing-glyph boxes in the default font) */
-    static string TypeLabel(CardData data)
+    public static string TypeLabel(CardData data)
     {
         string type = data.cardType?.Trim();
         if (!string.IsNullOrEmpty(type) && type.All(c => c < 128)) return type;
@@ -139,7 +148,7 @@ public class CardOverlayUI : MonoBehaviour
     }
 
     // What the trigger does when drive or damage checked, as RulesEngine.ResolveTrigger applies it
-    static string TriggerEffect(TriggerIcon icon)
+    public static string TriggerEffect(TriggerIcon icon)
     {
         switch (icon)
         {
@@ -154,10 +163,10 @@ public class CardOverlayUI : MonoBehaviour
     }
 
     // Skill markers like [AUTO] or [ACT] in bold blue, so each skill's start stands out
-    static string FormatSkill(string text)
+    public static string FormatSkill(string text, string markerColor = "#1f4fa8")
     {
         string safe = text.Replace("<", "<noparse><</noparse>"); // card text isn't markup
-        return Regex.Replace(safe, @"\[[^\]]{1,20}\]", m => "<b><color=#1f4fa8>" + m.Value + "</color></b>");
+        return Regex.Replace(safe, @"\[[^\]]{1,20}\]", m => "<b><color=" + markerColor + ">" + m.Value + "</color></b>");
     }
 
     // Updates the power display with color coding for modifiers

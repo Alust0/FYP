@@ -30,6 +30,7 @@ public class MainMenuManager : MonoBehaviour
     // Signs out of Unity and Firebase and clears the cached session so auto-login won't run
     public void Logout()
     {
+        AccountLock.Release(); // lets the account log in on another copy straight away
         // Skipped when the menu scene was opened directly in the editor without logging in
         if (UnityServices.State == ServicesInitializationState.Initialized)
             AuthenticationService.Instance.SignOut(true);

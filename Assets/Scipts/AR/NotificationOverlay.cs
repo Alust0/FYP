@@ -18,6 +18,15 @@ public class NotificationOverlay : MonoBehaviour
     [Tooltip("Shorter time per notification while more are waiting.")]
     public float queuedDuration = 2f;
     public int maxQueued = 5;
+    [Tooltip("Off: the last notification stays on the panel until the next one, e.g. in a sidebar.")]
+    public bool hideWhenDone = true;
+
+    [Header("Slide Up")]
+    [Tooltip("The panel slides up from below the screen's bottom edge to show, and back down when done, instead of switching on and off.")]
+    public bool slideUp;
+    public float slideSeconds = 0.25f;
+    [Tooltip("Height of the panel's bottom edge above the screen's bottom while it's up.")]
+    public float shownY = 48f;
 
     [Header("Trigger Sprites")]
     public Sprite criticalSprite;
@@ -39,6 +48,32 @@ public class NotificationOverlay : MonoBehaviour
     // Notifications wait their turn instead of replacing the one on screen
     readonly Queue<(string title, string body, Sprite icon)> mQueue = new Queue<(string, string, Sprite)>();
     string mShowingKey;
+
+    // Starts out of sight below the screen; stays active so this keeps listening
+    void Start()
+    {
+        if (slideUp && notificationPanel != null) SetY(HiddenY);
+    }
+
+    float HiddenY => -((RectTransform)notificationPanel.transform).rect.height - 20f;
+
+    void SetY(float y)
+    {
+        RectTransform rect = (RectTransform)notificationPanel.transform;
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, y);
+    }
+
+    IEnumerator Slide(float to)
+    {
+        RectTransform rect = (RectTransform)notificationPanel.transform;
+        float from = rect.anchoredPosition.y;
+        for (float t = 0f; t < slideSeconds; t += Time.deltaTime)
+        {
+            SetY(Mathf.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t / slideSeconds)));
+            yield return null;
+        }
+        SetY(to);
+    }
 
     void OnEnable()
     {
@@ -87,7 +122,7 @@ public class NotificationOverlay : MonoBehaviour
     {
         string contextLabel = context == "drive" ? "[Drive Check]" : "[Damage Check]";
         string title = contextLabel + " " + GetTriggerName(icon) + " Trigger!";
-        string body = GetTriggerEffectText(icon);
+        string body = GetTriggerEffectText(icon, context == "drive");
         Sprite sprite = GetTriggerSprite(icon);
 
         ShowNotification(title, body, sprite);
@@ -122,6 +157,7 @@ public class NotificationOverlay : MonoBehaviour
     // Shows each queued notification in turn, then hides the panel
     IEnumerator ShowQueue()
     {
+        bool slidUp = false;
         while (mQueue.Count > 0)
         {
             (string title, string body, Sprite icon) = mQueue.Dequeue();
@@ -135,11 +171,17 @@ public class NotificationOverlay : MonoBehaviour
                 notificationIcon.enabled = icon != null; // no blank white square on text-only notices
             }
             notificationPanel.SetActive(true);
+            if (slideUp && !slidUp)
+            {
+                slidUp = true;
+                yield return Slide(shownY);
+            }
 
             yield return new WaitForSeconds(mQueue.Count > 0 ? queuedDuration : displayDuration);
         }
 
-        notificationPanel.SetActive(false);
+        if (slideUp) yield return Slide(HiddenY);
+        else if (hideWhenDone) notificationPanel.SetActive(false);
         mShowingKey = null;
         hideCoroutine = null;
     }
@@ -159,17 +201,21 @@ public class NotificationOverlay : MonoBehaviour
         }
     }
 
-    // Returns the effect description for a trigger type
-    string GetTriggerEffectText(TriggerIcon icon)
+    /* What RulesEngine did with the trigger: the bonuses start on the attacking unit (drive check)
+     or the vanguard (damage check), and its owner then picks where they go on the lit circles */
+    string GetTriggerEffectText(TriggerIcon icon, bool drive)
     {
+        string unit = drive ? "the attacking unit" : "your vanguard";
+        string pick = " on " + unit + " for now: pick where it goes on the lit circles.";
+        string power = "Power +10000" + pick;
         switch (icon)
         {
-            case TriggerIcon.Critical: return "Choose 1 unit: +1 Critical.\nChoose 1 unit: +Power.";
-            case TriggerIcon.Draw: return "Draw 1 card.\nChoose 1 unit: +Power.";
-            case TriggerIcon.Stand: return "Stand 1 rear-guard.\nChoose 1 unit: +Power.";
-            case TriggerIcon.Heal: return "If your damage ≥ opponent's: heal 1 damage.\nChoose 1 unit: +Power.";
-            case TriggerIcon.Front: return "All front row units get +Power.";
-            case TriggerIcon.Over: return "Draw 1. Choose 1 unit: Power +100000000.\nThis card is removed from the game.";
+            case TriggerIcon.Critical: return "Power +10000, then Critical +1," + pick;
+            case TriggerIcon.Draw: return "Draw 1 card (taken off your deck count).\n" + power;
+            case TriggerIcon.Stand: return power + "\nThen pick a rested rear-guard to stand (or just stand it).";
+            case TriggerIcon.Heal: return "Heal 1 damage if your damage is at least your opponent's (counted for you).\n" + power;
+            case TriggerIcon.Front: return "Power +10000 to all your front-row units (done for you).";
+            case TriggerIcon.Over: return "Draw 1. Power +100000000" + pick + "\nThis card is removed from the game.";
             default: return "";
         }
     }

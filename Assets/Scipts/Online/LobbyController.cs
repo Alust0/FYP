@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
@@ -13,10 +15,11 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /* Lobby before an online match: a list of open rooms to join, and a panel to host your own with
- the deck you'll play. Hidden rooms stay out of the list; typing their code into the code filter
- finds them. Each room is a Firestore document, rooms/{code}:
+ the deck you'll play. Private rooms are listed too, but joining one needs its password typed
+ into the Room password box. Each room is a Firestore document, rooms/{code}:
    status     "waiting" until a guest joins, then "playing"; "closed" once someone leaves
-   isPublic   false for hidden rooms
+   isPublic   false for private rooms
+   passwordHash  private rooms only: PasswordHash(code, password), so the password itself isn't stored
    createdMs, host {id, name, beatMs}, guest {id, name, beatMs}
    deck, cover, gameVersion, cardsVersion — shown in the list
  and, once the match starts, turn/seat0/seat1 (see OnlineMatch). The host refreshes beatMs while
@@ -35,7 +38,10 @@ public class LobbyController : MonoBehaviour
 
     const string Rooms = "rooms";
     const string CodeLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O or 1/I mix-ups
-    const int CodeLength = 5;
+    const int CodeLength = 5; // room codes and made-up private room passwords
+    const int PasswordMaxLength = 12;
+    static readonly Color InputColor = new Color(0.92f, 0.93f, 0.96f);
+    static readonly Color WrongInputColor = new Color(1f, 0.72f, 0.72f);
     const string DeckPref = "Lobby.DeckSet";
 
     static readonly Color Background = new Color(0.07f, 0.08f, 0.11f);
@@ -47,11 +53,10 @@ public class LobbyController : MonoBehaviour
 
     // Room list
     TMP_InputField mHostFilter;
-    TMP_InputField mCodeFilter;
+    TMP_InputField mPasswordInput;
     RectTransform mListContent;
     TMP_Text mRoomCount;
     List<FirestoreRest.Result> mRooms = new List<FirestoreRest.Result>();
-    FirestoreRest.Result mCodeMatch; // a hidden room found by its code
     float mNextRefresh;
     bool mRefreshing;
     bool mJoining;
@@ -65,10 +70,9 @@ public class LobbyController : MonoBehaviour
     string[] mCameras = new string[0];
 
     // Hosting
-    Toggle mHiddenToggle;
+    Toggle mPrivateToggle;
     Button mHostButton;
     Button mCancelButton;
-    TMP_Text mCodeText;
     TMP_Text mStatusText;
     Coroutine mHosting;
     string mHostedCode; // room this PC is waiting in, removed if it leaves before anyone joins
@@ -106,17 +110,8 @@ public class LobbyController : MonoBehaviour
         mRefreshing = true;
 
         List<FirestoreRest.Result> rooms = null;
-        yield return FirestoreRest.Query(Rooms, new Dictionary<string, object> { ["status"] = "waiting", ["isPublic"] = true }, 30, r => rooms = r);
+        yield return FirestoreRest.Query(Rooms, new Dictionary<string, object> { ["status"] = "waiting" }, 30, r => rooms = r);
         mRooms = rooms;
-
-        string code = mCodeFilter.text.Trim().ToUpperInvariant();
-        mCodeMatch = null;
-        if (code.Length == CodeLength && !mRooms.Any(r => r.id == code))
-        {
-            FirestoreRest.Result hidden = null;
-            yield return FirestoreRest.Get(RoomPath(code), r => hidden = r);
-            if (hidden.ok) mCodeMatch = hidden;
-        }
 
         ShowRooms();
         mNextRefresh = Time.time + listRefreshSeconds;
@@ -130,15 +125,10 @@ public class LobbyController : MonoBehaviour
         foreach (Transform row in mListContent) Destroy(row.gameObject);
 
         string hostFilter = mHostFilter.text.Trim();
-        string codeFilter = mCodeFilter.text.Trim().ToUpperInvariant();
 
-        IEnumerable<FirestoreRest.Result> rooms = mRooms;
-        if (mCodeMatch != null) rooms = rooms.Append(mCodeMatch);
-
-        List<FirestoreRest.Result> shown = rooms
+        List<FirestoreRest.Result> shown = mRooms
             .Where(IsJoinable)
             .Where(r => hostFilter.Length == 0 || HostName(r).IndexOf(hostFilter, StringComparison.OrdinalIgnoreCase) >= 0)
-            .Where(r => codeFilter.Length == 0 || r.id.StartsWith(codeFilter))
             .OrderByDescending(r => r.fields.GetLong("createdMs"))
             .ToList();
 
@@ -164,7 +154,7 @@ public class LobbyController : MonoBehaviour
         cover.texture = Cover(room.fields.GetString("cover"));
         cover.color = cover.texture != null ? Color.white : RowColor;
 
-        bool hidden = !room.fields.GetBool("isPublic");
+        bool isPrivate = !room.fields.GetBool("isPublic");
         TMP_Text title = AddText(row, HostName(room) + "'s Room", 34, Color.white, TextAlignmentOptions.Left);
         Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(118f, -54f), new Vector2(-230f, -10f));
 
@@ -172,11 +162,8 @@ public class LobbyController : MonoBehaviour
         Place(deck.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(118f, -88f), new Vector2(-230f, -56f));
 
         TMP_Text details = AddText(row, "Game v" + room.fields.GetString("gameVersion") + "   •   " +
-            room.fields.GetLong("cardsVersion") + " cards" + (hidden ? "   •   Hidden" : ""), 22, Muted, TextAlignmentOptions.Left);
+            room.fields.GetLong("cardsVersion") + " cards" + (isPrivate ? "   •   Private" : ""), 22, Muted, TextAlignmentOptions.Left);
         Place(details.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(118f, -122f), new Vector2(-230f, -90f));
-
-        TMP_Text code = AddText(row, "#" + room.id, 22, Muted, TextAlignmentOptions.Right);
-        Place(code.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-210f, -44f), new Vector2(-20f, -12f));
 
         // Different builds may not sync the same way, so joining needs the same game version
         bool sameVersion = room.fields.GetString("gameVersion") == GameVersion;
@@ -201,6 +188,21 @@ public class LobbyController : MonoBehaviour
     void OnJoin(FirestoreRest.Result room)
     {
         if (mJoining || IsHosting) return;
+
+        if (!room.fields.GetBool("isPublic"))
+        {
+            string password = TypedPassword;
+            if (password.Length == 0)
+            {
+                ShowPasswordProblem(HostName(room) + "'s room is private. Type its password into the Room password box, then press Join.");
+                return;
+            }
+            if (PasswordHash(room.id, password) != room.fields.GetString("passwordHash"))
+            {
+                ShowPasswordProblem("Wrong password for " + HostName(room) + "'s room.");
+                return;
+            }
+        }
         StartCoroutine(Join(room));
     }
 
@@ -252,7 +254,7 @@ public class LobbyController : MonoBehaviour
     void OnHost()
     {
         if (IsHosting || mJoining) return;
-        mHosting = StartCoroutine(HostRoom(!mHiddenToggle.isOn));
+        mHosting = StartCoroutine(HostRoom(!mPrivateToggle.isOn));
         ShowHosting(true);
     }
 
@@ -288,11 +290,14 @@ public class LobbyController : MonoBehaviour
             ["cardsVersion"] = CardImageLibrary.Count,
         };
 
+        // The one typed into the Room password box, or a made-up one if it's empty
+        string password = isPublic ? null : TypedPassword.Length > 0 ? TypedPassword : RandomCode();
         string code = null;
         FirestoreRest.Result result = null;
         for (int attempt = 0; attempt < 5 && code == null; attempt++)
         {
             string candidate = RandomCode();
+            if (!isPublic) fields["passwordHash"] = PasswordHash(candidate, password);
             yield return FirestoreRest.Create(Rooms, candidate, fields, r => result = r);
 
             if (result.ok) code = candidate;
@@ -307,10 +312,10 @@ public class LobbyController : MonoBehaviour
         }
 
         mHostedCode = code;
-        mCodeText.text = code;
+        if (!isPublic) mPasswordInput.text = password; // shows a made-up one to the host
         SetStatus(isPublic
             ? "Your room is in the list. Waiting for an opponent..."
-            : "Hidden room: give your opponent this code to type into the code filter.");
+            : "Private room: give your opponent the password in your Room password box.");
 
         float lastBeat = Time.time;
         while (true)
@@ -366,6 +371,13 @@ public class LobbyController : MonoBehaviour
         return new string(code);
     }
 
+    // Salted with the room code, so the same password in two rooms doesn't look the same
+    static string PasswordHash(string code, string password)
+    {
+        using (SHA256 sha = SHA256.Create())
+            return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(code + ":" + password)).Select(b => b.ToString("x2")));
+    }
+
     void StartMatch(string code, int localSeat, string hostName, string guestName)
     {
         MatchSession.Begin(code, localSeat, hostName ?? "Player 1", guestName ?? "Player 2");
@@ -415,15 +427,15 @@ public class LobbyController : MonoBehaviour
             : CardImageLibrary.CardNumbersInSet(set).Count + " different cards.\nThe camera learns these before the match.";
     }
 
-    // Editor only: each window (e.g. Player 2 in Multiplayer Play Mode) picks its own webcam
+    // Each window (e.g. Player 2 in Multiplayer Play Mode) or build picks its own webcam
     void LoadCameras()
     {
         mCameras = CameraChoice.Devices;
         mCameraDropdown.ClearOptions();
 
-        if (!Application.isEditor || mCameras.Length == 0)
+        if (mCameras.Length == 0)
         {
-            mCameraDropdown.AddOptions(new List<string> { Application.isEditor ? "No camera found" : "Device camera" });
+            mCameraDropdown.AddOptions(new List<string> { "No camera found" });
             mCameraDropdown.interactable = false;
             return;
         }
@@ -467,14 +479,23 @@ public class LobbyController : MonoBehaviour
         if (mStatusText != null) mStatusText.text = text;
     }
 
+    string TypedPassword => mPasswordInput.text.Trim().ToUpperInvariant();
+
+    // Tints the password box too, as the status line is across the screen from it
+    void ShowPasswordProblem(string text)
+    {
+        SetStatus(text);
+        mPasswordInput.image.color = WrongInputColor;
+    }
+
     void ShowHosting(bool hosting)
     {
         mHostButton.gameObject.SetActive(!hosting);
         mCancelButton.gameObject.SetActive(hosting);
-        mHiddenToggle.interactable = !hosting;
+        mPrivateToggle.interactable = !hosting;
         mDeckDropdown.interactable = !hosting;
-        mCameraDropdown.interactable = !hosting && Application.isEditor && mCameras.Length > 0;
-        if (!hosting) mCodeText.text = "";
+        mCameraDropdown.interactable = !hosting && mCameras.Length > 0;
+        mPasswordInput.readOnly = hosting; // the room's password can't change once it's hosted
         ShowRooms(); // Join buttons are off while hosting
     }
 
@@ -526,15 +547,12 @@ public class LobbyController : MonoBehaviour
         PlaceTop((RectTransform)mHostFilter.transform, 0f, 0.6f, 92f, 60f, 28f, 10f);
         mHostFilter.onValueChanged.AddListener(_ => ShowRooms());
 
-        mCodeFilter = AddInput(panel, "Room code...");
-        PlaceTop((RectTransform)mCodeFilter.transform, 0.6f, 1f, 92f, 60f, 10f, 28f);
-        mCodeFilter.characterLimit = CodeLength;
-        mCodeFilter.contentType = TMP_InputField.ContentType.Alphanumeric;
-        mCodeFilter.onValueChanged.AddListener(text =>
-        {
-            ShowRooms();
-            if (text.Trim().Length == CodeLength) RefreshSoon(); // may be a hidden room's code
-        });
+        // Checked when joining a private room
+        mPasswordInput = AddInput(panel, "Room password...");
+        PlaceTop((RectTransform)mPasswordInput.transform, 0.6f, 1f, 92f, 60f, 10f, 28f);
+        mPasswordInput.characterLimit = PasswordMaxLength;
+        mPasswordInput.contentType = TMP_InputField.ContentType.Alphanumeric;
+        mPasswordInput.onValueChanged.AddListener(_ => mPasswordInput.image.color = InputColor); // clears a wrong-password tint
 
         // Scrolling list
         RectTransform scrollArea = AddBox(panel, "List", new Color(0f, 0f, 0f, 0.2f));
@@ -611,19 +629,16 @@ public class LobbyController : MonoBehaviour
             24, Muted, TextAlignmentOptions.TopLeft);
         PlaceTop(info.rectTransform, 0f, 1f, 76f, 64f, 28f, 28f);
 
-        mHiddenToggle = AddToggle(panel, "Hidden room (join by code only)");
-        PlaceTop((RectTransform)mHiddenToggle.transform, 0f, 1f, 150f, 44f, 28f, 28f);
+        mPrivateToggle = AddToggle(panel, "Private room (join by password only)");
+        PlaceTop((RectTransform)mPrivateToggle.transform, 0f, 1f, 150f, 44f, 28f, 28f);
 
         mHostButton = AddButton(panel, "Host Room", OnHost, Accent, DarkText, 32);
         PlaceTop((RectTransform)mHostButton.transform, 0f, 1f, 206f, 70f, 28f, 28f);
         mCancelButton = AddButton(panel, "Cancel", OnCancelHost, RowColor, Color.white, 32);
         PlaceTop((RectTransform)mCancelButton.transform, 0f, 1f, 206f, 70f, 28f, 28f);
 
-        mCodeText = AddText(panel, "", 60, Accent, TextAlignmentOptions.Center);
-        PlaceTop(mCodeText.rectTransform, 0f, 1f, 284f, 66f, 28f, 28f);
-
         mStatusText = AddText(panel, "", 24, Color.white, TextAlignmentOptions.Top);
-        Place(mStatusText.rectTransform, Vector2.zero, new Vector2(1f, 1f), new Vector2(28f, 12f), new Vector2(-28f, -356f));
+        Place(mStatusText.rectTransform, Vector2.zero, new Vector2(1f, 1f), new Vector2(28f, 12f), new Vector2(-28f, -296f));
     }
 
     void OnBack()
@@ -705,7 +720,7 @@ public class LobbyController : MonoBehaviour
         GameObject obj = TMP_DefaultControls.CreateInputField(new TMP_DefaultControls.Resources());
         obj.name = placeholder;
         obj.transform.SetParent(parent, false);
-        obj.GetComponent<Image>().color = new Color(0.92f, 0.93f, 0.96f);
+        obj.GetComponent<Image>().color = InputColor;
 
         TMP_InputField input = obj.GetComponent<TMP_InputField>();
         input.textComponent.fontSize = 28;

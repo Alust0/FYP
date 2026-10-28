@@ -1,3 +1,4 @@
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -10,12 +11,14 @@ public class UISetup : MonoBehaviour
     private PhaseHUDOverlay phaseHUD;
     private BattleOverlay battleOverlay;
     private NotificationOverlay notificationOverlay;
+    private MatchLogPanel logPanel;
     private AROverlayEventBridge eventBridge;
 
-    // HUD count rows per player: PlayerState zone name ("CB" = face-up damage) and its label
+    /* HUD count rows per player: PlayerState zone name ("CB" = face-up damage) and its label.
+     Energy isn't a zone, just a count, and its row hides when GameSettings.EnergyEnabled is off. */
     static readonly (string zone, string label)[] HudZones =
     {
-        ("Damage", "DMG"), ("CB", "CB"), ("Soul", "Soul"), ("Drop", "Drop"), ("Deck", "Deck"),
+        ("Damage", "DMG"), ("CB", "CB"), ("Soul", "Soul"), ("Drop", "Drop"), ("Deck", "Deck"), ("RideDeck", "Ride"), ("Energy", "Energy"),
     };
 
     void Awake()
@@ -27,15 +30,19 @@ public class UISetup : MonoBehaviour
             return;
         }
 
+        gameObject.AddComponent<MatchLog>(); // first, so it catches the match from its first phase
+
         CreateCanvas();
-        CreateHUDPanel();
         CreateBattlePanel();
-        CreateNotificationPanel();
-        if (MatchSession.IsOnline) CreateOpponentFieldPanel();
-        CreateSettingsMenu();
+        CreateNotificationPanel(); // before the sidebar, whose Settings menu has to draw over it
+        CreateLogPanel(); // before the sidebar too, whose Settings menu opens it
+        CreateSidebar();
         WireEventBridge();
 
-        gameObject.AddComponent<HoverPads>(); // hand gestures
+        gameObject.AddComponent<VoiceCommands>(); // keywords: next phase, guard, drive check...
+        gameObject.AddComponent<HandZones>(); // hand on the deck draws; its on-screen buttons are off (useButtons)
+        gameObject.AddComponent<CardBackTracker>(); // face-down cards: the deck, flipped damage
+        gameObject.AddComponent<AttackTargetPicker>(); // pops up over the defender's front row when attacking
 
         // F2 test panel for placing cards without a camera, e.g. in a second editor
         if (Application.isEditor) gameObject.AddComponent<DebugCardPlacer>();
@@ -58,81 +65,205 @@ public class UISetup : MonoBehaviour
         canvasObj.AddComponent<GraphicRaycaster>();
     }
 
-    // Creates the always-on HUD panel at the top of the screen
-    void CreateHUDPanel()
+    static readonly Color SectionColor = new Color(0.11f, 0.12f, 0.17f, 0.95f);
+    static readonly Color ButtonColor = new Color(1f, 1f, 1f, 0.15f);
+
+    /* Everything but the battle and notice popups sits in a sidebar down the right of the screen,
+     beside the camera views (SplitScreenView keeps them out of its way). Top to bottom: buttons,
+     phase and counts, the last card played, and online the opponent's field. */
+    void CreateSidebar()
     {
-        GameObject hudPanel = CreatePanel("HUDPanel", canvas.transform,
-            new Vector2(0f, 1f), // anchor top-left
-            new Vector2(0f, 1f),
-            new Vector2(10f, -10f), // position top-left with padding
-            new Vector2(600f, 280f)); // width height
+        GameObject sidebar = CreatePanel("Sidebar", canvas.transform, new Vector2(1f - SplitScreenView.SidebarWidth, 0f), Vector2.one, Vector2.zero, Vector2.zero);
+        Stretch((RectTransform)sidebar.transform, Vector2.zero, Vector2.zero);
+        sidebar.GetComponent<Image>().color = new Color(0.05f, 0.06f, 0.09f, 0.97f);
 
-        // Make panel semi-transparent dark background
-        Image img = hudPanel.GetComponent<Image>();
-        img.color = new Color(0f, 0f, 0f, 0.6f);
+        CreateButtonRow(sidebar.transform, 8f, 56f);
+        CreatePhaseSection(sidebar.transform, 72f, 302f);
+        // Built up from the bottom edge: online the opponent's field, the action buttons, then the card panel fills the rest
+        float above = 8f;
 
-        // Phase and turn player labels
-        TextMeshProUGUI phaseText = CreateText("PhaseText", hudPanel.transform, new Vector2(10f, -10f), new Vector2(580f, 40f), "Stand Phase", 28, TextAlignmentOptions.Left);
-        TextMeshProUGUI turnPlayerText = CreateText("TurnPlayerText", hudPanel.transform, new Vector2(10f, -55f), new Vector2(580f, 35f), "Player 1 (Left) (Turn 1)", 22, TextAlignmentOptions.Left);
-        turnPlayerText.color = new Color(0.8f, 0.8f, 0f); // yellow turn indicator
-
-        // Divider labels: player names, and which one is this PC online
-        for (int player = 0; player < 2; player++)
+        if (MatchSession.IsOnline)
         {
-            string name = MatchSession.PlayerNames[player] + (MatchSession.IsOnline && MatchSession.IsLocalSeat(player) ? " (You)" : "");
-            CreateText("P" + (player + 1) + "Label", hudPanel.transform, new Vector2(10f + player * 290f, -100f), new Vector2(280f, 25f), "── " + name + " ──", 18, TextAlignmentOptions.Left);
+            const float opponentHeight = 152f;
+            CreateOpponentFieldSection(sidebar.transform, above, opponentHeight);
+            above += opponentHeight + 8f;
         }
 
-        phaseHUD = hudPanel.AddComponent<PhaseHUDOverlay>();
+        const float actionsHeight = 64f;
+        CreateActionSection(sidebar.transform, above, actionsHeight);
+        above += actionsHeight + 8f;
+
+        CreateCardSection(sidebar.transform, 382f, above);
+    }
+
+    // Guard / no guard, drive and damage check, attack targets: buttons that appear when the battle calls for them
+    void CreateActionSection(Transform sidebar, float bottom, float height)
+    {
+        GameObject sectionObj = CreatePanel("ActionPanel", sidebar, Vector2.zero, new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
+        RectTransform section = (RectTransform)sectionObj.transform;
+        section.pivot = new Vector2(0.5f, 0f);
+        Stretch(section, new Vector2(8f, bottom), new Vector2(-8f, bottom + height));
+        sectionObj.GetComponent<Image>().color = SectionColor;
+
+        TextMeshProUGUI hint = CreateFillText("Hint", section, "Battle buttons (guard, drive check...) show here when needed.", 15, TextAlignmentOptions.Center);
+        hint.color = new Color(0.55f, 0.58f, 0.65f);
+
+        sectionObj.AddComponent<ActionButtons>().Build(section, hint);
+    }
+
+    // Next Phase across most of the row, then Draw, Settings and Match Log at its right end
+    void CreateButtonRow(Transform sidebar, float top, float height)
+    {
+        RectTransform row = CreateSection("ButtonRow", sidebar, top, height, Color.clear);
+
+        // Ends the current phase; Space and saying "next phase" do the same
+        GameObject nextBtnObj = CreatePanel("NextPhaseButton", row, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        Stretch((RectTransform)nextBtnObj.transform, Vector2.zero, new Vector2(-268f, 0f));
+        nextBtnObj.GetComponent<Image>().color = new Color(0.85f, 0.87f, 0.92f, 0.95f);
+        Button nextBtn = nextBtnObj.AddComponent<Button>();
+        nextBtn.onClick.AddListener(() => FindFirstObjectByType<RulesEngine>()?.AdvancePhase());
+        TextMeshProUGUI nextLabel = CreateFillText("Label", nextBtnObj.transform, "Next Phase  >", 26, TextAlignmentOptions.Center);
+        nextLabel.color = new Color(0.08f, 0.09f, 0.13f);
+
+        // Draws outside the Draw Phase, e.g. from a skill; saying "draw card" does the same
+        GameObject drawObj = CreatePanel("DrawButton", row, new Vector2(1f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        RectTransform drawRT = (RectTransform)drawObj.transform;
+        drawRT.pivot = new Vector2(1f, 0.5f);
+        drawRT.offsetMin = new Vector2(-260f, 0f);
+        drawRT.offsetMax = new Vector2(-148f, 0f);
+        drawObj.GetComponent<Image>().color = ButtonColor;
+        drawObj.AddComponent<Button>().onClick.AddListener(() => Draw(LocalPlayer()));
+        CreateFillText("Label", drawObj.transform, "Draw", 22, TextAlignmentOptions.Center);
+
+        CreateSettingsMenu(CreateIconButton(row, "SettingsButton", "Settings", 74f, 66f));
+        CreateIconButton(row, "LogButton", "Logs", 0f, 66f).onClick.AddListener(logPanel.Toggle);
+    }
+
+    /* A button width px wide, right px in from the row's right end, showing StreamingAssets/Icons/<icon>.png
+     (swap the file to change it), or the icon's name if there's no such file */
+    Button CreateIconButton(Transform row, string name, string icon, float right, float width)
+    {
+        GameObject obj = CreatePanel(name, row, new Vector2(1f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        RectTransform rt = (RectTransform)obj.transform;
+        rt.pivot = new Vector2(1f, 0.5f);
+        rt.offsetMin = new Vector2(-right - width, 0f);
+        rt.offsetMax = new Vector2(-right, 0f);
+        obj.GetComponent<Image>().color = ButtonColor;
+
+        Sprite sprite = LoadIcon(icon);
+        if (sprite == null)
+        {
+            CreateFillText("Label", obj.transform, icon, 18, TextAlignmentOptions.Center);
+            return obj.AddComponent<Button>();
+        }
+
+        GameObject iconObj = new GameObject("Icon", typeof(RectTransform));
+        iconObj.transform.SetParent(obj.transform, false);
+        RectTransform iconRT = (RectTransform)iconObj.transform;
+        iconRT.anchorMin = Vector2.zero;
+        iconRT.anchorMax = Vector2.one;
+        Stretch(iconRT, new Vector2(12f, 10f), new Vector2(-12f, -10f));
+        Image image = iconObj.AddComponent<Image>();
+        image.sprite = sprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        return obj.AddComponent<Button>();
+    }
+
+    // A picture from StreamingAssets/Icons, e.g. "Settings" for Settings.png; null if it's missing or unreadable
+    static Sprite LoadIcon(string name)
+    {
+        string path = Path.Combine(Application.streamingAssetsPath, "Icons", name + ".png");
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning("[UISetup] No icon at " + path + "; showing its name instead.");
+            return null;
+        }
+
+        Texture2D texture = new Texture2D(2, 2);
+        if (!texture.LoadImage(File.ReadAllBytes(path)))
+        {
+            Destroy(texture);
+            return null;
+        }
+        return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+    }
+
+    // Phase, turn player and a column of counts per player
+    void CreatePhaseSection(Transform sidebar, float top, float height)
+    {
+        RectTransform section = CreateSection("PhasePanel", sidebar, top, height, SectionColor);
+
+        TextMeshProUGUI phaseText = CreateStretchText("PhaseText", section, 8f, 38f, 12f, 12f, "Stand Phase", 28, TextAlignmentOptions.Left);
+        TextMeshProUGUI turnPlayerText = CreateStretchText("TurnPlayerText", section, 46f, 32f, 12f, 12f, "Player 1 (Turn 1)", 20, TextAlignmentOptions.Left);
+        turnPlayerText.color = new Color(0.95f, 0.85f, 0.2f); // yellow turn indicator
+
+        TextMeshProUGUI waitingText = CreateStretchText("WaitingText", section, 8f, 72f, 230f, 12f, "", 17, TextAlignmentOptions.TopRight);
+        waitingText.color = new Color(1f, 0.6f, 0.35f);
+        waitingText.enableAutoSizing = true;
+        waitingText.fontSizeMin = 11;
+        waitingText.fontSizeMax = 17;
+
+        phaseHUD = section.gameObject.AddComponent<PhaseHUDOverlay>();
+        phaseHUD.waitingText = waitingText;
         if (MatchSession.IsOnline) phaseHUD.sideLabels = new string[0]; // players aren't on a left/right side of one board
 
-        /* A count line per player and zone, with -/+ buttons to fix counts the camera gets wrong.
-         Online only for this PC's player: the opponent's counts come from their PC. */
         for (int player = 0; player < 2; player++)
         {
+            // Each player gets half the panel's width
+            GameObject column = new GameObject("Player" + (player + 1), typeof(RectTransform));
+            column.transform.SetParent(section, false);
+            RectTransform columnRT = (RectTransform)column.transform;
+            columnRT.anchorMin = new Vector2(player * 0.5f, 0f);
+            columnRT.anchorMax = new Vector2(player * 0.5f + 0.5f, 1f);
+            columnRT.offsetMin = Vector2.zero;
+            columnRT.offsetMax = Vector2.zero;
+
+            string name = MatchSession.PlayerNames[player] + (MatchSession.IsOnline && MatchSession.IsLocalSeat(player) ? " (You)" : "");
+            TextMeshProUGUI nameText = CreateStretchText("Name", columnRT, 84f, 24f, 12f, 4f, "— " + name + " —", 17, TextAlignmentOptions.Left);
+            nameText.color = new Color(0.75f, 0.78f, 0.85f);
+
+            /* A count line per zone, with -/+ buttons to fix counts the camera gets wrong.
+             Online only for this PC's player: the opponent's counts come from their PC. */
             for (int row = 0; row < HudZones.Length; row++)
             {
                 (string zone, string label) = HudZones[row];
-                Vector2 pos = new Vector2(10f + player * 290f, -130f - row * 28f);
+                Vector2 pos = new Vector2(12f, -112f - row * 26f);
 
-                TextMeshProUGUI countText = CreateText(label + "P" + (player + 1), hudPanel.transform, pos, new Vector2(160f, 26f), label + ": 0", 18, TextAlignmentOptions.Left);
+                TextMeshProUGUI countText = CreateText(label + "P" + (player + 1), columnRT, pos, new Vector2(110f, 24f), label + ": 0", 18, TextAlignmentOptions.Left);
+                var counter = new PhaseHUDOverlay.ZoneCounter { playerIndex = player, zone = zone, label = label, text = countText };
+                counter.parts.Add(countText.gameObject);
                 if (MatchSession.IsLocalSeat(player))
                 {
-                    CreateCountButton(hudPanel.transform, pos + new Vector2(170f, 0f), "-", player, zone, -1);
-                    CreateCountButton(hudPanel.transform, pos + new Vector2(210f, 0f), "+", player, zone, 1);
+                    counter.parts.Add(CreateCountButton(columnRT, pos + new Vector2(118f, 0f), "-", player, zone, -1));
+                    counter.parts.Add(CreateCountButton(columnRT, pos + new Vector2(156f, 0f), "+", player, zone, 1));
                 }
 
-                phaseHUD.zoneCounters.Add(new PhaseHUDOverlay.ZoneCounter { playerIndex = player, zone = zone, label = label, text = countText });
+                phaseHUD.zoneCounters.Add(counter);
             }
         }
-
-        // Ends the current phase; Space and the Next Phase hover pad do the same
-        GameObject nextBtnObj = CreatePanel("NextPhaseButton", hudPanel.transform,
-            new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(150f, 40f));
-        nextBtnObj.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.2f);
-        Button nextBtn = nextBtnObj.AddComponent<Button>();
-        nextBtn.onClick.AddListener(() => FindFirstObjectByType<RulesEngine>()?.AdvancePhase());
-        CreateText("Label", nextBtnObj.transform, new Vector2(0f, -5f), new Vector2(150f, 30f), "Next Phase >", 20, TextAlignmentOptions.Center);
 
         phaseHUD.phaseText = phaseText;
         phaseHUD.turnPlayerText = turnPlayerText;
     }
 
     // A small HUD button that corrects one player's zone count by hand
-    void CreateCountButton(Transform parent, Vector2 position, string label, int playerIndex, string zone, int delta)
+    GameObject CreateCountButton(Transform parent, Vector2 position, string label, int playerIndex, string zone, int delta)
     {
         GameObject btnObj = CreatePanel("CountButton", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), position, new Vector2(34f, 24f));
-        btnObj.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.2f);
+        btnObj.GetComponent<Image>().color = ButtonColor;
         btnObj.AddComponent<Button>().onClick.AddListener(() => AdjustZoneCount(playerIndex, zone, delta));
         CreateText("Label", btnObj.transform, Vector2.zero, new Vector2(34f, 24f), label, 18, TextAlignmentOptions.Center);
+        return btnObj;
     }
 
-    // Shared by the HUD buttons and HoverPads
+    // Shared by the HUD buttons and VoiceCommands
     public static void AdjustZoneCount(int playerIndex, string zone, int delta)
     {
         GameState gs = GameState.Instance;
         PlayerState player = gs != null ? gs.players[playerIndex] : null;
         if (player == null) return;
+        if (zone == "Energy" && delta > 0 && player.CountInZone("Energy") >= RulesEngine.MaxEnergy) return;
 
         if (zone != "CB")
         {
@@ -145,14 +276,32 @@ public class UISetup : MonoBehaviour
         gs.AdjustCount(player, "FaceDownDamage", -delta);
     }
 
-    // Creates the battle overlay panel in the center of the screen
+    // Online it's always this PC's player; on one PC, the turn player's
+    public static PlayerState LocalPlayer()
+    {
+        GameState gs = GameState.Instance;
+        if (gs == null || gs.players[0] == null) return null;
+        return MatchSession.IsOnline ? gs.players[MatchSession.LocalSeat] : gs.CurrentPlayer;
+    }
+
+    // Counts one card off the deck; shared by the Draw button, VoiceCommands and HandZones
+    public static void Draw(PlayerState player)
+    {
+        if (player == null) return;
+        AdjustZoneCount(player.playerIndex, "Deck", -1);
+        GameState.OnRuleNotice?.Invoke("Draw", player.playerName + " drew 1 card.");
+    }
+
+    // Creates the battle overlay panel in the middle of the camera area
     void CreateBattlePanel()
     {
+        float middle = (1f - SplitScreenView.SidebarWidth) * 0.5f; // of the camera area, left of the sidebar
         GameObject battlePanel = CreatePanel("BattlePanel", canvas.transform,
-            new Vector2(0.5f, 0.5f), // anchor center
-            new Vector2(0.5f, 0.5f),
+            new Vector2(middle, 0.5f),
+            new Vector2(middle, 0.5f),
             new Vector2(0f, 0f), // center position
             new Vector2(400f, 200f));
+        ((RectTransform)battlePanel.transform).pivot = new Vector2(0.5f, 0.5f);
 
         Image img = battlePanel.GetComponent<Image>();
         img.color = new Color(0f, 0f, 0f, 0.85f);
@@ -171,95 +320,235 @@ public class UISetup : MonoBehaviour
         battleOverlay.resultText = resultText;
     }
 
-    // Creates the notification popup panel at the top-center of the screen
+    /* Notices, rulings and triggers: a popup that slides up from the bottom, in the middle of the
+     camera area, and back down once nothing more is waiting */
     void CreateNotificationPanel()
     {
-        GameObject notifPanel = CreatePanel("NotificationPanel", canvas.transform,
-            new Vector2(0.5f, 1f), // anchor top-center
-            new Vector2(0.5f, 1f),
-            new Vector2(0f, -10f), // just below top edge
-            new Vector2(700f, 160f));
+        const float height = 150f;
+        float middle = (1f - SplitScreenView.SidebarWidth) * 0.5f; // of the camera area, left of the sidebar
+        GameObject sectionObj = CreatePanel("NotificationPanel", canvas.transform, new Vector2(middle, 0f), new Vector2(middle, 0f), Vector2.zero, new Vector2(660f, height));
+        RectTransform section = (RectTransform)sectionObj.transform;
+        section.pivot = new Vector2(0.5f, 0f);
+        sectionObj.GetComponent<Image>().color = new Color(0.1f, 0.1f, 0.3f, 0.95f);
 
-        Image img = notifPanel.GetComponent<Image>();
-        img.color = new Color(0.1f, 0.1f, 0.3f, 0.92f);
-
-        // Icon image on the left
+        // Icon at the top-right, for triggers and Persona Ride
         GameObject iconObj = new GameObject("NotificationIcon");
-        iconObj.transform.SetParent(notifPanel.transform, false);
+        iconObj.transform.SetParent(section, false);
         Image iconImg = iconObj.AddComponent<Image>();
-        iconImg.color = Color.white;
         RectTransform iconRT = iconObj.GetComponent<RectTransform>();
-        iconRT.anchorMin = new Vector2(0f, 0.5f);
-        iconRT.anchorMax = new Vector2(0f, 0.5f);
-        iconRT.pivot = new Vector2(0f, 0.5f);
-        iconRT.anchoredPosition = new Vector2(10f, 0f);
-        iconRT.sizeDelta = new Vector2(80f, 80f);
+        iconRT.anchorMin = iconRT.anchorMax = iconRT.pivot = new Vector2(1f, 1f);
+        iconRT.anchoredPosition = new Vector2(-10f, -10f);
+        iconRT.sizeDelta = new Vector2(56f, 56f);
+        iconImg.enabled = false;
 
-        // Title and body text
-        TextMeshProUGUI titleText = CreateText("NotifTitle", notifPanel.transform, new Vector2(100f, -15f), new Vector2(580f, 45f), "Persona Ride!", 28, TextAlignmentOptions.Left);
+        TextMeshProUGUI titleText = CreateStretchText("NotifTitle", section, 10f, 36f, 12f, 74f, "Notices", 24, TextAlignmentOptions.Left);
         titleText.color = new Color(1f, 0.85f, 0f); // gold title
+        titleText.enableAutoSizing = true;
+        titleText.fontSizeMin = 16;
+        titleText.fontSizeMax = 24;
 
-        TextMeshProUGUI bodyText = CreateText("NotifBody", notifPanel.transform, new Vector2(100f, -70f), new Vector2(580f, 70f), "Effect text here.", 20, TextAlignmentOptions.Left);
-        bodyText.color = Color.white;
+        TextMeshProUGUI bodyText = CreateStretchText("NotifBody", section, 50f, height - 58f, 12f, 12f, "", 19, TextAlignmentOptions.TopLeft);
+        bodyText.enableAutoSizing = true;
+        bodyText.fontSizeMin = 13;
+        bodyText.fontSizeMax = 19;
 
-        notifPanel.SetActive(false); // hidden until notification fires
-
-        /* On the canvas, not the hidden panel: a component added to an inactive object doesn't get
-         OnEnable, so it never subscribed to the notices and nothing showed */
-        notificationOverlay = canvas.gameObject.AddComponent<NotificationOverlay>();
-        notificationOverlay.notificationPanel = notifPanel;
+        /* On the always-active panel: a component added to an inactive object doesn't get
+         OnEnable, so it would never subscribe to the notices */
+        notificationOverlay = section.gameObject.AddComponent<NotificationOverlay>();
+        notificationOverlay.notificationPanel = section.gameObject;
         notificationOverlay.notificationTitle = titleText;
         notificationOverlay.notificationBody = bodyText;
         notificationOverlay.notificationIcon = iconImg;
+        notificationOverlay.slideUp = true;
     }
 
-    // Online: the opponent's field in text, top-right, since this PC's camera can't see their cards
-    void CreateOpponentFieldPanel()
+    // The notifications so far, scrollable, at the top of the camera area; the sidebar's log button or L
+    void CreateLogPanel()
     {
-        GameObject panel = CreatePanel("OpponentFieldPanel", canvas.transform,
-            new Vector2(1f, 1f), // anchor top-right
-            new Vector2(1f, 1f),
-            new Vector2(-10f, -10f),
-            new Vector2(440f, 330f));
-        panel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
+        float middle = (1f - SplitScreenView.SidebarWidth) * 0.5f; // of the camera area, left of the sidebar
+        GameObject box = CreatePanel("LogPanel", canvas.transform, new Vector2(middle, 1f), new Vector2(middle, 1f), new Vector2(0f, -24f), new Vector2(760f, 620f));
+        RectTransform boxRT = (RectTransform)box.transform;
+        boxRT.pivot = new Vector2(0.5f, 1f);
+        box.GetComponent<Image>().color = new Color(0.1f, 0.11f, 0.16f, 0.97f);
 
-        TextMeshProUGUI text = CreateText("OpponentFieldText", panel.transform, new Vector2(12f, -10f), new Vector2(416f, 310f), "", 18, TextAlignmentOptions.TopLeft);
+        TextMeshProUGUI title = CreateStretchText("Title", boxRT, 10f, 40f, 16f, 70f, "Match Log", 28, TextAlignmentOptions.Left);
+        title.color = new Color(1f, 0.85f, 0f);
+
+        GameObject closeObj = CreatePanel("CloseButton", boxRT, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(48f, 40f));
+        ((RectTransform)closeObj.transform).pivot = new Vector2(1f, 1f);
+        closeObj.GetComponent<Image>().color = ButtonColor;
+        Button close = closeObj.AddComponent<Button>();
+        CreateFillText("Label", closeObj.transform, "X", 24, TextAlignmentOptions.Center);
+
+        // Scrolls a text that grows with the list, clipped to the box under the title
+        GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
+        viewport.transform.SetParent(boxRT, false);
+        RectTransform viewportRT = (RectTransform)viewport.transform;
+        viewportRT.anchorMin = Vector2.zero;
+        viewportRT.anchorMax = Vector2.one;
+        Stretch(viewportRT, new Vector2(16f, 12f), new Vector2(-16f, -60f));
+
+        TextMeshProUGUI list = CreateText("List", viewportRT, Vector2.zero, Vector2.zero, "", 18, TextAlignmentOptions.TopLeft);
+        list.richText = false; // notices are plain text
+        RectTransform listRT = list.rectTransform;
+        listRT.anchorMin = new Vector2(0f, 1f);
+        listRT.anchorMax = new Vector2(1f, 1f);
+        listRT.pivot = new Vector2(0.5f, 1f);
+        listRT.sizeDelta = Vector2.zero;
+        list.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        ScrollRect scroll = box.AddComponent<ScrollRect>();
+        scroll.viewport = viewportRT;
+        scroll.content = listRT;
+        scroll.horizontal = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 30f;
+
+        // On this always-active object, so L still works while the box is hidden
+        logPanel = gameObject.AddComponent<MatchLogPanel>();
+        logPanel.panel = box;
+        logPanel.listText = list;
+        logPanel.scroll = scroll;
+        close.onClick.AddListener(logPanel.Close);
+    }
+
+    // The last card put on the board (by either player) or tapped: picture, stats and skill
+    void CreateCardSection(Transform sidebar, float top, float bottom)
+    {
+        GameObject sectionObj = CreatePanel("CardPanel", sidebar, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        Stretch((RectTransform)sectionObj.transform, new Vector2(8f, bottom), new Vector2(-8f, -top));
+        sectionObj.GetComponent<Image>().color = SectionColor;
+        Transform section = sectionObj.transform;
+
+        GameObject artObj = new GameObject("CardArt", typeof(RectTransform));
+        artObj.transform.SetParent(section, false);
+        RectTransform artRT = (RectTransform)artObj.transform;
+        artRT.anchorMin = artRT.anchorMax = artRT.pivot = new Vector2(0f, 1f);
+        artRT.anchoredPosition = new Vector2(10f, -10f);
+        artRT.sizeDelta = new Vector2(120f, 168f);
+        RawImage art = artObj.AddComponent<RawImage>();
+        art.color = new Color(1f, 1f, 1f, 0.08f);
+
+        TextMeshProUGUI nameText = CreateStretchText("Name", section, 10f, 40f, 142f, 10f, "No card yet", 24, TextAlignmentOptions.TopLeft);
+        nameText.fontStyle = FontStyles.Bold;
+        nameText.enableAutoSizing = true;
+        nameText.fontSizeMin = 15;
+        nameText.fontSizeMax = 24;
+        TextMeshProUGUI statsText = CreateStretchText("Stats", section, 54f, 28f, 142f, 10f, "", 20, TextAlignmentOptions.TopLeft);
+        statsText.color = new Color(1f, 0.92f, 0.6f);
+        TextMeshProUGUI typeText = CreateStretchText("Type", section, 84f, 28f, 142f, 10f, "", 18, TextAlignmentOptions.TopLeft);
+        TextMeshProUGUI clanText = CreateStretchText("Clan", section, 114f, 60f, 142f, 10f, "", 16, TextAlignmentOptions.TopLeft);
+        clanText.color = new Color(0.7f, 0.73f, 0.8f);
+
+        TextMeshProUGUI skillText = CreateFillText("Skill", section, "Put a card on a zone, or tap its i, to see it here.", 19, TextAlignmentOptions.TopLeft);
+        Stretch(skillText.rectTransform, new Vector2(12f, 10f), new Vector2(-12f, -188f));
+        skillText.enableAutoSizing = true; // long skills shrink to fit
+        skillText.fontSizeMin = 12;
+        skillText.fontSizeMax = 19;
+
+        CardInfoPanel panel = sectionObj.AddComponent<CardInfoPanel>();
+        panel.art = art;
+        panel.nameText = nameText;
+        panel.statsText = statsText;
+        panel.typeText = typeText;
+        panel.clanText = clanText;
+        panel.skillText = skillText;
+    }
+
+    // Online: the opponent's field in text, bottom px up from the sidebar's bottom
+    void CreateOpponentFieldSection(Transform sidebar, float bottom, float height)
+    {
+        GameObject panel = CreatePanel("OpponentFieldPanel", sidebar, Vector2.zero, new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
+        Stretch((RectTransform)panel.transform, new Vector2(8f, bottom), new Vector2(-8f, bottom + height));
+        panel.GetComponent<Image>().color = SectionColor;
+
+        TextMeshProUGUI text = CreateFillText("OpponentFieldText", panel.transform, "", 15, TextAlignmentOptions.TopLeft);
+        Stretch(text.rectTransform, new Vector2(12f, 6f), new Vector2(-12f, -6f));
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 10;
+        text.fontSizeMax = 15;
         panel.AddComponent<OpponentFieldOverlay>().fieldText = text;
     }
 
-    // Settings button bottom-left, opening a centered menu (Esc too); built last so it draws over the rest
-    void CreateSettingsMenu()
-    {
-        GameObject buttonObj = CreatePanel("SettingsButton", canvas.transform,
-            new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(10f, 10f), new Vector2(170f, 50f));
-        buttonObj.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
-        Button openButton = buttonObj.AddComponent<Button>();
-        CreateText("Label", buttonObj.transform, new Vector2(0f, -9f), new Vector2(170f, 34f), "Settings", 24, TextAlignmentOptions.Center);
+    const float MenuWidth = 560f;
+    static readonly Color MenuButtonColor = new Color(0.25f, 0.28f, 0.36f, 0.95f);
 
+    // The menu the sidebar's Settings button opens, centered (Esc too); built last so it draws over the rest
+    void CreateSettingsMenu(Button openButton)
+    {
         // Dims the game and blocks clicks behind the menu
         GameObject overlay = CreatePanel("SettingsOverlay", canvas.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         overlay.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
 
         GameObject box = CreatePanel("SettingsBox", overlay.transform,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 440f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 600f));
+        ((RectTransform)box.transform).pivot = new Vector2(0.5f, 0.5f);
         box.GetComponent<Image>().color = new Color(0.1f, 0.11f, 0.16f, 0.97f);
 
-        CreateText("Title", box.transform, new Vector2(0f, -22f), new Vector2(520f, 50f), "Settings", 38, TextAlignmentOptions.Center);
+        CreateText("Title", box.transform, new Vector2(0f, -22f), new Vector2(MenuWidth, 50f), "Settings", 38, TextAlignmentOptions.Center);
 
         // On the always-visible button, so Esc still works while the menu is hidden
-        SettingsMenu menu = buttonObj.AddComponent<SettingsMenu>();
+        SettingsMenu menu = openButton.gameObject.AddComponent<SettingsMenu>();
         menu.overlay = overlay;
+        menu.scaledRoot = canvas.transform;
         openButton.onClick.AddListener(menu.Open);
 
-        CreateMenuButton(box.transform, "Resume", -100f, new Color(0.25f, 0.28f, 0.36f, 0.95f), menu.Close);
-        CreateMenuButton(box.transform, "Calibrate Board", -184f, new Color(0.25f, 0.28f, 0.36f, 0.95f), menu.Calibrate);
-        Button leave = CreateMenuButton(box.transform, "Leave Match", -268f, Color.red, menu.Leave);
+        CreateMenuButton(box.transform, "Resume", -84f, MenuButtonColor, menu.Close);
+        CreateMenuButton(box.transform, "Calibrate Board", -160f, MenuButtonColor, menu.Calibrate);
+        menu.fontSlider = CreateMenuSlider(box.transform, -240f, out menu.fontLabel);
+        menu.brightnessSlider = CreateMenuSlider(box.transform, -316f, out menu.brightnessLabel);
+        menu.energyToggle = CreateMenuToggle(box.transform, "Energy (+3 a turn, Energy Blast draw)", -396f);
+        Button leave = CreateMenuButton(box.transform, "Leave Match", -456f, Color.red, menu.Leave);
         menu.leaveBackground = leave.GetComponent<Image>();
         menu.leaveLabel = leave.GetComponentInChildren<TextMeshProUGUI>();
 
-        string info = (MatchSession.IsOnline ? "Room " + MatchSession.RoomCode + "   •   " : "") + "Esc: open/close   •   C: calibrate";
-        TextMeshProUGUI infoText = CreateText("Info", box.transform, new Vector2(0f, -370f), new Vector2(520f, 40f), info, 18, TextAlignmentOptions.Center);
+        string info = (MatchSession.IsOnline ? "Room " + MatchSession.RoomCode + "   •   " : "") + "Esc: open/close   •   C: calibrate   •   L: log";
+        TextMeshProUGUI infoText = CreateText("Info", box.transform, new Vector2(0f, -540f), new Vector2(MenuWidth, 40f), info, 18, TextAlignmentOptions.Center);
         infoText.color = new Color(0.7f, 0.72f, 0.78f);
+    }
+
+    // A label with a 0-1 slider under it, 400 px wide and centered, y px down from parent's top edge
+    Slider CreateMenuSlider(Transform parent, float y, out TextMeshProUGUI label)
+    {
+        label = CreateText("SliderLabel", parent, new Vector2((MenuWidth - 400f) / 2f, y), new Vector2(400f, 30f), "", 22, TextAlignmentOptions.Left);
+
+        GameObject obj = DefaultControls.CreateSlider(new DefaultControls.Resources());
+        obj.transform.SetParent(parent, false);
+        RectTransform rt = (RectTransform)obj.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, y - 38f);
+        rt.sizeDelta = new Vector2(400f, 20f);
+
+        // Without the editor's default sprites these are plain rectangles; colored to match the menu
+        obj.transform.Find("Background").GetComponent<Image>().color = MenuButtonColor;
+        obj.transform.Find("Fill Area/Fill").GetComponent<Image>().color = new Color(0.96f, 0.76f, 0.26f);
+        obj.transform.Find("Handle Slide Area/Handle").GetComponent<Image>().color = Color.white;
+        return obj.GetComponent<Slider>();
+    }
+
+    // A tick box and its label, 400 px wide and centered, y px down from parent's top edge
+    Toggle CreateMenuToggle(Transform parent, string label, float y)
+    {
+        GameObject obj = new GameObject(label, typeof(RectTransform));
+        obj.transform.SetParent(parent, false);
+        RectTransform rt = (RectTransform)obj.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, y);
+        rt.sizeDelta = new Vector2(400f, 36f);
+
+        GameObject box = CreatePanel("Box", obj.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(32f, 32f));
+        box.GetComponent<Image>().color = new Color(0.92f, 0.93f, 0.96f);
+        GameObject check = CreatePanel("Check", box.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        Stretch((RectTransform)check.transform, new Vector2(6f, 6f), new Vector2(-6f, -6f));
+        check.GetComponent<Image>().color = new Color(0.96f, 0.76f, 0.26f);
+
+        TextMeshProUGUI text = CreateText("Label", obj.transform, new Vector2(44f, 0f), new Vector2(356f, 36f), label, 20, TextAlignmentOptions.MidlineLeft);
+        text.raycastTarget = false;
+
+        Toggle toggle = obj.AddComponent<Toggle>();
+        toggle.targetGraphic = box.GetComponent<Image>();
+        toggle.graphic = check.GetComponent<Image>();
+        return toggle;
     }
 
     // A wide button centered across the top of parent, y px down from its top edge
@@ -273,7 +562,7 @@ public class UISetup : MonoBehaviour
         return button;
     }
 
-    // Wires all overlay components to the AROverlayEventBridge
+    // Makes sure an AROverlayEventBridge exists in the scene
     void WireEventBridge()
     {
         // Reuse existing bridge if already in the scene
@@ -283,10 +572,6 @@ public class UISetup : MonoBehaviour
             GameObject bridgeObj = new GameObject("AROverlayEventBridge");
             eventBridge = bridgeObj.AddComponent<AROverlayEventBridge>();
         }
-
-        eventBridge.phaseHUD = phaseHUD;
-        eventBridge.battleOverlay = battleOverlay;
-        eventBridge.notificationOverlay = notificationOverlay;
 
         Debug.Log("[UISetup] Event bridge wired.");
     }
@@ -308,6 +593,51 @@ public class UISetup : MonoBehaviour
         rt.sizeDelta = size;
 
         return panel;
+    }
+
+    // A sidebar block across its width (8 px margins), top px down from its top edge and height px tall
+    RectTransform CreateSection(string name, Transform sidebar, float top, float height, Color color)
+    {
+        GameObject obj = CreatePanel(name, sidebar, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        Image img = obj.GetComponent<Image>();
+        img.color = color;
+        img.enabled = color.a > 0f;
+        RectTransform rt = (RectTransform)obj.transform;
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.offsetMin = new Vector2(8f, -top - height);
+        rt.offsetMax = new Vector2(-8f, -top);
+        return rt;
+    }
+
+    // Sets edges relative to the anchors: offsetMin = left/bottom, offsetMax = right/top
+    static void Stretch(RectTransform rt, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        rt.offsetMin = offsetMin;
+        rt.offsetMax = offsetMax;
+    }
+
+    // Text across its parent's width (left/right margins), top px down and height px tall
+    TextMeshProUGUI CreateStretchText(string name, Transform parent, float top, float height, float left, float right, string defaultText, int fontSize, TextAlignmentOptions alignment)
+    {
+        TextMeshProUGUI tmp = CreateText(name, parent, Vector2.zero, Vector2.zero, defaultText, fontSize, alignment);
+        RectTransform rt = tmp.rectTransform;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.offsetMin = new Vector2(left, -top - height);
+        rt.offsetMax = new Vector2(-right, -top);
+        return tmp;
+    }
+
+    // Text filling its parent
+    TextMeshProUGUI CreateFillText(string name, Transform parent, string defaultText, int fontSize, TextAlignmentOptions alignment)
+    {
+        TextMeshProUGUI tmp = CreateText(name, parent, Vector2.zero, Vector2.zero, defaultText, fontSize, alignment);
+        tmp.rectTransform.anchorMin = Vector2.zero;
+        tmp.rectTransform.anchorMax = Vector2.one;
+        tmp.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        Stretch(tmp.rectTransform, Vector2.zero, Vector2.zero);
+        return tmp;
     }
 
     // Helper that creates a TextMeshPro text object with the given settings

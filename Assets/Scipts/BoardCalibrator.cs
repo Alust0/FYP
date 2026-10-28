@@ -50,7 +50,9 @@ public class BoardCalibrator : MonoBehaviour
     Vector2 mDragStartBoard;
     Rect mDragStartRect;
 
-    string PrefsKey => "BoardCalibration_" + board.boardMode;
+    /* Per editor window too: a Multiplayer Play Mode window shares the main editor's PlayerPrefs but
+     not its camera, so one shared layout would be overwritten by whichever window saved last */
+    string PrefsKey => "BoardCalibration_" + board.boardMode + (CameraChoice.WindowId == "Main" ? "" : "." + CameraChoice.WindowId);
 
     void Awake()
     {

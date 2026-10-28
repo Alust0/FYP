@@ -33,8 +33,12 @@ public class VuforiaCardOverlayManager : MonoBehaviour
     [Header("Counter Blast")]
     [Tooltip("Seconds a damage-zone card must stay unseen before it counts as flipped face down. A hand briefly covering it shouldn't count.")]
     public float faceDownAfterSeconds = 1.5f;
+    [Tooltip("The same, when the card back is seen where the card was (CardBackTracker).")]
+    public float faceDownWithBackSeconds = 0.3f;
 
     [Header("Zone Detection")]
+    [Tooltip("On: a card is only scanned (looked up, shown and put in play) once its center is inside a zone's border; cards held in a hand or lying off the board are ignored. Off: any recognised card is scanned.")]
+    public bool scanOnlyInsideZones = true;
     [Tooltip("Seconds a card must stay over a zone before it counts as placed there, so sliding a card across the board doesn't enter every zone on the way.")]
     public float zoneSettleSeconds = 0.4f;
 
@@ -61,14 +65,16 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         public string pendingZoneKey; // zone it's over now, committed after zoneSettleSeconds
         public float pendingSince;
         public bool hasPose; // false while Vuforia has lost this target (out of view, occluded, etc.)
+        public bool insideBorder; // tracked with its center inside a zone's border this frame
         public TrackedCard duplicateOf; // the tracked target already showing this same physical card, if any
         public string cardNumber; // Cloud Reco metadata, e.g. "DZ-BT07-024"
         public bool awaitingFirstPose = true; // new match, not yet checked by CheckNewMatches
         public bool retired; // dropped as a duplicate match; kept so Cloud Reco re-matches stay ignored
+        public bool isDeckCopy; // one of several deck targets with the same picture, for identical cards
         public float lastSeenTime = float.NegativeInfinity; // Time.time of its last tracked frame
     }
 
-    // Keyed by Cloud Reco's UniqueTargetId, or "Deck_" + card number for deck targets
+    // Keyed by Cloud Reco's UniqueTargetId, or "Deck_" + card number + "#" + copy for deck targets
     readonly Dictionary<string, TrackedCard> mTrackedCards = new Dictionary<string, TrackedCard>();
 
     /* In the order their card data resolved: when several targets cover one physical card,
@@ -152,17 +158,19 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         RegisterTarget(result.UniqueTargetId, target, result.MetaData);
     }
 
-    // Called by DeckTargetLoader for each Image Target it makes from a deck card's picture
-    public void AddDeckTarget(ObserverBehaviour target, string cardNumber)
+    // Called by DeckTargetLoader for each Image Target it makes from a deck card's picture; copy numbers identical cards' targets
+    public void AddDeckTarget(ObserverBehaviour target, string cardNumber, int copy = 0)
     {
-        string key = "Deck_" + cardNumber;
+        string key = "Deck_" + cardNumber + "#" + copy;
         if (mTrackedCards.ContainsKey(key)) return;
         RegisterTarget(key, target, cardNumber);
+        mTrackedCards[key].isDeckCopy = true;
     }
 
     void RegisterTarget(string key, ObserverBehaviour target, string cardNumber)
     {
         GameObject overlay = BuildOverlay(target.transform);
+        overlay.AddComponent<OverlaySmoothing>(); // Vuforia's pose wobbles; this stops the overlay shaking with it
         CardOverlayUI ui = overlay.GetComponent<CardOverlayUI>();
 
         /* Card data is fetched by CheckNewMatches on the first tracked frame, once the pose is
@@ -197,10 +205,15 @@ public class VuforiaCardOverlayManager : MonoBehaviour
 
         foreach (TrackedCard tracked in mTrackedCards.Values)
         {
-            if (!tracked.awaitingFirstPose || !tracked.hasPose || tracked.target == null) continue;
-            tracked.awaitingFirstPose = false;
+            if (!tracked.awaitingFirstPose || !tracked.hasPose || !tracked.insideBorder || tracked.target == null) continue;
 
             TrackedCard original = cam != null ? FindCardCovering(cam, tracked) : null;
+
+            /* A spare deck copy on a card another copy already reads: it waits, still unresolved,
+             until Vuforia puts it on a second identical card somewhere else */
+            if (original != null && tracked.isDeckCopy) continue;
+
+            tracked.awaitingFirstPose = false;
             if (original != null)
             {
                 Debug.Log("[VuforiaCardOverlayManager] Ignoring " + tracked.cardNumber + ": same physical card as " + original.cardNumber);
@@ -280,13 +293,16 @@ public class VuforiaCardOverlayManager : MonoBehaviour
 
     void Update()
     {
+        Camera cam = Camera.main;
         foreach (TrackedCard tracked in mTrackedCards.Values)
+        {
             if (tracked.hasPose) tracked.lastSeenTime = Time.time;
+            tracked.insideBorder = tracked.hasPose && tracked.target != null && IsInsideBorder(tracked, cam);
+        }
 
         CheckNewMatches();
         ResolveDuplicates();
 
-        Camera cam = Camera.main;
         if (board == null || cam == null) return;
 
         foreach (TrackedCard tracked in mTrackedCards.Values)
@@ -294,30 +310,56 @@ public class VuforiaCardOverlayManager : MonoBehaviour
             if (tracked.target == null || tracked.instance == null) continue; // instance pending resolution
             if (tracked.duplicateOf != null) continue; // another target is already standing for this physical card
 
-            UpdateFacing(tracked);
+            UpdateFacing(tracked, cam);
             if (!tracked.hasPose) continue; // target currently untracked
 
-            UpdateOrientation(tracked, cam);
-            UpdateZone(tracked, cam);
+            if (tracked.insideBorder) UpdateOrientation(tracked, cam); // a card in hand isn't standing or resting
+            UpdateZone(tracked, cam); // also takes it off the board once it has left
         }
     }
 
-    /* Vuforia can't see a face-down card, so a damage card that stays unseen counts as flipped
-     (Counter Blast) and flips back face up once seen again. */
-    void UpdateFacing(TrackedCard tracked)
+    /* Vuforia can't see a face-down card's front, so a damage card that stays unseen counts as
+     flipped (Counter Blast) and flips back face up once seen again. A card back showing where it
+     was (CardBackTracker) confirms the flip, so then it needn't wait the full faceDownAfterSeconds. */
+    void UpdateFacing(TrackedCard tracked, Camera cam)
     {
         GameState gs = GameState.Instance;
         if (gs == null) return;
 
         if (tracked.hasPose)
+        {
             gs.SetFacing(tracked.instance, CardFacing.FaceUp);
-        else if (tracked.instance.zone == "Damage" && Time.time - tracked.lastSeenTime > faceDownAfterSeconds)
+            return;
+        }
+        if (tracked.instance.zone != "Damage" || tracked.instance.facing == CardFacing.FaceDown) return;
+
+        float unseen = Time.time - tracked.lastSeenTime;
+        if (unseen > faceDownAfterSeconds || (unseen > faceDownWithBackSeconds && CardBackWhereItWas(tracked, cam)))
             gs.SetFacing(tracked.instance, CardFacing.FaceDown);
+    }
+
+    // Vuforia leaves a lost target at its last pose, so that's where the card was
+    bool CardBackWhereItWas(TrackedCard tracked, Camera cam)
+    {
+        if (CardBackTracker.Instance == null || cam == null) return false;
+        Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
+        if (screen.z <= 0f) return false;
+        return CardBackTracker.Instance.IsBackAt(cam, screen, 0.5f * ScreenExtent(cam, tracked.target, screen));
     }
 
     void RefreshOverlayVisibility(TrackedCard tracked)
     {
-        tracked.overlay.SetActive(tracked.hasPose && tracked.instance != null && tracked.duplicateOf == null);
+        tracked.overlay.SetActive(tracked.hasPose && tracked.insideBorder && tracked.instance != null && tracked.duplicateOf == null);
+    }
+
+    // Whether the card's on-screen center is inside one of the board's zone borders
+    bool IsInsideBorder(TrackedCard tracked, Camera cam)
+    {
+        if (!scanOnlyInsideZones || board == null) return true;
+        if (cam == null) return false;
+
+        Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
+        return screen.z > 0f && board.ZoneAtScreenPoint(screen, cam, tracked.currentZoneKey) != null;
     }
 
     /* Several Cloud Reco targets can match one physical card (a duplicate upload, or a reprint
@@ -504,7 +546,12 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         UnityEngine.UI.Image detailBg = detailObj.AddComponent<UnityEngine.UI.Image>();
         detailBg.color = new Color(1f, 1f, 1f, 0.92f); // light so the black text reads
 
-        TextMeshProUGUI skillTitle = CreateText(detailObj.transform, "SkillTitle", new Vector2(0.04f, 0.89f), new Vector2(0.96f, 0.98f), 44, Color.black);
+        // It covers the "i" button, so a tap anywhere on it closes it; the X says so
+        Button closeBtn = detailObj.AddComponent<Button>();
+        closeBtn.targetGraphic = detailBg;
+        CreateText(detailObj.transform, "Close", new Vector2(0.88f, 0.9f), new Vector2(0.98f, 0.99f), 48, new Color(0.6f, 0.1f, 0.1f)).text = "X";
+
+        TextMeshProUGUI skillTitle = CreateText(detailObj.transform, "SkillTitle", new Vector2(0.04f, 0.89f), new Vector2(0.87f, 0.98f), 44, Color.black);
         skillTitle.enableAutoSizing = true;
         skillTitle.fontSizeMin = 24;
         skillTitle.fontSizeMax = 44;
@@ -531,6 +578,7 @@ public class VuforiaCardOverlayManager : MonoBehaviour
         /* ui.Awake() already ran (AddComponent calls it synchronously) before these fields
          were assigned, so wire the listener and initial state here. */
         toggleBtn.onClick.AddListener(ui.ToggleDetailPanel);
+        closeBtn.onClick.AddListener(ui.CloseDetailPanel);
         detailObj.SetActive(false);
 
         return canvasObj;

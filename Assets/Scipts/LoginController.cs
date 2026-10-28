@@ -60,7 +60,8 @@ public class LoginController : MonoBehaviour
             }
             else
             {
-                SetBusy(false, "");
+                SetBusy(false, AccountLock.KickMessage ?? "");
+                AccountLock.KickMessage = null;
             }
         });
     }
@@ -116,8 +117,17 @@ public class LoginController : MonoBehaviour
     async Task FinishLoginAsync()
     {
         SetBusy(true, "Connecting...");
-        if (await SignInFirebaseAsync())
-            SceneManager.LoadScene(menuSceneName);
+        if (!await SignInFirebaseAsync()) return;
+
+        // One running copy per account: refused while another copy is logged in
+        string problem = await AccountLock.ClaimAsync(PlayerSession.Id);
+        if (problem != null)
+        {
+            AuthenticationService.Instance.SignOut(); // so Login uses the typed account, not this one
+            SetBusy(false, problem);
+            return;
+        }
+        SceneManager.LoadScene(menuSceneName);
     }
 
 #if UNITY_WSA

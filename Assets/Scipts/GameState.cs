@@ -285,6 +285,7 @@ public class GameState : MonoBehaviour
     public int orderPlayedThisTurn; // limit one per turn
     public bool gameOver;
     public int orderLimit = 1;
+    public string attackTarget; // defender's circle under attack, e.g. "LeftFront"; null when there's no battle or it's not picked yet
 
     // Events that AROverlay and UI subscribe to
     public static System.Action<TurnPhase, string> OnPhaseChanged;
@@ -333,6 +334,7 @@ public class GameState : MonoBehaviour
             card.zone = zone;
         }
 
+        MatchLog.CardMoved(card, fromOwner, fromZone);
         OnCardMoved?.Invoke(card, fromOwner, fromZone);
         BroadcastState();
     }
@@ -341,6 +343,7 @@ public class GameState : MonoBehaviour
     {
         if (card.orientation == orientation) return;
         card.orientation = orientation;
+        MatchLog.CardTurned(card);
         OnCardOrientationChanged?.Invoke(card);
     }
 
@@ -348,6 +351,7 @@ public class GameState : MonoBehaviour
     public void AdjustCount(PlayerState player, string zone, int delta)
     {
         player.AdjustCount(zone, delta);
+        MatchLog.Action(player.playerName + ": " + zone + " " + delta.ToString("+0;-0") + " (now " + player.CountInZone(zone) + ")");
         CheckWinCondition();
         BroadcastState();
     }
@@ -356,6 +360,7 @@ public class GameState : MonoBehaviour
     {
         if (card.facing == facing) return;
         card.facing = facing;
+        MatchLog.CardFlipped(card);
         OnCardFacingChanged?.Invoke(card);
         BroadcastState();
     }
@@ -372,7 +377,6 @@ public class GameState : MonoBehaviour
 
         gameOver = true;
         string result = p0Loses && p1Loses ? "Draw" : (p0Loses ? players[1] : players[0]).playerName + " wins";
-        Debug.Log("GAME OVER: " + result);
         OnRuleNotice?.Invoke("Game Over", result + " — 6 damage reached.");
     }
 

@@ -20,6 +20,10 @@ public class DeckTargetLoader : MonoBehaviour
     [SerializeField] private float cardWidth = 0.063f; // Vanguard cards are 63 x 88 mm
     [SerializeField] private float cardHeight = 0.088f;
 
+    [Header("Identical Cards")]
+    [Tooltip("Targets made per card. Vuforia follows one physical card per target, so this is how many copies of the same card can be read on the board at once.")]
+    [Range(1, 4)] [SerializeField] private int copiesPerCard = 4; // a deck holds up to 4 of a card
+
     [Header("Loading Screen (optional)")]
     [SerializeField] private GameObject loadingPanel;
     [SerializeField] private TMP_Text loadingText;
@@ -106,13 +110,18 @@ public class DeckTargetLoader : MonoBehaviour
         for (int i = 0; i < cardNumbers.Count; i++)
         {
             SetText("Preparing cards " + (i + 1) + " / " + cardNumbers.Count + "...");
-            if (!CreateTarget(cardNumbers[i])) missing.Add(cardNumbers[i]);
-            yield return null; // one per frame so the loading text keeps updating
+            for (int copy = 0; copy < copiesPerCard; copy++)
+            {
+                if (CreateTarget(cardNumbers[i], copy)) continue;
+                missing.Add(cardNumbers[i]);
+                break;
+            }
+            yield return null; // one card per frame so the loading text keeps updating
         }
 
         if (missing.Count > 0)
             Debug.LogWarning("[DeckTargetLoader] No picture or target for: " + string.Join(", ", missing));
-        Debug.Log("[DeckTargetLoader] " + (cardNumbers.Count - missing.Count) + " card targets ready, from " + string.Join(" + ", deckNames) +
+        Debug.Log("[DeckTargetLoader] " + (cardNumbers.Count - missing.Count) + " cards ready (" + copiesPerCard + " targets each), from " + string.Join(" + ", deckNames) +
             ". Only these cards are recognised.");
 
         if (loadingPanel != null) loadingPanel.SetActive(false);
@@ -121,17 +130,19 @@ public class DeckTargetLoader : MonoBehaviour
         onReady?.Invoke();
     }
 
-    bool CreateTarget(string cardNumber)
+    /* Each copy is its own target with the same picture, which is Vuforia's way to follow several
+     identical cards: one target only ever follows one of them. */
+    bool CreateTarget(string cardNumber, int copy)
     {
         string path = CardImageLibrary.GetPath(cardNumber);
         if (path == null) return false;
 
         // Sideways pictures are as wide as a card is tall
         float width = CardImageLibrary.IsLandscape(path) ? cardHeight : cardWidth;
-        ImageTargetBehaviour target = VuforiaBehaviour.Instance.ObserverFactory.CreateImageTarget(path, width, cardNumber);
+        ImageTargetBehaviour target = VuforiaBehaviour.Instance.ObserverFactory.CreateImageTarget(path, width, cardNumber + "#" + copy);
         if (target == null) return false;
 
-        overlayManager.AddDeckTarget(target, cardNumber);
+        overlayManager.AddDeckTarget(target, cardNumber, copy);
         return true;
     }
 

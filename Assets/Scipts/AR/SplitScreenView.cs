@@ -5,9 +5,10 @@ using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-/* Online: both players' fields on screen. This PC's camera view shrinks into the bottom half, and
- the opponent's camera view (sent over CameraFeedLink) fills the top half, turned round as if seen
- from across the table. V switches back to this PC's view alone. Added by GameSetup when online. */
+/* Lays the camera views out left of UISetup's sidebar. Online: both players' fields, this PC's
+ camera view in the bottom half and the opponent's (sent over CameraFeedLink) in the top half,
+ turned round as if seen from across the table; V switches to this PC's view alone. Offline: this
+ PC's view alone. Added by GameSetup. */
 public class SplitScreenView : MonoBehaviour
 {
     public Key toggleKey = Key.V;
@@ -15,9 +16,19 @@ public class SplitScreenView : MonoBehaviour
     [Range(1, 100)] public int directQuality = 70;
     [Range(1, 100)] public int fallbackQuality = 40;
 
-    // Each view at half size keeps the screen's shape, so the AR overlays line up as before
-    static readonly Rect OwnView = new Rect(0.25f, 0f, 0.5f, 0.5f);
+    public const float SidebarWidth = 0.26f; // of the screen's width, on the right
+    const float Area = 1f - SidebarWidth;
+
+    /* Every view, on screen and sent, is this shape whatever the window's shape, so both players'
+     views match. Vuforia fits its camera picture to the camera's on-screen box (pixelWidth/Height),
+     so a box of another shape crops the picture rather than stretching it. */
+    const float ViewAspect = 16f / 9f;
     static readonly Rect FullView = new Rect(0f, 0f, 1f, 1f);
+
+    /* Online with both views up: where the opponent's camera picture is, as fractions of the
+     screen (origin bottom-left). It's turned round, so a point at (x, y) of their view shows at
+     (1 - x, 1 - y) of this. Null when it isn't on screen. */
+    public static Rect? OpponentView { get; private set; }
 
     CameraFeedLink mLink;
     Camera mCamera;
@@ -33,11 +44,8 @@ public class SplitScreenView : MonoBehaviour
 
     void Start()
     {
-        if (!MatchSession.IsOnline)
-        {
-            enabled = false;
-            return;
-        }
+        mSplit = MatchSession.IsOnline;
+        if (!MatchSession.IsOnline) return;
 
         mLink = gameObject.AddComponent<CameraFeedLink>();
         mIncoming = new Texture2D(2, 2);
@@ -46,17 +54,19 @@ public class SplitScreenView : MonoBehaviour
 
     void OnDestroy()
     {
+        OpponentView = null;
         if (mCamera != null) mCamera.rect = FullView;
         if (mCapture != null) mCapture.Release();
     }
 
     void Update()
     {
-        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) mSplit = !mSplit;
-
         if (mCamera == null) mCamera = Camera.main;
         if (mCamera == null) return;
         ApplyLayout();
+        if (mLink == null) return; // offline: just the layout
+
+        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) mSplit = !mSplit;
 
         byte[] frame = mLink.TakeLatest();
         if (frame != null && mIncoming.LoadImage(frame))
@@ -81,13 +91,36 @@ public class SplitScreenView : MonoBehaviour
 
     void ApplyLayout()
     {
-        Rect wanted = mSplit ? OwnView : FullView;
+        Rect wanted = ViewRect(mSplit);
         if (mCamera.rect != wanted) mCamera.rect = wanted;
 
         if (mBackdrop == null) mBackdrop = CreateBackdrop();
         mBackdrop.depth = mCamera.depth - 1;
-        mBackdrop.enabled = mSplit;
+
+        OpponentView = null;
+        if (mFeedPanel == null) return;
         mFeedPanel.SetActive(mSplit);
+        if (mSplit) OpponentView = new Rect(wanted.x, 1f - wanted.yMax, wanted.width, wanted.height);
+
+        // The opponent's view: the same box, mirrored into the top half
+        RectTransform panel = (RectTransform)mFeedPanel.transform;
+        panel.anchorMin = new Vector2(wanted.x, 1f - wanted.yMax);
+        panel.anchorMax = new Vector2(wanted.xMax, 1f - wanted.y);
+    }
+
+    /* The biggest ViewAspect box left of the sidebar, as a fraction of the screen: split, in the
+     middle of the bottom half; alone, in the middle of the area */
+    static Rect ViewRect(bool split)
+    {
+        float width = Screen.width, height = Screen.height;
+        float areaWidth = Area * width;
+        float areaHeight = split ? height * 0.5f : height;
+
+        float boxHeight = Mathf.Min(areaHeight, areaWidth / ViewAspect);
+        float boxWidth = boxHeight * ViewAspect;
+        float x = (areaWidth - boxWidth) * 0.5f;
+        float y = (areaHeight - boxHeight) * 0.5f;
+        return new Rect(x / width, y / height, boxWidth / width, boxHeight / height);
     }
 
     Camera CreateBackdrop()
@@ -103,7 +136,7 @@ public class SplitScreenView : MonoBehaviour
      texture, reads it back without stalling, and sends it as a JPEG. */
     void Capture()
     {
-        int height = Mathf.Max(1, Mathf.RoundToInt(captureWidth * (float)Screen.height / Screen.width));
+        int height = Mathf.Max(1, Mathf.RoundToInt(captureWidth / ViewAspect)); // same shape as the view on screen
         if (mCapture == null || mCapture.height != height || mCapture.width != captureWidth)
         {
             if (mCapture != null) mCapture.Release();
@@ -150,7 +183,7 @@ public class SplitScreenView : MonoBehaviour
 
         mFeedPanel = new GameObject("OpponentCamera", typeof(RectTransform));
         mFeedPanel.transform.SetParent(canvas.transform, false);
-        Stretch((RectTransform)mFeedPanel.transform, new Vector2(OwnView.x, 0.5f), new Vector2(OwnView.xMax, 1f));
+        Stretch((RectTransform)mFeedPanel.transform, new Vector2(0f, 0.5f), new Vector2(1f, 1f)); // placed by ApplyLayout
 
         GameObject feedObj = new GameObject("Feed", typeof(RectTransform));
         feedObj.transform.SetParent(mFeedPanel.transform, false);
@@ -161,7 +194,7 @@ public class SplitScreenView : MonoBehaviour
         mFeed.raycastTarget = false;
         mFitter = feedObj.AddComponent<AspectRatioFitter>();
         mFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-        mFitter.aspectRatio = 16f / 9f;
+        mFitter.aspectRatio = ViewAspect;
 
         GameObject labelObj = new GameObject("Label", typeof(RectTransform));
         labelObj.transform.SetParent(mFeedPanel.transform, false);
