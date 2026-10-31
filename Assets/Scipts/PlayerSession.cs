@@ -15,8 +15,16 @@ public static class PlayerSession
                 return "Player";
 
             string name = AuthenticationService.Instance.PlayerInfo?.Username;
-            if (string.IsNullOrEmpty(name)) name = AuthenticationService.Instance.PlayerName;
+            if (string.IsNullOrEmpty(name)) name = StripSuffix(AuthenticationService.Instance.PlayerName);
             return string.IsNullOrEmpty(name) ? "Player" : name;
         }
+    }
+
+    // "alice#1234" -> "alice"
+    public static string StripSuffix(string playerName)
+    {
+        if (string.IsNullOrEmpty(playerName)) return playerName;
+        int hash = playerName.LastIndexOf('#');
+        return hash > 0 ? playerName.Substring(0, hash) : playerName;
     }
 }

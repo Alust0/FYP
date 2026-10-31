@@ -65,7 +65,8 @@
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
         "*.sln": "*.csproj",
-        "*.slnx": "*.csproj"
+        "*.slnx": "*.csproj",
+        "*.cs": "${capture}.*.cs"
     },
     "dotnet.defaultSolution": "My project.slnx",
     "markdown-mermaid.lightModeTheme": "neutral"

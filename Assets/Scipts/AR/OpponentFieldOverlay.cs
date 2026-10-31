@@ -47,8 +47,10 @@ public class OpponentFieldOverlay : MonoBehaviour
 
         if (opponent.guardianCircle.Count > 0)
             text.AppendLine("Guard: " + opponent.guardianCircle.Count + " (shield " + opponent.guardianCircle.Sum(c => c.data.shield) + ")");
-        if (opponent.orderZone.Count > 0)
-            text.AppendLine("Orders: " + string.Join(", ", opponent.orderZone.Select(c => c.data.cardName)));
+        if (opponent.orderZone.Any(c => c.data.isOrderCard))
+            text.AppendLine("Orders: " + string.Join(", ", opponent.orderZone.Where(c => c.data.isOrderCard).Select(c => c.data.cardName)));
+        if (Prison.Imprisoned(opponent) > 0)
+            text.AppendLine("Imprisoned: " + Prison.Imprisoned(opponent));
         text.Append("Soul " + opponent.CountInZone("Soul") + "   Damage " + opponent.CountInZone("Damage") + " (CB " + opponent.FaceUpDamage + ")");
 
         fieldText.text = text.ToString();

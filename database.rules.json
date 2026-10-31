@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["status"]
+    },
+    "sessions": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

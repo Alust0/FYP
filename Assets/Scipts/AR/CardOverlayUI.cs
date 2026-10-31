@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -66,26 +67,44 @@ public class CardOverlayUI : MonoBehaviour
 
     /* Once opened, the detail panel turns to match the camera, so it sits upright on screen
      whichever way the card lies. Looking at the camera with world up instead made it spin: an
-     overhead camera looks along world up, which leaves that rotation undefined. */
+     overhead camera looks along world up, which leaves that rotation undefined. With the view
+     turned a quarter anticlockwise (RotatedView), it's laid a quarter clockwise to read upright. */
     void LateUpdate()
     {
         if (!mDetailOpen || detailPanel == null) return;
 
         Camera cam = Camera.main;
-        if (cam != null) detailPanel.transform.rotation = cam.transform.rotation;
+        if (cam != null)
+            detailPanel.transform.rotation = cam.transform.rotation * Quaternion.Euler(0f, 0f, RotatedView.Turned ? -90f : 0f);
     }
+
+    void OnDestroy() => sOpen.Remove(this);
 
     public void ToggleDetailPanel()
     {
         CardInfoPanel.Instance?.Show(mData); // the sidebar shows it too
         mDetailOpen = !mDetailOpen;
         detailPanel?.SetActive(mDetailOpen);
+        if (mDetailOpen) sOpen.Add(this);
+        else sOpen.Remove(this);
     }
 
     public void CloseDetailPanel()
     {
         mDetailOpen = false;
         detailPanel?.SetActive(false);
+        sOpen.Remove(this);
+    }
+
+    static readonly List<CardOverlayUI> sOpen = new List<CardOverlayUI>(); // detail panels open now
+
+    /* The detail panels are this player's own, so SplitScreenView hides them while it draws the
+     picture the opponent gets, and shows them again straight after */
+    public static void HideOpenPanels(bool hide)
+    {
+        sOpen.RemoveAll(ui => ui == null);
+        foreach (CardOverlayUI ui in sOpen)
+            if (ui.detailPanel != null) ui.detailPanel.SetActive(!hide);
     }
 
     // Populates all UI fields from a CardData asset
@@ -165,9 +184,15 @@ public class CardOverlayUI : MonoBehaviour
     // Skill markers like [AUTO] or [ACT] in bold blue, so each skill's start stands out
     public static string FormatSkill(string text, string markerColor = "#1f4fa8")
     {
-        string safe = text.Replace("<", "<noparse><</noparse>"); // card text isn't markup
+        string safe = ReadableJa(text).Replace("<", "<noparse><</noparse>"); // card text isn't markup
         return Regex.Replace(safe, @"\[[^\]]{1,20}\]", m => "<b><color=" + markerColor + ">" + m.Value + "</color></b>");
     }
+
+    /* The Noto Sans JP font asset has no Japanese brackets or commas (they show as boxes), so they're
+     swapped for plain ones; 【自】 becomes [自], which FormatSkill then marks like [AUTO] */
+    public static string ReadableJa(string text) => string.IsNullOrEmpty(text) ? text : text
+        .Replace('【', '[').Replace('】', ']').Replace('「', '"').Replace('」', '"')
+        .Replace('『', '"').Replace('』', '"').Replace('、', ',').Replace('。', '.').Replace('　', ' ');
 
     // Updates the power display with color coding for modifiers
     public void UpdatePower(int basePower, int modifier)

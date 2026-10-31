@@ -80,6 +80,8 @@ namespace Vanguard.Api
 
             // Prefer English translated effect if present, otherwise fallback to Japanese
             card.abilityText = !string.IsNullOrEmpty(effect_en) ? effect_en : (!string.IsNullOrEmpty(effect) ? effect : "");
+            card.abilityTextJa = effect ?? ""; // skills are parsed from this: its wording is more consistent
+            card.raceJa = race;
 
             // Deduce Card Type
             if (!string.IsNullOrEmpty(type))

@@ -8,8 +8,8 @@ using UnityEngine.UI;
 /* Lays the camera views out left of UISetup's sidebar. Online: both players' fields, this PC's
  camera view in the bottom half and the opponent's (sent over CameraFeedLink) in the top half,
  turned round as if seen from across the table; V switches to this PC's view alone. Offline: this
- PC's view alone. Added by GameSetup. */
-public class SplitScreenView : MonoBehaviour
+ PC's view alone. Added by GameSetup. Its UI is built in SplitScreenView.UI.cs. */
+public partial class SplitScreenView : MonoBehaviour
 {
     public Key toggleKey = Key.V;
     public int captureWidth = 640;
@@ -23,6 +23,7 @@ public class SplitScreenView : MonoBehaviour
      views match. Vuforia fits its camera picture to the camera's on-screen box (pixelWidth/Height),
      so a box of another shape crops the picture rather than stretching it. */
     const float ViewAspect = 16f / 9f;
+    const float LabelHeight = 34f; // the opponent's name strip
     static readonly Rect FullView = new Rect(0f, 0f, 1f, 1f);
 
     /* Online with both views up: where the opponent's camera picture is, as fractions of the
@@ -30,7 +31,11 @@ public class SplitScreenView : MonoBehaviour
      (1 - x, 1 - y) of this. Null when it isn't on screen. */
     public static Rect? OpponentView { get; private set; }
 
+    // Both views together (or this PC's alone), as fractions of the screen, for RotatedView to turn
+    public static Rect ViewsArea { get; private set; } = new Rect(0f, 0f, Area, 1f);
+
     CameraFeedLink mLink;
+    BoardLayout mBoard;
     Camera mCamera;
     Camera mBackdrop; // clears the screen around the two views
     GameObject mFeedPanel;
@@ -98,6 +103,8 @@ public class SplitScreenView : MonoBehaviour
         mBackdrop.depth = mCamera.depth - 1;
 
         OpponentView = null;
+        bool split = mFeedPanel != null && mSplit;
+        ViewsArea = split ? new Rect(wanted.x, wanted.y, wanted.width, 1f - 2f * wanted.y) : wanted; // the two boxes, mirrored about the middle
         if (mFeedPanel == null) return;
         mFeedPanel.SetActive(mSplit);
         if (mSplit) OpponentView = new Rect(wanted.x, 1f - wanted.yMax, wanted.width, wanted.height);
@@ -106,6 +113,21 @@ public class SplitScreenView : MonoBehaviour
         RectTransform panel = (RectTransform)mFeedPanel.transform;
         panel.anchorMin = new Vector2(wanted.x, 1f - wanted.yMax);
         panel.anchorMax = new Vector2(wanted.xMax, 1f - wanted.y);
+        PlaceLabel(panel);
+    }
+
+    /* Across the panel's top; with RotatedView's view turned, down its right edge a quarter turn
+     clockwise instead, which the turn puts across the top again, upright */
+    void PlaceLabel(RectTransform panel)
+    {
+        RectTransform label = mLabel.rectTransform;
+        bool turned = GameSettings.RotateView;
+        label.anchorMin = turned ? new Vector2(1f, 0.5f) : new Vector2(0f, 1f);
+        label.anchorMax = turned ? new Vector2(1f, 0.5f) : new Vector2(1f, 1f);
+        label.pivot = turned ? new Vector2(0.5f, 0.5f) : new Vector2(0.5f, 1f);
+        label.localEulerAngles = new Vector3(0f, 0f, turned ? -90f : 0f);
+        label.anchoredPosition = turned ? new Vector2(-LabelHeight * 0.5f, 0f) : Vector2.zero;
+        label.sizeDelta = turned ? new Vector2(panel.rect.height, LabelHeight) : new Vector2(0f, LabelHeight);
     }
 
     /* The biggest ViewAspect box left of the sidebar, as a fraction of the screen: split, in the
@@ -143,18 +165,28 @@ public class SplitScreenView : MonoBehaviour
             mCapture = new RenderTexture(captureWidth, height, 24);
         }
 
+        /* The zone labels as the opponent reads them: their PC shows this picture turned round,
+         and a quarter turn anticlockwise more if their view is turned (RotatedView) */
+        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
+        int ownAngle = mBoard != null ? mBoard.LabelAngle : 0;
+        if (mBoard != null) mBoard.SetLabelAngle(OnlineMatch.OpponentTurned ? 90 : 180);
+
         Rect rect = mCamera.rect;
         mCamera.rect = FullView;
+        CardOverlayUI.HideOpenPanels(true); // a card's detail panel is only for this player
         var request = new RenderPipeline.StandardRequest { destination = mCapture };
         if (RenderPipeline.SupportsRenderRequest(mCamera, request))
             RenderPipeline.SubmitRenderRequest(mCamera, request);
         else
         {
+            RenderTexture target = mCamera.targetTexture;
             mCamera.targetTexture = mCapture;
             mCamera.Render();
-            mCamera.targetTexture = null;
+            mCamera.targetTexture = target;
         }
+        CardOverlayUI.HideOpenPanels(false);
         mCamera.rect = rect;
+        if (mBoard != null) mBoard.SetLabelAngle(ownAngle);
 
         mReadingBack = true;
         int quality = mLink.Direct ? directQuality : fallbackQuality;
@@ -167,55 +199,5 @@ public class SplitScreenView : MonoBehaviour
                 (uint)width, (uint)height, 0, quality);
             mLink.Send(jpeg);
         });
-    }
-
-    // Top half of the screen, under the HUD's canvas
-    void BuildFeedPanel()
-    {
-        GameObject canvasObj = new GameObject("OpponentCameraCanvas");
-        Canvas canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = -10;
-        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080);
-        scaler.matchWidthOrHeight = 0.5f;
-
-        mFeedPanel = new GameObject("OpponentCamera", typeof(RectTransform));
-        mFeedPanel.transform.SetParent(canvas.transform, false);
-        Stretch((RectTransform)mFeedPanel.transform, new Vector2(0f, 0.5f), new Vector2(1f, 1f)); // placed by ApplyLayout
-
-        GameObject feedObj = new GameObject("Feed", typeof(RectTransform));
-        feedObj.transform.SetParent(mFeedPanel.transform, false);
-        Stretch((RectTransform)feedObj.transform, Vector2.zero, Vector2.one);
-        mFeed = feedObj.AddComponent<RawImage>();
-        mFeed.color = new Color(0.08f, 0.08f, 0.1f);
-        mFeed.uvRect = new Rect(1f, 1f, -1f, -1f); // turned round: their side faces yours
-        mFeed.raycastTarget = false;
-        mFitter = feedObj.AddComponent<AspectRatioFitter>();
-        mFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-        mFitter.aspectRatio = ViewAspect;
-
-        GameObject labelObj = new GameObject("Label", typeof(RectTransform));
-        labelObj.transform.SetParent(mFeedPanel.transform, false);
-        RectTransform label = (RectTransform)labelObj.transform;
-        Stretch(label, new Vector2(0f, 1f), new Vector2(1f, 1f));
-        label.pivot = new Vector2(0.5f, 1f);
-        label.sizeDelta = new Vector2(0f, 34f);
-        mLabel = labelObj.AddComponent<TextMeshProUGUI>();
-        mLabel.fontSize = 20;
-        mLabel.alignment = TextAlignmentOptions.Center;
-        mLabel.color = Color.white;
-        mLabel.outlineWidth = 0.2f;
-        mLabel.outlineColor = Color.black;
-        mLabel.raycastTarget = false;
-    }
-
-    static void Stretch(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax)
-    {
-        rect.anchorMin = anchorMin;
-        rect.anchorMax = anchorMax;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
     }
 }

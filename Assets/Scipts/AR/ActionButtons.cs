@@ -4,8 +4,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /* The battle's voice keywords as buttons, for when voice isn't working: only the ones the
- situation calls for, in a sidebar row (UISetup). Picking an attack target, the defender's guard
- or no guard, the attacker's drive check, the defender's damage check; in the Main Phase, the
+ situation calls for, in a sidebar row (UISetup). First an [AUTO] skill's Activate / Skip / Later
+ (SkillRules), or the step a used skill waits on (Done / Skip step, or which cost to pay), then picking an attack target, the defender's guard or no guard, the attacker's
+ drive check, the defender's damage check; in the Main Phase, ready [ACT] skills and the
  Energy Blast draw (RulesEngine.EnergyDraw). A keyword button press goes
  through VoiceCommands like the spoken keyword, so it shows and reaches the other PC the same way.
  Online only this PC's player gets buttons; on one PC both players' do. */
@@ -16,6 +17,7 @@ public class ActionButtons : MonoBehaviour
     const string HealedFaceUp = "healed face up", HealedFaceDown = "healed face down";
     const string KeepTrigger = "keep trigger"; // and to leave a trigger's bonuses where they are
     const string EnergyDraw = "energy draw";
+    const string LaterSkill = "later skill"; // ask about the next [AUTO] first
 
     readonly Button[] mButtons = new Button[MaxButtons];
     readonly TextMeshProUGUI[] mLabels = new TextMeshProUGUI[MaxButtons];
@@ -86,6 +88,7 @@ public class ActionButtons : MonoBehaviour
         else if (phrase == HealedFaceDown) mRules?.SetHealedFacing(true);
         else if (phrase == KeepTrigger) mRules?.KeepPicks();
         else if (phrase == EnergyDraw) mRules?.EnergyDraw();
+        else if (phrase == LaterSkill) mRules?.Skills?.Later();
         else if (phrase != null) VoiceCommands.Instance?.Press(phrase);
     }
 
@@ -94,10 +97,44 @@ public class ActionButtons : MonoBehaviour
     {
         var actions = new List<(string, string)>();
         GameState gs = GameState.Instance;
-        if (mRules == null || gs == null || gs.players[0] == null) return actions;
+        if (mRules == null || mRules.Skills == null || gs == null || gs.players[0] == null) return actions;
 
+        // An [AUTO] skill to answer comes before anything else, in any phase
+        SkillRules skills = mRules.Skills;
+        if (skills.Busy)
+        {
+            if (MatchSession.IsLocal(skills.PromptOwner))
+            {
+                actions.Add(("Activate" + (skills.PromptCost.Length > 0 ? "\n" + skills.PromptCost : ""), "activate skill"));
+                actions.Add(("Skip", "skip skill"));
+                if (skills.PromptCount > 1) actions.Add(("Later", LaterSkill));
+            }
+            return actions;
+        }
+
+        // A used skill's step waiting: which cost to pay, or done / skip
+        if (skills.Stepping)
+        {
+            if (!MatchSession.IsLocal(skills.PromptOwner)) return actions;
+            ChoiceCost choice = skills.ChoiceDue;
+            if (choice != null)
+            {
+                actions.Add(("Pay\n" + choice.Options[0].ShortText, "pay first"));
+                if (choice.Options.Count > 1) actions.Add(("Pay\n" + choice.Options[1].ShortText, "pay second"));
+            }
+            else
+            {
+                actions.Add(("Done", "skill done"));
+                actions.Add(("Skip step", "skip step"));
+            }
+            return actions;
+        }
+
+        // [ACT] skills ready to use, then the Energy Blast draw
         if (gs.currentPhase == TurnPhase.MainPhase)
         {
+            foreach ((CardInstance card, Skill skill) in skills.ReadyActs())
+                actions.Add((card.data.cardName + "\n[ACT]" + (skill.Costs.Count > 0 ? " " + skill.ShortCostText : ""), VoiceCommands.ActivatePhrase(card.zone)));
             if (mRules.CanEnergyDraw) actions.Add(("Energy Blast " + RulesEngine.EnergyDrawCost + ":\nDraw 1", EnergyDraw));
             return actions;
         }

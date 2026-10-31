@@ -6,9 +6,9 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/* In-game Settings: opened by the Settings button or Esc. Resume, Calibrate Board (BoardCalibrator),
- text size, camera brightness, the Energy feature on or off (GameSettings), and Leave Match back to
- the menu, which needs a second tap so it isn't hit by accident. Online, leaving tells the opponent
+/* In-game Settings: opened by the Settings button or Esc, closed by its X or Esc. Resume, Calibrate
+ Board (BoardCalibrator), text size (GameSettings), camera brightness, and Leave Match back to the
+ menu, which needs a second tap so it isn't hit by accident. Online, leaving tells the opponent
  (OnlineMatch marks the room closed). Built by UISetup. */
 public class SettingsMenu : MonoBehaviour
 {
@@ -22,7 +22,7 @@ public class SettingsMenu : MonoBehaviour
     public TextMeshProUGUI fontLabel;
     public Slider brightnessSlider;
     public TextMeshProUGUI brightnessLabel;
-    public Toggle energyToggle;
+    public TextMeshProUGUI infoText; // room, voice status and the shortcut keys
 
     const float ConfirmSeconds = 3f;
     static readonly Color LeaveColor = new Color(0.55f, 0.15f, 0.15f, 0.95f);
@@ -51,9 +51,6 @@ public class SettingsMenu : MonoBehaviour
             ShowBrightness(true);
         });
 
-        energyToggle.SetIsOnWithoutNotify(GameSettings.EnergyEnabled);
-        energyToggle.onValueChanged.AddListener(on => GameSettings.EnergyEnabled = on);
-
         Close();
     }
 
@@ -71,6 +68,16 @@ public class SettingsMenu : MonoBehaviour
             if (overlay.activeSelf) Close();
             else Open();
         }
+
+        // Every frame while open, so muting with M shows straight away
+        if (overlay.activeSelf) infoText.text = InfoText();
+    }
+
+    static string InfoText()
+    {
+        string voice = VoiceCommands.Instance != null ? VoiceCommands.Instance.Status : "Voice: off";
+        string mode = MatchSession.IsOnline ? "Room " + MatchSession.RoomCode + "   •   " : MatchSession.IsSolo ? "Solo test   •   " : "";
+        return mode + voice + "   •   C: calibrate   •   L: log";
     }
 
     public void Open()

@@ -30,7 +30,8 @@ public class UISetup : MonoBehaviour
             return;
         }
 
-        gameObject.AddComponent<MatchLog>(); // first, so it catches the match from its first phase
+        gameObject.AddComponent<MatchLogger>(); // first, so it catches the match from its first phase
+        gameObject.AddComponent<MatchTimer>(); // the match's time, and the lobby's time limit
 
         CreateCanvas();
         CreateBattlePanel();
@@ -111,19 +112,29 @@ public class UISetup : MonoBehaviour
         sectionObj.AddComponent<ActionButtons>().Build(section, hint);
     }
 
-    // Next Phase across most of the row, then Draw, Settings and Match Log at its right end
+    // Next Phase across most of the row, then Undo, Draw, Settings and Match Log at its right end
     void CreateButtonRow(Transform sidebar, float top, float height)
     {
         RectTransform row = CreateSection("ButtonRow", sidebar, top, height, Color.clear);
 
         // Ends the current phase; Space and saying "next phase" do the same
         GameObject nextBtnObj = CreatePanel("NextPhaseButton", row, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        Stretch((RectTransform)nextBtnObj.transform, Vector2.zero, new Vector2(-268f, 0f));
+        Stretch((RectTransform)nextBtnObj.transform, Vector2.zero, new Vector2(-364f, 0f));
         nextBtnObj.GetComponent<Image>().color = new Color(0.85f, 0.87f, 0.92f, 0.95f);
         Button nextBtn = nextBtnObj.AddComponent<Button>();
         nextBtn.onClick.AddListener(() => FindFirstObjectByType<RulesEngine>()?.AdvancePhase());
         TextMeshProUGUI nextLabel = CreateFillText("Label", nextBtnObj.transform, "Next Phase  >", 26, TextAlignmentOptions.Center);
         nextLabel.color = new Color(0.08f, 0.09f, 0.13f);
+
+        // Steps the referee back before its last change (RulesEngine.Undo); Ctrl+Z does the same
+        GameObject undoObj = CreatePanel("UndoButton", row, new Vector2(1f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        RectTransform undoRT = (RectTransform)undoObj.transform;
+        undoRT.pivot = new Vector2(1f, 0.5f);
+        undoRT.offsetMin = new Vector2(-356f, 0f);
+        undoRT.offsetMax = new Vector2(-268f, 0f);
+        undoObj.GetComponent<Image>().color = ButtonColor;
+        undoObj.AddComponent<Button>().onClick.AddListener(() => FindFirstObjectByType<RulesEngine>()?.Undo());
+        CreateFillText("Label", undoObj.transform, "Undo", 22, TextAlignmentOptions.Center);
 
         // Draws outside the Draw Phase, e.g. from a skill; saying "draw card" does the same
         GameObject drawObj = CreatePanel("DrawButton", row, new Vector2(1f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
@@ -198,7 +209,9 @@ public class UISetup : MonoBehaviour
         TextMeshProUGUI turnPlayerText = CreateStretchText("TurnPlayerText", section, 46f, 32f, 12f, 12f, "Player 1 (Turn 1)", 20, TextAlignmentOptions.Left);
         turnPlayerText.color = new Color(0.95f, 0.85f, 0.2f); // yellow turn indicator
 
-        TextMeshProUGUI waitingText = CreateStretchText("WaitingText", section, 8f, 72f, 230f, 12f, "", 17, TextAlignmentOptions.TopRight);
+        // With a time limit, the time left takes the top of the waiting text's corner
+        float waitingTop = MatchTimer.HasLimit ? 34f : 8f;
+        TextMeshProUGUI waitingText = CreateStretchText("WaitingText", section, waitingTop, 80f - waitingTop, 230f, 12f, "", 17, TextAlignmentOptions.TopRight);
         waitingText.color = new Color(1f, 0.6f, 0.35f);
         waitingText.enableAutoSizing = true;
         waitingText.fontSizeMin = 11;
@@ -206,7 +219,9 @@ public class UISetup : MonoBehaviour
 
         phaseHUD = section.gameObject.AddComponent<PhaseHUDOverlay>();
         phaseHUD.waitingText = waitingText;
-        if (MatchSession.IsOnline) phaseHUD.sideLabels = new string[0]; // players aren't on a left/right side of one board
+        if (MatchTimer.HasLimit)
+            phaseHUD.timerText = CreateStretchText("TimerText", section, 8f, 24f, 230f, 12f, "", 20, TextAlignmentOptions.TopRight);
+        if (MatchSession.IsOneSide) phaseHUD.sideLabels = new string[0]; // players aren't on a left/right side of one board
 
         for (int player = 0; player < 2; player++)
         {
@@ -388,7 +403,7 @@ public class UISetup : MonoBehaviour
         viewportRT.anchorMax = Vector2.one;
         Stretch(viewportRT, new Vector2(16f, 12f), new Vector2(-16f, -60f));
 
-        TextMeshProUGUI list = CreateText("List", viewportRT, Vector2.zero, Vector2.zero, "", 18, TextAlignmentOptions.TopLeft);
+        TextMeshProUGUI list = CreateText("List", viewportRT, Vector2.zero, Vector2.zero, "", 23, TextAlignmentOptions.TopLeft);
         list.richText = false; // notices are plain text
         RectTransform listRT = list.rectTransform;
         listRT.anchorMin = new Vector2(0f, 1f);
@@ -481,7 +496,7 @@ public class UISetup : MonoBehaviour
         overlay.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
 
         GameObject box = CreatePanel("SettingsBox", overlay.transform,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 600f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 540f));
         ((RectTransform)box.transform).pivot = new Vector2(0.5f, 0.5f);
         box.GetComponent<Image>().color = new Color(0.1f, 0.11f, 0.16f, 0.97f);
 
@@ -493,18 +508,53 @@ public class UISetup : MonoBehaviour
         menu.scaledRoot = canvas.transform;
         openButton.onClick.AddListener(menu.Open);
 
+        CreateCornerIcon(box.transform, "Close", true).onClick.AddListener(menu.Close);
+        CreateCornerIcon(box.transform, "Rotate", false, new Color(0.85f, 0.87f, 0.92f, 0.95f))
+            .onClick.AddListener(() => GameSettings.RotateView = !GameSettings.RotateView);
+        new GameObject("RotatedView").AddComponent<RotatedView>();
+
         CreateMenuButton(box.transform, "Resume", -84f, MenuButtonColor, menu.Close);
         CreateMenuButton(box.transform, "Calibrate Board", -160f, MenuButtonColor, menu.Calibrate);
         menu.fontSlider = CreateMenuSlider(box.transform, -240f, out menu.fontLabel);
         menu.brightnessSlider = CreateMenuSlider(box.transform, -316f, out menu.brightnessLabel);
-        menu.energyToggle = CreateMenuToggle(box.transform, "Energy (+3 a turn, Energy Blast draw)", -396f);
-        Button leave = CreateMenuButton(box.transform, "Leave Match", -456f, Color.red, menu.Leave);
+        Button leave = CreateMenuButton(box.transform, "Leave Match", -396f, Color.red, menu.Leave);
         menu.leaveBackground = leave.GetComponent<Image>();
         menu.leaveLabel = leave.GetComponentInChildren<TextMeshProUGUI>();
 
-        string info = (MatchSession.IsOnline ? "Room " + MatchSession.RoomCode + "   •   " : "") + "Esc: open/close   •   C: calibrate   •   L: log";
-        TextMeshProUGUI infoText = CreateText("Info", box.transform, new Vector2(0f, -540f), new Vector2(MenuWidth, 40f), info, 18, TextAlignmentOptions.Center);
-        infoText.color = new Color(0.7f, 0.72f, 0.78f);
+        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -480f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
+        menu.infoText.color = new Color(0.7f, 0.72f, 0.78f);
+    }
+
+    /* A 48 px StreamingAssets/Icons/<icon>.png button in the top right (or left) corner of parent,
+     on a tile of background if given (e.g. for a dark icon), or the icon's name on a plain button
+     if there's no such file */
+    Button CreateCornerIcon(Transform parent, string icon, bool right, Color? background = null)
+    {
+        Vector2 corner = new Vector2(right ? 1f : 0f, 1f);
+        GameObject obj = CreatePanel(icon + "Button", parent, corner, corner, new Vector2(right ? -14f : 14f, -14f), new Vector2(48f, 48f));
+        Image image = obj.GetComponent<Image>();
+        Button button = obj.AddComponent<Button>();
+
+        Sprite sprite = LoadIcon(icon);
+        if (sprite == null)
+        {
+            image.color = MenuButtonColor;
+            CreateFillText("Label", obj.transform, icon, 14, TextAlignmentOptions.Center);
+            return button;
+        }
+
+        if (background is Color tile)
+        {
+            image.color = tile;
+            GameObject iconObj = CreatePanel("Icon", obj.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Stretch((RectTransform)iconObj.transform, new Vector2(8f, 8f), new Vector2(-8f, -8f));
+            image = iconObj.GetComponent<Image>();
+            image.raycastTarget = false;
+        }
+        image.sprite = sprite;
+        image.color = Color.white;
+        image.preserveAspect = true;
+        return button;
     }
 
     // A label with a 0-1 slider under it, 400 px wide and centered, y px down from parent's top edge
@@ -524,31 +574,6 @@ public class UISetup : MonoBehaviour
         obj.transform.Find("Fill Area/Fill").GetComponent<Image>().color = new Color(0.96f, 0.76f, 0.26f);
         obj.transform.Find("Handle Slide Area/Handle").GetComponent<Image>().color = Color.white;
         return obj.GetComponent<Slider>();
-    }
-
-    // A tick box and its label, 400 px wide and centered, y px down from parent's top edge
-    Toggle CreateMenuToggle(Transform parent, string label, float y)
-    {
-        GameObject obj = new GameObject(label, typeof(RectTransform));
-        obj.transform.SetParent(parent, false);
-        RectTransform rt = (RectTransform)obj.transform;
-        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0f, y);
-        rt.sizeDelta = new Vector2(400f, 36f);
-
-        GameObject box = CreatePanel("Box", obj.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(32f, 32f));
-        box.GetComponent<Image>().color = new Color(0.92f, 0.93f, 0.96f);
-        GameObject check = CreatePanel("Check", box.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        Stretch((RectTransform)check.transform, new Vector2(6f, 6f), new Vector2(-6f, -6f));
-        check.GetComponent<Image>().color = new Color(0.96f, 0.76f, 0.26f);
-
-        TextMeshProUGUI text = CreateText("Label", obj.transform, new Vector2(44f, 0f), new Vector2(356f, 36f), label, 20, TextAlignmentOptions.MidlineLeft);
-        text.raycastTarget = false;
-
-        Toggle toggle = obj.AddComponent<Toggle>();
-        toggle.targetGraphic = box.GetComponent<Image>();
-        toggle.graphic = check.GetComponent<Image>();
-        return toggle;
     }
 
     // A wide button centered across the top of parent, y px down from its top edge

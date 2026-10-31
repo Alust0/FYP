@@ -119,6 +119,1813 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &91332771
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 91332775}
+  - component: {fileID: 91332774}
+  - component: {fileID: 91332773}
+  - component: {fileID: 91332772}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &91332772
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91332771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &91332773
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91332771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &91332774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91332771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: d426335059983d49524e6667819f4528889020b8
+  SecretKey: 5f49858b6279022dc32cef1d7238ca18311bffbc
+--- !u!4 &91332775
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 91332771}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &182875011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1091091075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 7f23050a23514f7e90aabec33ae3502b1f5dc595
+  SecretKey: 004cee0aae28bfb4bad49323986011c79788430b
+--- !u!114 &187830542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1125923733}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &201878828
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1634897925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: cd2f9e637ae113d2d59064a8b115e09633f55731
+  SecretKey: d4098f29a09e29d3a07e872480515f6b02254828
+--- !u!1 &229698495
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 229698499}
+  - component: {fileID: 229698498}
+  - component: {fileID: 229698497}
+  - component: {fileID: 229698496}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &229698496
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 229698495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &229698497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 229698495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &229698498
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 229698495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: c45cd809bc235dd7210157263f787686f8069693
+  SecretKey: de95175752e6617d2a1f8c34a3976ade230a871e
+--- !u!4 &229698499
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 229698495}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &245061412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031516701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!1 &326904460
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1663853609}
+  - component: {fileID: 669727105}
+  - component: {fileID: 950193601}
+  - component: {fileID: 361342510}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 12
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &361342510
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 326904460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!1 &400075244
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 400075246}
+  - component: {fileID: 400075245}
+  m_Layer: 0
+  m_Name: DeckBuilder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &400075245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 400075244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0eeb59362c6941d41bd73323b3250c5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeckBuilder
+  menuSceneName: Menu
+  scanner: {fileID: 0}
+  maxCopies: 4
+  deckSize: 50
+  pageSize: 60
+--- !u!4 &400075246
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 400075244}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 871.06805, y: 613.09515, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &424666246
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1072616528}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &523494973
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1850000134}
+  - component: {fileID: 2109535312}
+  - component: {fileID: 762162685}
+  - component: {fileID: 681556879}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 7
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &586579715
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1634897925}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &669727105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 326904460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 8ea90de6de276e7bc59bde62d7f9cf15116a7271
+  SecretKey: dc04cf97862564b473ab7d56a4b271c4b9f5d331
+--- !u!114 &674454677
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1072616528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &681556879
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 523494973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &698719471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1728484143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &703750256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016983215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &725801874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1072616528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 0479866e02596fee550036907cc189244ada6000
+  SecretKey: 57b09d30fc5c4660d5ee2772f8ef1966469a3206
+--- !u!1 &726107120
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1102707368}
+  - component: {fileID: 2121825301}
+  - component: {fileID: 1779695984}
+  - component: {fileID: 998969723}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 15
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &762162685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 523494973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!4 &765536158
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016983215}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &769179883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1125923733}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 5e895bdc9a7681066111ca98e8506995b63fde91
+  SecretKey: 8f954fa4027d1a7eddba4f88ae8b2d57eeeca0b5
+--- !u!1 &783851678
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 783851685}
+  - component: {fileID: 783851684}
+  - component: {fileID: 783851683}
+  - component: {fileID: 783851682}
+  - component: {fileID: 783851681}
+  - component: {fileID: 783851680}
+  - component: {fileID: 783851679}
+  m_Layer: 0
+  m_Name: ARCamera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &783851679
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f03f780636e0cb144b15e8a328ff9170, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UpgradeCameraQuality
+--- !u!114 &783851680
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 2
+  m_RequiresOpaqueTextureOption: 2
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 0}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 0
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 1
+  m_AllowHDROutput: 1
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_TaaSettings:
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
+--- !u!114 &783851681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c47f92041efbb4b429a4eafca855ebe3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: VuforiaScripts::DefaultInitializationErrorHandler
+--- !u!114 &783851682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1826476478, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.VuforiaBehaviour
+  mWorldCenterMode: 2
+  mWorldCenter: {fileID: 0}
+--- !u!81 &783851683
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  m_Enabled: 0
+--- !u!20 &783851684
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.05
+  far clip plane: 2000
+  field of view: 60
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 1
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 0
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &783851685
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 783851678}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &789337667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1358728507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &891541555
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1091091075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &950193601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 326904460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &998969723
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726107120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!4 &1002146743
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341171092}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1016983215
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 765536158}
+  - component: {fileID: 1354335789}
+  - component: {fileID: 703750256}
+  - component: {fileID: 1657173682}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 8
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!1 &1031516701
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1748580990}
+  - component: {fileID: 1073256059}
+  - component: {fileID: 1894470371}
+  - component: {fileID: 245061412}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1049538865
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1773582406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!1 &1072616528
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 424666246}
+  - component: {fileID: 725801874}
+  - component: {fileID: 674454677}
+  - component: {fileID: 1281642201}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 13
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1073256059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031516701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 420835ed8a2dac708574aea55cdd99305436a225
+  SecretKey: 27cd7b589ddcc0354c2624e474748d1b35c13f11
+--- !u!1 &1091091075
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1284782510}
+  - component: {fileID: 182875011}
+  - component: {fileID: 891541555}
+  - component: {fileID: 1530518675}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 9
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1094375343
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341171092}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!4 &1102707368
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726107120}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1125923733
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1568716266}
+  - component: {fileID: 769179883}
+  - component: {fileID: 187830542}
+  - component: {fileID: 1925143693}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 17
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1190738355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1658850607}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 0494e0adc0d4fe62b890333e73faf365de89409a
+  SecretKey: d77a043e865bf010657dcdb198c7f475e3877873
+--- !u!4 &1211838220
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1773582406}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1281642201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1072616528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!4 &1284782510
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1091091075}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1323264929
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1358728507}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1341171092
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1002146743}
+  - component: {fileID: 2067239655}
+  - component: {fileID: 1094375343}
+  - component: {fileID: 1758589013}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 16
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1354335789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016983215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 63df529738ecab53d042d774591068c865a2a093
+  SecretKey: 4d249a5b2df75761fd63752197127baaf5855be0
+--- !u!1 &1358728507
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1323264929}
+  - component: {fileID: 1883400961}
+  - component: {fileID: 1587471311}
+  - component: {fileID: 789337667}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 11
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1370441168
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1658850607}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1411791796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1728484143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &1415343918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1773582406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 1753062cacb9fe7b61321d0074b17cc40aec5f94
+  SecretKey: e89871b9b7cd1bca9c7edc000544d5a14b8a293d
+--- !u!114 &1530518675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1091091075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!4 &1568716266
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1125923733}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1587471311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1358728507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!1 &1634897925
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 586579715}
+  - component: {fileID: 201878828}
+  - component: {fileID: 1705767518}
+  - component: {fileID: 1655751636}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 14
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1655751636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1634897925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &1657173682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016983215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!1 &1658850607
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1370441168}
+  - component: {fileID: 1190738355}
+  - component: {fileID: 2060306158}
+  - component: {fileID: 2112275336}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1663853609
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 326904460}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1663898794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1773582406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &1705767518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1634897925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!1 &1728484143
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1952382982}
+  - component: {fileID: 1958228341}
+  - component: {fileID: 698719471}
+  - component: {fileID: 1411791796}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 10
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1748580990
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031516701}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1757731124
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1757731129}
+  - component: {fileID: 1757731128}
+  - component: {fileID: 1757731126}
+  - component: {fileID: 1757731125}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1757731125
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757731124}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &1757731126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757731124}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &1757731128
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757731124}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 84ff9d843cfc99dac300d6db7a088f588eaab34a
+  SecretKey: 142f8b9ac08e023a8f75685be97d05556f8af89a
+--- !u!4 &1757731129
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757731124}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1758589013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341171092}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!1 &1773582406
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1211838220}
+  - component: {fileID: 1415343918}
+  - component: {fileID: 1663898794}
+  - component: {fileID: 1049538865}
+  m_Layer: 0
+  m_Name: CloudRecoBehaviour 6
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1779695984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726107120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!4 &1850000134
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 523494973}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1883400961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1358728507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 6fa13b2c285f16aafdb491d589100d9d4fd452e4
+  SecretKey: d7c3a49c5dd1aeb1b63b8c01e93c6c2afc93aa79
+--- !u!114 &1894470371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031516701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &1925143693
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1125923733}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!4 &1952382982
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1728484143}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 189.7364, y: -1075.5391, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1958228341
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1728484143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 5ce101f0cc50b0c51f2456d18edc90c6182d71c6
+  SecretKey: 0811153e392d2ec74184b0efae47b4b434cd1e03
 --- !u!1 &2059996824
 GameObject:
   m_ObjectHideFlags: 0
@@ -256,8 +2063,130 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2060306158
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1658850607}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a94b2276778ad447b144f5d318fac86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  cloudReco: {fileID: 0}
+  scanFrame: {fileID: 0}
+  statusText: {fileID: 0}
+  scanFrameImage: {fileID: 0}
+  scanningColor: {r: 1, g: 1, b: 1, a: 1}
+  foundColor: {r: 0, g: 1, b: 0, a: 1}
+  pulseSpeed: 1.5
+  pulseMinAlpha: 0.3
+  pulseMaxAlpha: 1
+  foundFlashDuration: 1.2
+--- !u!114 &2067239655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341171092}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: 63c27b24b94a122278cf289290c01ee69749b37b
+  SecretKey: e289c9622aa0b83b79eb57c97a73b98b677fe67d
+--- !u!114 &2109535312
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 523494973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: b95996b88564f6a197e311cecdf48c6b0f34b876
+  SecretKey: a0f6e481f56a187e4a93350f1bec17c560926f9d
+--- !u!114 &2112275336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1658850607}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbb7e26d3c778a41a716b49d9a7842e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VuforiaCardOverlayManager
+  board: {fileID: 0}
+  overlayPrefab: {fileID: 0}
+  useCloudReco: 0
+  cloudRecoBehaviours: []
+  restAngle: 55
+  standAngle: 35
+  faceDownAfterSeconds: 1.5
+  faceDownWithBackSeconds: 0.3
+  scanOnlyInsideZones: 1
+  zoneSettleSeconds: 0.4
+  duplicateOverlapFraction: 0.5
+  duplicateGraceSeconds: 0.25
+--- !u!114 &2121825301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726107120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -201013700, guid: 8a9a760f95896c34689febc965510927, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vuforia.Unity.Engine.dll::Vuforia.CloudRecoBehaviour
+  PreviewVisible: 1
+  RuntimeOcclusion: 0
+  RuntimeCollider: 0
+  mTrackableName: 
+  mInitializedInEditor: 1
+  AccessKey: c04ec631d521bdd1bbb8ffb7dac85a152089839a
+  SecretKey: 3a064c706f5e24e94a3b049102f8227738544027
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 2059996828}
+  - {fileID: 400075246}
+  - {fileID: 91332775}
+  - {fileID: 783851685}
+  - {fileID: 1757731129}
+  - {fileID: 229698499}
+  - {fileID: 1748580990}
+  - {fileID: 1370441168}
+  - {fileID: 1211838220}
+  - {fileID: 1850000134}
+  - {fileID: 765536158}
+  - {fileID: 1284782510}
+  - {fileID: 1952382982}
+  - {fileID: 1323264929}
+  - {fileID: 1663853609}
+  - {fileID: 424666246}
+  - {fileID: 586579715}
+  - {fileID: 1102707368}
+  - {fileID: 1002146743}
+  - {fileID: 1568716266}

@@ -17,4 +17,10 @@ public class GameSetup : MonoBehaviour
 
         gs.BroadcastState();
     }
+
+    // Leaving a solo test, so Ingame opened another way is the one-PC game again
+    void OnDestroy()
+    {
+        if (MatchSession.IsSolo) MatchSession.End();
+    }
 }

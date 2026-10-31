@@ -29,6 +29,15 @@ public static class CardImageLibrary
         return numbers;
     }
 
+    // Every card number with a picture, sorted
+    public static List<string> AllCardNumbers()
+    {
+        if (sPaths == null) BuildIndex();
+        var numbers = new List<string>(sPaths.Keys);
+        numbers.Sort(StringComparer.OrdinalIgnoreCase);
+        return numbers;
+    }
+
     // How many card pictures there are; the lobby shows it so players can spot different card sets
     public static int Count
     {

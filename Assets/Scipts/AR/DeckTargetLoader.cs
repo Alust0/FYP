@@ -98,8 +98,14 @@ public class DeckTargetLoader : MonoBehaviour
             }
             cardNumbers.AddRange(load.Result.UniqueCardNumbers);
             deckNames.Add(load.Result.deckName);
+            // This PC's deck is its own seat's when playing one side (online or solo)
+            int seat = !MatchSession.IsOneSide ? player : player == 0 ? MatchSession.LocalSeat : MatchSession.RemoteSeat;
+            FindFirstObjectByType<RulesEngine>()?.SetDeck(seat, load.Result);
+            CardBackTracker.UseSleeve(load.Result.deckSleeve, false);
+            CardBackTracker.UseSleeve(load.Result.rideDeckSleeve, true);
         }
         cardNumbers = cardNumbers.Distinct(System.StringComparer.OrdinalIgnoreCase).ToList();
+        CardFirestoreDatabase.Instance?.CacheDeck(cardNumbers); // so seen cards need no Firestore read
 
         SetText("Starting camera...");
         yield return new WaitUntil(() => VuforiaApplication.Instance.IsRunning || mCameraFailed);

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-// Test decks typed into the Inspector, until decks are saved in Firestore
+// Test decks typed into the Inspector, for testing without the lobby's account decks
 public class InspectorDeckSource : DeckSource
 {
     [SerializeField] private Deck player1Deck = new Deck { deckName = "Player 1 test deck" };
@@ -14,13 +14,9 @@ public class InspectorDeckSource : DeckSource
     [Tooltip("Set codes like \"D-SD05\": every card in that set's pictures is added with Count 1.")]
     [SerializeField] private List<string> player2WholeSets = new List<string>();
 
-    /* Online, this PC's deck (index 0, see DeckTargetLoader) is the one picked in the lobby, if any;
-     otherwise the Inspector decks below */
+    // The lobby's deck is picked in AccountDeckSource, which falls back to this
     public override Task<Deck> LoadDeckAsync(int playerIndex)
     {
-        if (playerIndex == 0 && MatchSession.IsOnline && !string.IsNullOrEmpty(MatchSession.DeckSet))
-            return Task.FromResult(WithWholeSets(new Deck { deckName = MatchSession.DeckSet }, new List<string> { MatchSession.DeckSet }));
-
         return Task.FromResult(playerIndex == 0
             ? WithWholeSets(player1Deck, player1WholeSets)
             : WithWholeSets(player2Deck, player2WholeSets));
@@ -29,7 +25,15 @@ public class InspectorDeckSource : DeckSource
     // A copy of the deck with each whole set's cards added, so the Inspector lists stay as typed
     static Deck WithWholeSets(Deck deck, List<string> wholeSets)
     {
-        var result = new Deck { deckName = deck.deckName, cards = new List<DeckEntry>(deck.cards) };
+        var result = new Deck
+        {
+            deckName = deck.deckName,
+            cards = new List<DeckEntry>(deck.cards),
+            rideDeck = new List<DeckEntry>(deck.rideDeck ?? new List<DeckEntry>()),
+            extras = new List<DeckEntry>(deck.extras ?? new List<DeckEntry>()),
+            deckSleeve = deck.deckSleeve,
+            rideDeckSleeve = deck.rideDeckSleeve,
+        };
         var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (DeckEntry entry in deck.cards)
             if (!string.IsNullOrWhiteSpace(entry.cardNumber)) listed.Add(entry.cardNumber.Trim());

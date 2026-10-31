@@ -73,6 +73,7 @@ public class LoginController : MonoBehaviour
         await Run("Wrong username or password.", async () =>
         {
             SetBusy(true, "Logging in...");
+            SignOutIfOtherAccount(username);
             // Unity login already done if only the Firebase step failed last time
             if (!AuthenticationService.Instance.IsSignedIn)
                 await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
@@ -98,6 +99,7 @@ public class LoginController : MonoBehaviour
         await Run("Couldn't create the account. That username may already be taken.", async () =>
         {
             SetBusy(true, "Creating account...");
+            SignOutIfOtherAccount(username);
             if (!AuthenticationService.Instance.IsSignedIn)
                 await AuthenticationService.Instance.SignUpWithUsernamePasswordAsync(username, password);
             await FinishLoginAsync();
@@ -114,9 +116,18 @@ public class LoginController : MonoBehaviour
         return false;
     }
 
+    // A session left over from a failed attempt belongs to whoever typed last, not necessarily this username
+    static void SignOutIfOtherAccount(string username)
+    {
+        var auth = AuthenticationService.Instance;
+        if (auth.IsSignedIn && !string.Equals(auth.PlayerInfo?.Username, username, StringComparison.OrdinalIgnoreCase))
+            auth.SignOut();
+    }
+
     async Task FinishLoginAsync()
     {
         SetBusy(true, "Connecting...");
+        await SyncPlayerNameAsync();
         if (!await SignInFirebaseAsync()) return;
 
         // One running copy per account: refused while another copy is logged in
@@ -128,6 +139,30 @@ public class LoginController : MonoBehaviour
             return;
         }
         SceneManager.LoadScene(menuSceneName);
+    }
+
+    /* Makes the dashboard's player name match the login username. A restored session may not carry
+     the username, so it's fetched; failures only log, since the name is cosmetic. */
+    static async Task SyncPlayerNameAsync()
+    {
+        var auth = AuthenticationService.Instance;
+        try
+        {
+            if (string.IsNullOrEmpty(auth.PlayerInfo?.Username))
+                await auth.GetPlayerInfoAsync();
+
+            string username = auth.PlayerInfo?.Username;
+            if (string.IsNullOrEmpty(username)) return;
+
+            // Unity appends "#1234" to player names
+            string current = await auth.GetPlayerNameAsync(false);
+            if (!string.Equals(PlayerSession.StripSuffix(current), username, StringComparison.Ordinal))
+                await auth.UpdatePlayerNameAsync(username);
+        }
+        catch (Exception e) when (e is AuthenticationException || e is RequestFailedException)
+        {
+            Debug.LogWarning("[LoginController] Couldn't set player name: " + e.Message);
+        }
     }
 
 #if UNITY_WSA
@@ -158,17 +193,18 @@ public class LoginController : MonoBehaviour
         {
             await step();
         }
+        // Wrong password, taken username and no internet are expected, so they only warn
         catch (AuthenticationException e)
         {
-            Fail(e, authFailMessage);
+            Warn(e, authFailMessage);
         }
         catch (RequestFailedException e) when (e.ErrorCode == CommonErrorCodes.TransportError)
         {
-            Fail(e, "Can't reach the login server. Check your internet connection.");
+            Warn(e, "Can't reach the login server. Check your internet connection.");
         }
         catch (RequestFailedException e)
         {
-            Fail(e, authFailMessage);
+            Warn(e, authFailMessage);
         }
 #if !UNITY_WSA
         catch (FirebaseException e)
@@ -181,6 +217,13 @@ public class LoginController : MonoBehaviour
     void Fail(Exception e, string message)
     {
         Debug.LogException(e);
+        SetBusy(false, message);
+    }
+
+    void Warn(Exception e, string message)
+    {
+        // Inner exception holds the server's reason, e.g. WRONG_USERNAME_PASSWORD
+        Debug.LogWarning($"[LoginController] {message} ({e.InnerException?.Message ?? e.Message})");
         SetBusy(false, message);
     }
 

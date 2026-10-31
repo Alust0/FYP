@@ -3,7 +3,6 @@ using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_WSA
 using UnityEngine.Windows.Speech;
 #endif
@@ -11,15 +10,21 @@ using UnityEngine.Windows.Speech;
 /* Voice keywords, always listening through Windows' offline phrase recognition. Only the fixed
  keywords below are recognised; nothing else is recorded or sent. Each keyword heard shows who
  said it over the camera view, and online the keyword (just the word) goes to the other PC too,
- so both see it and both rule engines follow the battle. M mutes. Added by UISetup. */
-public class VoiceCommands : MonoBehaviour
+ so both see it and both rule engines follow the battle. M mutes. Added by UISetup. Its UI is built in VoiceCommands.UI.cs. */
+public partial class VoiceCommands : MonoBehaviour
 {
     public enum Command
     {
         NextPhase, TurnEnd, Draw, SoulCharge, CounterBlast,
         AttackLeft, AttackVanguard, AttackRight,
         Guard, NoGuard, DriveCheck, DamageCheck,
+        ActivateSkill, SkipSkill,
+        ActivateVanguard, ActivateLeftFront, ActivateRightFront, ActivateLeftBack, ActivateCenterBack, ActivateRightBack,
+        SkillDone, SkipStep, PayFirst, PaySecond, // a skill's steps (SkillRules)
     }
+
+    // The circles "activate ..." names, in Command order from ActivateVanguard
+    static readonly string[] ActivateCircles = { "Vanguard", "LeftFront", "RightFront", "LeftBack", "CenterBack", "RightBack" };
 
     static readonly Dictionary<string, Command> Phrases = new Dictionary<string, Command>
     {
@@ -36,7 +41,26 @@ public class VoiceCommands : MonoBehaviour
         ["no guard"] = Command.NoGuard,
         ["drive check"] = Command.DriveCheck,
         ["damage check"] = Command.DamageCheck,
+        ["activate skill"] = Command.ActivateSkill,
+        ["skip skill"] = Command.SkipSkill,
+        ["activate vanguard"] = Command.ActivateVanguard,
+        ["activate left front"] = Command.ActivateLeftFront,
+        ["activate right front"] = Command.ActivateRightFront,
+        ["activate left back"] = Command.ActivateLeftBack,
+        ["activate center back"] = Command.ActivateCenterBack,
+        ["activate right back"] = Command.ActivateRightBack,
+        ["skill done"] = Command.SkillDone,
+        ["skip step"] = Command.SkipStep,
+        ["pay first"] = Command.PayFirst,
+        ["pay second"] = Command.PaySecond,
     };
+
+    // e.g. "activate left front" for "LeftFront", for an [ACT] skill's button
+    public static string ActivatePhrase(string zone)
+    {
+        int i = System.Array.IndexOf(ActivateCircles, zone);
+        return i < 0 ? "activate skill" : Phrases.First(p => p.Value == Command.ActivateVanguard + i).Key;
+    }
 
     public static VoiceCommands Instance { get; private set; }
 
@@ -52,10 +76,12 @@ public class VoiceCommands : MonoBehaviour
     RulesEngine mRules;
     bool mMuted;
     string mStatus = "Voice: starting...";
+
+    // e.g. "Voice: listening  (M)", shown in the Settings menu
+    public string Status => (mMuted ? "Voice: muted" : mStatus) + "  (M)";
     TextMeshProUGUI mToast;
     CanvasGroup mToastGroup;
     float mToastUntil;
-    TextMeshProUGUI mStatusText;
 
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_WSA
     KeywordRecognizer mRecognizer;
@@ -122,7 +148,6 @@ public class VoiceCommands : MonoBehaviour
 
         Camera cam = Camera.main;
         if (cam != null) PlaceUI(cam.pixelRect);
-        mStatusText.text = (mMuted ? "Voice: muted" : mStatus) + "  (M)";
 
         float left = mToastUntil - Time.time;
         mToastGroup.alpha = Mathf.Clamp01(left / 0.5f); // fades over its last half second
@@ -142,7 +167,7 @@ public class VoiceCommands : MonoBehaviour
         LastSaid = phrase;
         SaidCount++;
         ShowToast(who, phrase);
-        MatchLog.Action(who.playerName + (pressed ? " pressed \"" : " said \"") + phrase + "\"");
+        MatchLogger.Action(who.playerName + (pressed ? " pressed \"" : " said \"") + phrase + "\"");
         Run(command, who, gs);
     }
 
@@ -153,15 +178,19 @@ public class VoiceCommands : MonoBehaviour
         if (phrase == null || who == null || !Phrases.TryGetValue(phrase, out Command command)) return;
 
         ShowToast(who, phrase);
-        MatchLog.Action(who.playerName + " said \"" + phrase + "\" (on their PC)");
+        MatchLogger.Action(who.playerName + " said \"" + phrase + "\" (on their PC)");
         if (TryDeclaration(command, out RulesEngine.Declaration declaration)) mRules?.Declare(declaration, who);
     }
 
     /* Online it's always this PC's player. On one PC, the defender's keywords are the player not
-     taking their turn, and everything else is the turn player's. */
-    static PlayerState Speaker(GameState gs, Command command)
+     taking their turn, an [AUTO]'s answer is its owner's, and everything else is the turn player's. */
+    PlayerState Speaker(GameState gs, Command command)
     {
         if (MatchSession.IsOnline) return gs.players[MatchSession.LocalSeat];
+        // Answering an [AUTO] or a skill's step: its owner, who may be the defender
+        bool skillAnswer = command == Command.ActivateSkill || command == Command.SkipSkill || command >= Command.SkillDone;
+        if (skillAnswer && mRules?.Skills?.PromptOwner != null)
+            return mRules.Skills.PromptOwner;
         bool defending = command == Command.Guard || command == Command.NoGuard || command == Command.DamageCheck;
         return defending ? gs.Opponent : gs.CurrentPlayer;
     }
@@ -206,6 +235,21 @@ public class VoiceCommands : MonoBehaviour
                 else
                     mRules.ChooseTarget(RulesEngine.FrontRow[command - Command.AttackLeft]);
                 break;
+
+            case Command.ActivateSkill: mRules.Skills?.ActivateSkill(); break;
+            case Command.SkipSkill: mRules.Skills?.SkipSkill(); break;
+            case Command.ActivateVanguard:
+            case Command.ActivateLeftFront:
+            case Command.ActivateRightFront:
+            case Command.ActivateLeftBack:
+            case Command.ActivateCenterBack:
+            case Command.ActivateRightBack:
+                mRules.Skills?.ActivateOn(ActivateCircles[command - Command.ActivateVanguard]);
+                break;
+            case Command.SkillDone: mRules.Skills?.Done(); break;
+            case Command.SkipStep: mRules.Skills?.SkipStep(); break;
+            case Command.PayFirst: mRules.Skills?.Choose(0); break;
+            case Command.PaySecond: mRules.Skills?.Choose(1); break;
         }
     }
 
@@ -221,73 +265,6 @@ public class VoiceCommands : MonoBehaviour
         }
     }
 
-    // Logged by MatchLog
+    // Logged by MatchLogger
     static void Notice(string title, string body) => GameState.OnRuleNotice?.Invoke(title, body);
-
-    // UI: the keyword heard, top-centre of the camera view, and the microphone's state bottom-left
-
-    void ShowToast(PlayerState who, string phrase)
-    {
-        mToast.text = "<b>" + who.playerName + "</b>:  \"" + phrase.ToUpperInvariant() + "\"";
-        mToastUntil = Time.time + toastSeconds;
-    }
-
-    void BuildUI()
-    {
-        GameObject canvasObj = new GameObject("VoiceCanvas", typeof(RectTransform));
-        Canvas canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 20; // no scaler: one unit is one screen pixel
-        canvasObj.transform.SetParent(transform, false);
-
-        GameObject toastObj = new GameObject("VoiceToast", typeof(RectTransform));
-        toastObj.transform.SetParent(canvasObj.transform, false);
-        Image background = toastObj.AddComponent<Image>();
-        background.color = new Color(0.05f, 0.06f, 0.1f, 0.85f);
-        background.raycastTarget = false;
-        mToastGroup = toastObj.AddComponent<CanvasGroup>();
-        mToastGroup.alpha = 0f;
-        mToast = AddText(toastObj.transform, 28, TextAlignmentOptions.Center);
-        mToast.color = new Color(1f, 0.85f, 0.2f);
-
-        GameObject statusObj = new GameObject("VoiceStatus", typeof(RectTransform));
-        statusObj.transform.SetParent(canvasObj.transform, false);
-        mStatusText = AddText(statusObj.transform, 18, TextAlignmentOptions.BottomLeft);
-    }
-
-    void PlaceUI(Rect camera)
-    {
-        RectTransform toast = (RectTransform)mToastGroup.transform;
-        toast.anchorMin = toast.anchorMax = toast.pivot = new Vector2(0f, 0f);
-        toast.sizeDelta = new Vector2(Mathf.Min(560f, camera.width * 0.8f), 54f);
-        toast.anchoredPosition = new Vector2(camera.center.x - toast.sizeDelta.x * 0.5f, camera.yMax - 54f - 12f);
-
-        RectTransform status = (RectTransform)mStatusText.transform.parent;
-        status.anchorMin = status.anchorMax = status.pivot = new Vector2(0f, 0f);
-        status.sizeDelta = new Vector2(360f, 28f);
-        status.anchoredPosition = new Vector2(camera.x + 10f, camera.y + 8f);
-    }
-
-    static TextMeshProUGUI AddText(Transform parent, int size, TextAlignmentOptions alignment)
-    {
-        GameObject obj = new GameObject("Text", typeof(RectTransform));
-        obj.transform.SetParent(parent, false);
-        RectTransform rt = (RectTransform)obj.transform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = new Vector2(10f, 4f);
-        rt.offsetMax = new Vector2(-10f, -4f);
-
-        TextMeshProUGUI text = obj.AddComponent<TextMeshProUGUI>();
-        text.fontSize = size;
-        text.alignment = alignment;
-        text.color = Color.white;
-        text.outlineWidth = 0.2f;
-        text.outlineColor = Color.black;
-        text.enableAutoSizing = true;
-        text.fontSizeMin = 12;
-        text.fontSizeMax = size;
-        text.raycastTarget = false;
-        return text;
-    }
 }

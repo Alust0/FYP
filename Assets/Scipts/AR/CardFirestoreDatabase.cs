@@ -1,11 +1,13 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using UnityEngine;
 using Vanguard.Api;
+using CardFields = System.Collections.Generic.Dictionary<string, object>;
 #if UNITY_WSA
-using System.Collections;
-using System.IO;
 using System.Text;
 using Newtonsoft.Json.Linq;
 using UnityEngine.Networking;
@@ -31,25 +33,50 @@ longest-prefix match against the cached list of valid set IDs.
 
 Firebase's Unity SDK doesn't support UWP, so UWP builds read the same database through
 Firestore's REST API instead. Only the backend sections at the bottom differ per platform.
+
+Firestore's free plan counts every read, so it's the backup rather than the first stop: a card
+comes from memory, then this PC's cache (CardCache.json), then Firestore. CacheDeck fills the cache
+at match start with the decks' cards from the deck builder's scraper data (LocalCardData), so a
+match only needs Firestore for cards outside them, like an online opponent's. Cards Firestore
+lacks (or can't answer for) are taken from LocalCardData too. A Firestore miss is remembered,
+and asked again after MissingRecheckDays.
 */
 public class CardFirestoreDatabase : MonoBehaviour
 {
     public static CardFirestoreDatabase Instance { get; private set; }
 
+    const double MissingRecheckDays = 7;
+
     bool mReady;
-    readonly Dictionary<string, CardData> mCache = new Dictionary<string, CardData>();
+    readonly Dictionary<string, CardData> mCache = new Dictionary<string, CardData>(); // by CardKey
     readonly List<Action> mPendingOnReady = new List<Action>();
+
+    // This PC's cache of every card looked up, by CardKey
+    Dictionary<string, CardFields> mStored = new Dictionary<string, CardFields>();
+    bool mStoreChanged;
+    bool mSaveQueued;
+    // Lookups already on their way, so asking twice doesn't read twice
+    readonly Dictionary<string, List<(Action<CardData> ok, Action<string> fail)>> mWaiting =
+        new Dictionary<string, List<(Action<CardData>, Action<string>)>>();
 
     List<string> mSetIdsByLengthDesc; // null until loaded
     bool mSetIdsLoading;
     readonly List<Action> mPendingOnSetIds = new List<Action>();
+
+    static string StorePath => Path.Combine(Application.persistentDataPath, "CardCache.json");
 
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
+        mStored = ReadStore();
         InitBackend();
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this && mStoreChanged) SaveStore();
     }
 
     // Called by the backend once it can serve requests
@@ -64,24 +91,160 @@ public class CardFirestoreDatabase : MonoBehaviour
     }
 
     /* Resolves a card from Cloud Reco metadata, either "{setId}/{number}" or the hyphenated
-     "{setId}-{number}" doc-ID form. Cache-first; queued until the backend has initialized. */
+     "{setId}-{number}" doc-ID form: memory, this PC's cache, Firestore, then the scraper data. */
     public void GetCardByNumber(string cardNumber, Action<CardData> onSuccess, Action<string> onError)
     {
         if (string.IsNullOrEmpty(cardNumber)) { onError?.Invoke("Empty card number"); return; }
 
-        if (mCache.TryGetValue(cardNumber, out CardData cached))
+        string key = CardKey(cardNumber);
+        if (mCache.TryGetValue(key, out CardData cached))
         {
             onSuccess?.Invoke(cached);
             return;
         }
 
-        if (!mReady)
+        if (mWaiting.TryGetValue(key, out var waiting))
         {
-            mPendingOnReady.Add(() => GetCardByNumber(cardNumber, onSuccess, onError));
+            waiting.Add((onSuccess, onError));
+            return;
+        }
+        mWaiting[key] = new List<(Action<CardData>, Action<string>)> { (onSuccess, onError) };
+
+        if (mStored.TryGetValue(key, out CardFields stored) && !Stale(stored))
+        {
+            Finish(key, stored, null);
             return;
         }
 
-        EnsureSetIdsLoaded(() => ResolveByNumber(cardNumber, onSuccess, onError));
+        FromFirestore(cardNumber, (fields, error) =>
+        {
+            // Firestore's scrape stopped at 24 cards in many sets, and its free quota can run out
+            if ((fields == null || error != null) && LocalCardData.TryGet(key, out CardFields local))
+            {
+                if (error != null) Debug.LogWarning("[CardFirestoreDatabase] " + error + " — using the deck builder's card data.");
+                fields = local;
+                error = null;
+            }
+            if (error == null)
+            {
+                fields = fields ?? new CardFields { ["missing"] = true, ["checkedMs"] = NowMs };
+                Store(key, fields);
+            }
+            Finish(key, fields, error);
+        });
+    }
+
+    /* Caches the cards of the decks going into a match from the deck builder's data, so seeing them
+     needs no Firestore read; cards it doesn't have are looked up as usual (Firestore) */
+    public void CacheDeck(IEnumerable<string> cardNumbers)
+    {
+        int cached = 0;
+        foreach (string number in cardNumbers)
+        {
+            string key = CardKey(number);
+            if (LocalCardData.TryGet(key, out CardFields fields))
+            {
+                Store(key, fields);
+                mCache[key] = FromFields(fields);
+                cached++;
+            }
+            else GetCardByNumber(number, null, null);
+        }
+        Debug.Log("[CardFirestoreDatabase] Cached " + cached + " deck cards from the deck builder's data.");
+    }
+
+    // "D-BT13/004" and "D-BT13-004" are the same card; also safe as a JSON or database key
+    public static string CardKey(string cardNumber) => cardNumber.Trim().ToUpperInvariant()
+        .Replace('/', '-').Replace('.', '_').Replace('#', '_').Replace('$', '_').Replace('[', '_').Replace(']', '_');
+
+    static long NowMs => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    // A card Firestore didn't have, long enough ago that it may have been added since
+    static bool Stale(CardFields fields) =>
+        fields.GetBool("missing") && NowMs - fields.GetLong("checkedMs") > MissingRecheckDays * 24 * 3600 * 1000;
+
+    // Answers everyone waiting on the card
+    void Finish(string key, CardFields fields, string error)
+    {
+        CardData card = null;
+        if (error == null && fields != null && !fields.GetBool("missing"))
+        {
+            card = FromFields(fields);
+            mCache[key] = card;
+        }
+
+        if (!mWaiting.TryGetValue(key, out var waiting)) return;
+        mWaiting.Remove(key);
+        foreach (var (ok, fail) in waiting)
+        {
+            if (card != null) ok?.Invoke(card);
+            else fail?.Invoke(error ?? "No card found for number: " + key);
+        }
+    }
+
+    // Keeps the card in this PC's cache
+    void Store(string key, CardFields fields)
+    {
+        mStored[key] = fields;
+        mStoreChanged = true;
+        if (!mSaveQueued)
+        {
+            mSaveQueued = true;
+            StartCoroutine(SaveSoon());
+        }
+    }
+
+    // Many cards often arrive together, so they're saved in one write
+    IEnumerator SaveSoon()
+    {
+        yield return new WaitForSecondsRealtime(3f);
+        mSaveQueued = false;
+        SaveStore();
+    }
+
+    static Dictionary<string, CardFields> ReadStore()
+    {
+        try
+        {
+            if (File.Exists(StorePath))
+                return JsonConvert.DeserializeObject<Dictionary<string, CardFields>>(File.ReadAllText(StorePath)) ?? new Dictionary<string, CardFields>();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[CardFirestoreDatabase] Couldn't read " + StorePath + ", starting a new one: " + e.Message);
+        }
+        return new Dictionary<string, CardFields>();
+    }
+
+    // Adds to the file rather than replacing it, as another Play Mode window may have saved cards too
+    void SaveStore()
+    {
+        try
+        {
+            Dictionary<string, CardFields> merged = ReadStore();
+            foreach (KeyValuePair<string, CardFields> pair in mStored) merged[pair.Key] = pair.Value;
+
+            string temp = StorePath + ".tmp";
+            File.WriteAllText(temp, JsonConvert.SerializeObject(merged));
+            if (File.Exists(StorePath)) File.Delete(StorePath);
+            File.Move(temp, StorePath);
+            mStoreChanged = false;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[CardFirestoreDatabase] Couldn't save " + StorePath + ": " + e.Message);
+        }
+    }
+
+    // Passes (fields, or null if Firestore has no such card; error, or null)
+    void FromFirestore(string cardNumber, Action<CardFields, string> done)
+    {
+        if (!mReady)
+        {
+            mPendingOnReady.Add(() => FromFirestore(cardNumber, done));
+            return;
+        }
+        EnsureSetIdsLoaded(() => ResolveByNumber(cardNumber, done));
     }
 
     /* Loads every document ID under the top-level "sets" collection once (288 docs), so
@@ -107,7 +270,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         });
     }
 
-    void ResolveByNumber(string cardNumber, Action<CardData> onSuccess, Action<string> onError)
+    void ResolveByNumber(string cardNumber, Action<CardFields, string> done)
     {
         string setId = null;
         string cardDocId = null;
@@ -135,76 +298,78 @@ public class CardFirestoreDatabase : MonoBehaviour
         if (setId == null)
         {
             // Couldn't resolve a set ID — query as-is; unlikely to match but it's the best fallback.
-            QueryByNumber(cardNumber, cardNumber, onSuccess, onError);
+            QueryByNumber(cardNumber, done);
             return;
         }
 
-        FetchCard(setId, cardDocId, data =>
+        FetchCard(setId, cardDocId, fields =>
         {
-            if (data != null)
+            if (fields != null)
             {
-                mCache[cardNumber] = data;
-                onSuccess?.Invoke(data);
+                done(fields, null);
                 return;
             }
 
             /* Direct path missed (not seeded, or wrong set ID guess): fall back to a
              collection group query on the slash-form "number" field. */
-            QueryByNumber(cardNumber, slashNumber, onSuccess, onError);
+            QueryByNumber(slashNumber, done);
         });
     }
 
-    void QueryByNumber(string cacheKey, string numberValue, Action<CardData> onSuccess, Action<string> onError)
+    void QueryByNumber(string numberValue, Action<CardFields, string> done) =>
+        QueryCardByNumber(numberValue, (fields, error) =>
+            done(fields, error == null ? null : "Firestore query failed for " + numberValue + ": " + error));
+
+    static readonly string[] TextFields =
     {
-        QueryCardByNumber(numberValue, (data, error) =>
+        "name", "nameEn", "number", "typeEn", "type", "clan", "clanEn", "nation", "nationEn", "race", "raceEn", "rarity",
+        "skill", "skillEn", "triggerType", "triggerTypeEn", "flavor", "flavorEn", "effect", "effectEn", "productName",
+    };
+    static readonly string[] NumberFields = { "grade", "power", "shield", "critical" };
+
+    // A card document's fields, as CardCache.json and the deck builder's data keep them
+    static CardFields ToFields(Func<string, string> getString, Func<string, int> getInt)
+    {
+        var fields = new CardFields();
+        foreach (string field in TextFields)
         {
-            if (error != null)
-            {
-                onError?.Invoke("Firestore query failed for " + cacheKey + ": " + error);
-                return;
-            }
-
-            if (data == null)
-            {
-                onError?.Invoke("No Firestore card found for number: " + cacheKey);
-                return;
-            }
-
-            mCache[cacheKey] = data;
-            onSuccess?.Invoke(data);
-        });
+            string value = getString(field);
+            if (value != null) fields[field] = value;
+        }
+        foreach (string field in NumberFields) fields[field] = getInt(field);
+        return fields;
     }
 
-    /* Converts a card document's fields into a CardData, reusing ScrapedCardDto's mapping
+    /* Converts a card's fields into a CardData, reusing ScrapedCardDto's mapping
      so Firestore and the REST scraper API stay in sync. */
-    static CardData FromFields(Func<string, string> getString, Func<string, int> getInt)
+    public static CardData FromFields(CardFields fields)
     {
         ScrapedCardDto dto = new ScrapedCardDto
         {
-            name = getString("name"),
-            name_en = getString("nameEn"),
-            number = getString("number"),
-            type = getString("typeEn") ?? getString("type"),
-            clan = getString("clan"),
-            clan_en = getString("clanEn"),
-            nation = getString("nation"),
-            nation_en = getString("nationEn"),
-            race = getString("race"),
-            race_en = getString("raceEn"),
-            rarity = getString("rarity"),
-            skill = getString("skill"),
-            skill_en = getString("skillEn"),
-            trigger_type = getString("triggerType"),
-            trigger_type_en = getString("triggerTypeEn"),
-            flavor = getString("flavor"),
-            flavor_en = getString("flavorEn"),
-            grade = getInt("grade"),
-            power = getInt("power"),
-            shield = getInt("shield"),
-            critical = getInt("critical"),
-            effect = getString("effect"),
-            effect_en = getString("effectEn"),
-            productName = getString("productName"),
+            name = fields.GetString("name"),
+            name_en = fields.GetString("nameEn"),
+            number = fields.GetString("number"),
+            type = fields.GetString("typeEn") ?? fields.GetString("type"),
+            clan = fields.GetString("clan"),
+            clan_en = fields.GetString("clanEn"),
+            nation = fields.GetString("nation"),
+            nation_en = fields.GetString("nationEn"),
+            race = fields.GetString("race"),
+            race_en = fields.GetString("raceEn"),
+            rarity = fields.GetString("rarity"),
+            skill = fields.GetString("skill"),
+            skill_en = fields.GetString("skillEn"),
+            trigger_type = fields.GetString("triggerType"),
+            trigger_type_en = fields.GetString("triggerTypeEn"),
+            flavor = fields.GetString("flavor"),
+            flavor_en = fields.GetString("flavorEn"),
+            grade = (int)fields.GetLong("grade"),
+            power = (int)fields.GetLong("power"),
+            shield = (int)fields.GetLong("shield"),
+            critical = (int)fields.GetLong("critical"),
+            effect = fields.GetString("effect"),
+            effect_en = fields.GetString("effectEn"),
+            productName = fields.GetString("productName"),
         };
 
         return dto.ToCardData();
@@ -249,7 +414,7 @@ public class CardFirestoreDatabase : MonoBehaviour
     }
 
     // Passes null if the document doesn't exist or the read failed
-    void FetchCard(string setId, string cardDocId, Action<CardData> onDone)
+    void FetchCard(string setId, string cardDocId, Action<CardFields> onDone)
     {
         mDb.Collection("sets").Document(setId).Collection("cards").Document(cardDocId)
             .GetSnapshotAsync()
@@ -261,7 +426,7 @@ public class CardFirestoreDatabase : MonoBehaviour
     }
 
     // Passes (card or null if no match, error or null)
-    void QueryCardByNumber(string numberValue, Action<CardData, string> onDone)
+    void QueryCardByNumber(string numberValue, Action<CardFields, string> onDone)
     {
         mDb.CollectionGroup("cards")
             .WhereEqualTo("number", numberValue)
@@ -280,7 +445,7 @@ public class CardFirestoreDatabase : MonoBehaviour
             });
     }
 
-    static CardData FromDocument(DocumentSnapshot doc) => FromFields(
+    static CardFields FromDocument(DocumentSnapshot doc) => ToFields(
         field => doc.TryGetValue(field, out string value) ? value : null,
         field =>
         {
@@ -351,11 +516,11 @@ public class CardFirestoreDatabase : MonoBehaviour
         onDone(ids);
     }
 
-    void FetchCard(string setId, string cardDocId, Action<CardData> onDone)
+    void FetchCard(string setId, string cardDocId, Action<CardFields> onDone)
         => StartCoroutine(FetchCardRoutine(setId, cardDocId, onDone));
 
     // Passes null if the document doesn't exist (404) or the read failed
-    IEnumerator FetchCardRoutine(string setId, string cardDocId, Action<CardData> onDone)
+    IEnumerator FetchCardRoutine(string setId, string cardDocId, Action<CardFields> onDone)
     {
         // Set IDs can be non-ASCII (e.g. "2011年度"), so each path segment is escaped
         string url = mDocumentsUrl + "/sets/" + Uri.EscapeDataString(setId)
@@ -370,11 +535,11 @@ public class CardFirestoreDatabase : MonoBehaviour
         }
     }
 
-    void QueryCardByNumber(string numberValue, Action<CardData, string> onDone)
+    void QueryCardByNumber(string numberValue, Action<CardFields, string> onDone)
         => StartCoroutine(QueryCardByNumberRoutine(numberValue, onDone));
 
     // Passes (card or null if no match, error or null)
-    IEnumerator QueryCardByNumberRoutine(string numberValue, Action<CardData, string> onDone)
+    IEnumerator QueryCardByNumberRoutine(string numberValue, Action<CardFields, string> onDone)
     {
         JObject body = new JObject
         {
@@ -423,11 +588,11 @@ public class CardFirestoreDatabase : MonoBehaviour
     }
 
     // REST wraps each value in its type, e.g. "grade": {"integerValue": "3"} (int64s come as strings)
-    static CardData FromRestDocument(JToken doc)
+    static CardFields FromRestDocument(JToken doc)
     {
         JToken fields = doc["fields"];
 
-        return FromFields(
+        return ToFields(
             field => (string)fields?[field]?["stringValue"],
             field =>
             {

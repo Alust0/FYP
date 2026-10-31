@@ -1,5 +1,6 @@
 {
   "project_info": {
+    "firebase_url": "https://ar-cardgame-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_number": "648644847638",
     "project_id": "ar-cardgame",
     "storage_bucket": "ar-cardgame.firebasestorage.app"

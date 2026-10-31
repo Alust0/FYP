@@ -4,19 +4,20 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-/* Keeps the two PCs of an online match in step through the room document (see LobbyController).
+/* Keeps the two PCs of an online match in step through the room entry (see LobbyController).
  Each PC's camera only watches its own half of the board (BoardLayout's Multiplayer mode), so it
  uploads that half and mirrors the opponent's half from theirs:
    seat0 / seat1  {cards: [{id, number, zone, rest, faceDown}], counts: {zone: n}, attackTarget, said, saidN} —
                   counts are untrackedCards; attackTarget is the circle the turn player's current attack
                   targets; said is that player's latest voice keyword and saidN how many they've said;
-                  pick / pickN the same for where they gave a trigger's power, critical or stand
+                  pick / pickN the same for where they gave a trigger's power, critical or stand;
+                  turned whether their view is turned (RotatedView)
    turn           {player, number, phase} — written by whichever PC moved the turn on
  The opponent's cards go through the same GameState calls the trackers use, so the rules, HUD and
  battle overlay treat them like cards seen by a camera. Added by GameSetup when the match is online. */
 public class OnlineMatch : MonoBehaviour
 {
-    [Tooltip("Seconds between syncs. Each sync is one Firestore read, plus a write when this PC's board changed.")]
+    [Tooltip("Seconds between syncs. Each sync is one database read, plus a write when this PC's board changed.")]
     public float syncSeconds = 1f;
     public float heartbeatSeconds = 5f;
     [Tooltip("The opponent counts as disconnected after this long without a heartbeat.")]
@@ -50,11 +51,15 @@ public class OnlineMatch : MonoBehaviour
     bool mReadFailing;
     long mAppliedSaidN = -1; // the opponent's keyword count last shown; -1 until their seat is first seen
     long mAppliedPickN = -1; // likewise their trigger picks
+    long mAppliedSkillN = -1; // and the skills they used or skipped
 
     // Keyed by the CardInstance.id the opponent's PC gave the card
     readonly Dictionary<string, RemoteCard> mRemoteCards = new Dictionary<string, RemoteCard>();
 
     static long NowMs => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    // The opponent's view is turned (RotatedView), so the picture sent to them turns its zone labels to suit
+    public static bool OpponentTurned { get; private set; }
 
     // Turn and phase as one number that only goes up as the game goes on
     int TurnKey() => gs.turnNumber * 10 + (int)gs.currentPhase;
@@ -68,6 +73,7 @@ public class OnlineMatch : MonoBehaviour
         }
 
         gs = GameState.Instance;
+        OpponentTurned = false;
         rules = FindFirstObjectByType<RulesEngine>();
         if (rules == null)
         {
@@ -94,7 +100,7 @@ public class OnlineMatch : MonoBehaviour
     void OnDestroy()
     {
         if (!MatchSession.IsOnline) return;
-        FirestoreRest.PatchWithoutWaiting(RoomPath, new Dictionary<string, object> { ["status"] = "closed" }, new[] { "status" });
+        RtdbRest.PatchWithoutWaiting(RoomPath, new Dictionary<string, object> { ["status"] = "closed" }, new[] { "status" });
         MatchSession.End();
     }
 
@@ -118,7 +124,14 @@ public class OnlineMatch : MonoBehaviour
             seat["said"] = VoiceCommands.LastSaid;
             seat["saidN"] = (long)VoiceCommands.SaidCount;
         }
-        string seatJson = FirestoreRest.ToJson(seat);
+        if (SkillRules.SentCount > 0)
+        {
+            seat["skill"] = SkillRules.LastTitle;
+            seat["skillText"] = SkillRules.LastBody;
+            seat["skillN"] = (long)SkillRules.SentCount;
+        }
+        seat["turned"] = GameSettings.RotateView;
+        string seatJson = RtdbRest.ToJson(seat);
         if (seatJson != mUploadedSeat)
         {
             fields[SeatField(local)] = seat;
@@ -146,8 +159,8 @@ public class OnlineMatch : MonoBehaviour
 
         if (mask.Count == 0) yield break;
 
-        FirestoreRest.Result result = null;
-        yield return FirestoreRest.Patch(RoomPath, fields, mask, r => result = r);
+        RtdbRest.Result result = null;
+        yield return RtdbRest.Patch(RoomPath, fields, mask, r => result = r);
         if (!result.ok) yield break; // kept as unsent, so the next sync tries again
 
         if (mask.Contains(SeatField(local))) mUploadedSeat = seatJson;
@@ -185,8 +198,8 @@ public class OnlineMatch : MonoBehaviour
 
     IEnumerator Download()
     {
-        FirestoreRest.Result room = null;
-        yield return FirestoreRest.Get(RoomPath, r => room = r);
+        RtdbRest.Result room = null;
+        yield return RtdbRest.Get(RoomPath, r => room = r);
 
         if (!room.ok)
         {
@@ -202,7 +215,7 @@ public class OnlineMatch : MonoBehaviour
         Dictionary<string, object> seat = room.fields.GetMap(SeatField(MatchSession.RemoteSeat));
         if (seat != null)
         {
-            string seatJson = FirestoreRest.ToJson(seat);
+            string seatJson = RtdbRest.ToJson(seat);
             if (seatJson != mAppliedSeat)
             {
                 mAppliedSeat = seatJson;
@@ -243,6 +256,8 @@ public class OnlineMatch : MonoBehaviour
 
     void ApplySeat(Dictionary<string, object> seat)
     {
+        OpponentTurned = seat.GetBool("turned");
+
         /* Their latest keyword, before their cards: a guard or damage check is said before the
          cards it's about are put down. Keywords from before this PC joined aren't news. */
         long saidN = seat.GetLong("saidN");
@@ -259,6 +274,15 @@ public class OnlineMatch : MonoBehaviour
         {
             mAppliedPickN = pickN;
             rules.ApplyRemotePick(seat.GetString("pick"));
+        }
+
+        // The skill they last used or skipped, for this PC's notices and log
+        long skillN = seat.GetLong("skillN");
+        if (mAppliedSkillN < 0) mAppliedSkillN = skillN;
+        else if (skillN > mAppliedSkillN)
+        {
+            mAppliedSkillN = skillN;
+            rules.Skills?.ApplyRemote(seat.GetString("skill"), seat.GetString("skillText"));
         }
 
         var seen = new HashSet<string>();
@@ -338,6 +362,6 @@ public class OnlineMatch : MonoBehaviour
             Apply(FromLocalCache());
     }
 
-    // Logged by MatchLog
+    // Logged by MatchLogger
     static void Notice(string title, string body) => GameState.OnRuleNotice?.Invoke(title, body);
 }

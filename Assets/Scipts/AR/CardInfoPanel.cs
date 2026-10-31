@@ -63,11 +63,20 @@ public class CardInfoPanel : MonoBehaviour
         clanText.text = string.Join(" / ", new[] { data.nation, data.clan, data.race }.Where(s => !string.IsNullOrEmpty(s)));
 
         string trigger = CardOverlayUI.TriggerEffect(data.triggerIcon);
-        string skill = string.IsNullOrWhiteSpace(data.abilityText) ? "<i>No skill.</i>" : CardOverlayUI.FormatSkill(data.abilityText, "#7fb2ff");
+        string skill = string.IsNullOrWhiteSpace(data.abilityText) ? "<i>No skill.</i>" : CardOverlayUI.FormatSkill(data.abilityText, "#7fb2ff") + SupportLine(data);
         skillText.text = trigger == null ? skill
             : "<color=#ff8a80><b>" + data.triggerIcon + " Trigger:</b> " + trigger + "</color>\n\n" + skill;
 
         ShowArt(data);
+    }
+
+    // Whether the rules engine runs all its skills, or leaves parts to the player (SkillParser.Supported)
+    static string SupportLine(CardData data)
+    {
+        if (SkillParser.Parse(data).Count == 0) return "";
+        return SkillParser.Supported(data)
+            ? "\n\n<color=#81c784><b>Engine:</b> runs all its skills</color>"
+            : "\n\n<color=#ffb74d><b>Engine:</b> some of it is done by hand</color>";
     }
 
     void ShowArt(CardData data)

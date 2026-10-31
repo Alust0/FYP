@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 using Firebase.Auth;
 #endif
 
-/* One running copy of the game per account. The Firestore document sessions/{playerId} names the
+/* One running copy of the game per account. The Realtime Database entry sessions/{playerId} names the
  copy that's logged in (MatchSession.ClientId) and holds its heartbeat:
    clientId, device, beatMs
  Another copy can only log in once that heartbeat is older than StaleSeconds, i.e. after the first
@@ -70,18 +70,18 @@ public class AccountLock : MonoBehaviour
 
         /* A few tries, for a dropped request or another copy writing between our read and our
          write. Each failure is logged with the server's answer. */
-        FirestoreRest.Result failed = null;
+        RtdbRest.Result failed = null;
         for (int attempt = 0; attempt < 4; attempt++)
         {
             if (attempt > 0) yield return new WaitForSecondsRealtime(1f);
 
-            FirestoreRest.Result session = null;
-            yield return FirestoreRest.Get(path, r => session = r);
+            RtdbRest.Result session = null;
+            yield return RtdbRest.Get(path, r => session = r);
 
-            FirestoreRest.Result write = null;
+            RtdbRest.Result write = null;
             if (session.status == 404)
             {
-                yield return FirestoreRest.Create(Sessions, playerId, Claim(), r => write = r);
+                yield return RtdbRest.Create(Sessions, playerId, Claim(), r => write = r);
             }
             else if (!session.ok)
             {
@@ -102,7 +102,7 @@ public class AccountLock : MonoBehaviour
             else
             {
                 // Ours already, or left behind by a copy that stopped: take it over, unless it just changed
-                yield return FirestoreRest.Patch(path, Claim(), new[] { "clientId", "device", "beatMs" }, r => write = r, session.updateTime);
+                yield return RtdbRest.Patch(path, Claim(), new[] { "clientId", "device", "beatMs" }, r => write = r, session.version);
             }
 
             if (write.ok)
@@ -131,12 +131,12 @@ public class AccountLock : MonoBehaviour
         {
             yield return new WaitForSecondsRealtime(HeartbeatSeconds);
 
-            FirestoreRest.Result session = null;
-            yield return FirestoreRest.Get(path, r => session = r);
+            RtdbRest.Result session = null;
+            yield return RtdbRest.Get(path, r => session = r);
 
             if (session.status == 404)
             {
-                yield return FirestoreRest.Create(Sessions, mPlayerId, Claim(), null);
+                yield return RtdbRest.Create(Sessions, mPlayerId, Claim(), null);
                 continue; // if another copy got it first, the next beat sees that
             }
             if (!session.ok) continue; // a dropped read; the next beat tries again
@@ -149,7 +149,7 @@ public class AccountLock : MonoBehaviour
             }
 
             var beat = new Dictionary<string, object> { ["beatMs"] = NowMs };
-            yield return FirestoreRest.Patch(path, beat, new[] { "beatMs" }, null, session.updateTime);
+            yield return RtdbRest.Patch(path, beat, new[] { "beatMs" }, null, session.version);
         }
     }
 
@@ -175,17 +175,17 @@ public class AccountLock : MonoBehaviour
     void ReleaseOwn()
     {
         if (mPlayerId == null) return;
-        FirestoreRest.DeleteWithoutWaiting(SessionPath(mPlayerId));
+        RtdbRest.DeleteWithoutWaiting(SessionPath(mPlayerId));
         StopHeartbeat();
     }
 
     // May not reach the server before the game closes; the claim then goes stale after StaleSeconds
     void OnApplicationQuit() => ReleaseOwn();
 
-    static string Problem(FirestoreRest.Result result)
+    static string Problem(RtdbRest.Result result)
     {
         if (result == null || result.status == 0) return "Couldn't reach the game database. Check your internet connection.";
-        if (result.status == 403) return "The database refused the login check: its Firestore rules don't allow sessions yet.";
+        if (result.status == 403) return "The database refused the login check: its Realtime Database rules don't allow sessions yet.";
         return "The game database answered " + result.status + ". Please try again.";
     }
 }

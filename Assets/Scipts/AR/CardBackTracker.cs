@@ -4,9 +4,12 @@ using System.IO;
 using UnityEngine;
 using Vuforia;
 
-/* Tracks face-down cards by the card back every card shares (StreamingAssets/CardBack/CardBack.png).
- Several targets are made from the one picture, as with identical deck cards, since one target
- only follows one physical card. Used for:
+/* Tracks face-down cards by their backs: every picture in StreamingAssets/CardBack (the plain card
+ back, CardBack.png, plus any extra sleeve pictures put there) and the sleeves the match's decks
+ picked in the deck builder (UseSleeve, from DeckTargetLoader). Several targets are made from each
+ picture, as with identical deck cards, since one target only follows one physical card. A ride
+ deck sleeve (or a picture with "Ride" in its name) gets fewer, as the ride deck never goes face
+ down elsewhere. Used for:
   - Counter Blast: a damage card that disappears with a card back showing in its place has been
     flipped, so VuforiaCardOverlayManager can turn it face down straight away.
   - Drawing: the deck's top card back going out of view and coming back is a hand taking a card,
@@ -20,14 +23,19 @@ public class CardBackTracker : MonoBehaviour
 
     [Tooltip("Card backs that can be followed at once: face-down damage, the deck and the ride deck. Every one uses a slot of Vuforia's simultaneous image target limit.")]
     [Range(1, 10)] public int copies = 6;
+    [Tooltip("Copies of a picture with \"Ride\" in its name, for the ride deck's sleeve.")]
+    [Range(1, 10)] public int rideCopies = 1;
     public float cardWidth = 0.063f;
+    [Tooltip("Width of a sleeve picture (any picture but CardBack.png); sleeves are a little wider than cards.")]
+    public float sleeveWidth = 0.067f;
     [Tooltip("Shortest time the deck's card back must be hidden to count as a hand taking a card, so tracking flicker doesn't.")]
     public float minDeckHiddenSeconds = 0.3f;
     public float maxDeckHiddenSeconds = 8f;
     [Tooltip("Seconds the deck's card back must have been in view before a touch counts.")]
     public float deckArmSeconds = 1f;
 
-    const string FileName = "CardBack/CardBack.png";
+    const string Folder = "CardBack";
+    const string PlainBack = "CardBack.png";
 
     class Back
     {
@@ -47,12 +55,27 @@ public class CardBackTracker : MonoBehaviour
     readonly List<Back> mBacks = new List<Back>();
     readonly Dictionary<string, DeckWatch> mDecks = new Dictionary<string, DeckWatch>();
     BoardLayout mBoard;
+    bool mReady; // Vuforia is running and the folder's pictures have targets
+
+    // Decks' sleeves waiting for targets; static, as decks can load before this is added
+    static readonly List<(string id, bool rideDeck)> sSleeves = new List<(string, bool)>();
+    static readonly HashSet<string> sSleevesUsed = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
     void Awake() => Instance = this;
 
     void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance != this) return;
+        Instance = null;
+        sSleeves.Clear(); // the next match's decks bring their own
+        sSleevesUsed.Clear();
+    }
+
+    // A deck's sleeve (SleeveLibrary id) to follow; null, empty or already added does nothing
+    public static void UseSleeve(string sleeveId, bool rideDeck)
+    {
+        if (!SleeveLibrary.IsSleeve(sleeveId) || !sSleevesUsed.Add(sleeveId)) return;
+        sSleeves.Add((sleeveId, rideDeck));
     }
 
     IEnumerator Start()
@@ -64,28 +87,92 @@ public class CardBackTracker : MonoBehaviour
         }
         yield return new WaitUntil(() => VuforiaApplication.Instance.IsRunning);
 
-        string path = Path.Combine(Application.streamingAssetsPath, FileName);
-        if (!File.Exists(path))
-        {
-            Debug.LogWarning("[CardBackTracker] No card back picture at " + path);
-            enabled = false;
-            yield break;
-        }
+        string folder = Path.Combine(Application.streamingAssetsPath, Folder);
+        var pictures = new List<string>();
+        if (Directory.Exists(folder))
+            foreach (string file in Directory.GetFiles(folder))
+            {
+                string ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") pictures.Add(file);
+            }
+        if (pictures.Count == 0) Debug.LogWarning("[CardBackTracker] No card back pictures in " + folder);
 
-        for (int i = 0; i < copies; i++)
+        foreach (string path in pictures)
         {
-            ImageTargetBehaviour target = VuforiaBehaviour.Instance.ObserverFactory.CreateImageTarget(path, cardWidth, "CardBack#" + i);
+            string name = Path.GetFileNameWithoutExtension(path);
+            bool plain = Path.GetFileName(path).Equals(PlainBack, System.StringComparison.OrdinalIgnoreCase);
+            bool ride = name.IndexOf("Ride", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            AddTargets(path, plain ? cardWidth : sleeveWidth, ride ? rideCopies : copies, name);
+        }
+        Debug.Log("[CardBackTracker] " + mBacks.Count + " card back targets ready from " + pictures.Count + " pictures.");
+        mReady = true;
+    }
+
+    void AddTargets(string path, float width, int count, string name)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            ImageTargetBehaviour target = VuforiaBehaviour.Instance.ObserverFactory.CreateImageTarget(path, width, "CardBack#" + name + "#" + i);
             if (target == null) continue;
 
             Back back = new Back { target = target };
             target.OnTargetStatusChanged += (_, status) => back.tracked = status.Status == Status.TRACKED;
             mBacks.Add(back);
         }
-        Debug.Log("[CardBackTracker] " + mBacks.Count + " card back targets ready.");
+    }
+
+    void AddSleeves()
+    {
+        foreach ((string id, bool rideDeck) in sSleeves)
+        {
+            string path = SleeveLibrary.GetPath(id);
+            if (path == null)
+            {
+                Debug.LogWarning("[CardBackTracker] No picture for sleeve " + id);
+                continue;
+            }
+            int before = mBacks.Count;
+            AddTargets(LargeEnough(path), sleeveWidth, rideDeck ? rideCopies : copies, id);
+            Debug.Log("[CardBackTracker] Sleeve " + id + (rideDeck ? " (ride deck)" : " (deck)") + ": " + (mBacks.Count - before) + " targets.");
+        }
+        sSleeves.Clear();
+    }
+
+    /* Vuforia wants pictures at least 320 px wide and the sleeve pictures are 300, so a narrower one
+     is saved at twice the size in the temporary cache and that copy is used */
+    static string LargeEnough(string path)
+    {
+        var small = new Texture2D(2, 2);
+        if (!small.LoadImage(File.ReadAllBytes(path)) || small.width >= 320)
+        {
+            Destroy(small);
+            return path;
+        }
+
+        int width = small.width * 2, height = small.height * 2;
+        RenderTexture scaled = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        Graphics.Blit(small, scaled);
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = scaled;
+        var large = new Texture2D(width, height, TextureFormat.RGB24, false);
+        large.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+        large.Apply();
+        RenderTexture.active = previous;
+        RenderTexture.ReleaseTemporary(scaled);
+
+        string folder = Path.Combine(Application.temporaryCachePath, "Sleeves");
+        Directory.CreateDirectory(folder);
+        string largePath = Path.Combine(folder, Path.GetFileName(path));
+        File.WriteAllBytes(largePath, large.EncodeToPNG());
+        Destroy(small);
+        Destroy(large);
+        return largePath;
     }
 
     void Update()
     {
+        if (mReady && sSleeves.Count > 0) AddSleeves();
+
         Camera cam = Camera.main;
         if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
         if (cam == null || mBoard == null) return;

@@ -74,13 +74,22 @@ public class BoardLayout : MonoBehaviour
     public bool showCrest = false;
     [Tooltip("Off: the Bind zone isn't drawn or matched, as no rule uses it yet.")]
     public bool showBind = false;
+    [Tooltip("Off: no Energy count, no +3 energy each turn and no Energy Blast draw. Can be changed in Play Mode.")]
+    public bool energy = true;
 
     bool IsHorizontal => boardMode == BoardMode.OverTheBoard;
 
-    // In Awake so DeckTargetLoader sees the mode in its Start
+    // In Awake so DeckTargetLoader sees the mode, and the HUD and rules see Energy, in their Start
     void Awake()
     {
-        if (MatchSession.IsOnline) boardMode = BoardMode.Multiplayer;
+        if (MatchSession.IsOneSide) boardMode = BoardMode.Multiplayer;
+        GameSettings.EnergyEnabled = energy;
+    }
+
+    // Ticking Energy in the Inspector during Play Mode applies it straight away
+    void OnValidate()
+    {
+        if (Application.isPlaying) GameSettings.EnergyEnabled = energy;
     }
 
     // Online, this PC's own half is always drawn as P1, whichever seat it has in the match
@@ -470,14 +479,35 @@ public class BoardLayout : MonoBehaviour
     }
 
     /* Undoes the zone's stretch so text keeps its shape, then sizes the text area to the box.
-     Run again whenever the zone is resized. */
-    static void FitLabel(GameObject zone)
+     Run again whenever the zone is resized. Turned (LabelAngle, anticlockwise), so it reads
+     upright in a picture that's shown turned: a quarter turn runs the text up the box instead. */
+    void FitLabel(GameObject zone)
     {
         if (!(zone.transform.Find("Label") is RectTransform label)) return;
 
         Vector3 zoneScale = zone.transform.localScale;
-        label.localScale = new Vector3(1f / zoneScale.x, 1f / zoneScale.y, 1f);
-        label.sizeDelta = new Vector2(zoneScale.x, zoneScale.y) * 0.85f;
+        bool across = Mathf.Abs(mLabelAngle) % 180 == 90;
+        Vector2 size = across ? new Vector2(zoneScale.y, zoneScale.x) : new Vector2(zoneScale.x, zoneScale.y);
+        label.localRotation = Quaternion.Euler(0f, 0f, mLabelAngle);
+        label.localScale = new Vector3(1f / size.x, 1f / size.y, 1f);
+        label.sizeDelta = size * 0.85f;
+    }
+
+    int mLabelAngle;
+    public int LabelAngle => mLabelAngle;
+
+    /* Turns every zone's label: -90 for RotatedView's turned view, and for the picture sent to the
+     opponent, whatever reads upright once their PC has turned it (SplitScreenView) */
+    public void SetLabelAngle(int degrees)
+    {
+        if (degrees == mLabelAngle) return;
+        mLabelAngle = degrees;
+        foreach (GameObject zone in circles.Values)
+        {
+            if (zone == null) continue;
+            FitLabel(zone);
+            zone.transform.Find("Label")?.GetComponent<TextMeshPro>().ForceMeshUpdate();
+        }
     }
 
     // Call this when a card is placed on a circle — hides the label

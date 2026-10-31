@@ -31,10 +31,13 @@ public class CardData : ScriptableObject
 {
     public string cardName;
     public string cardNameEn; // English translated name, if available
+    // English name if there is one, for notices and the match log; cardName stays the key for matching cards
+    public string DisplayName => string.IsNullOrEmpty(cardNameEn) ? cardName : cardNameEn;
     public string cardNumber; // set/number code, e.g. "DZ-BT03-008" — matches Cloud Reco target metadata
     public string clan;
     public string nation;
     public string race;
+    public string raceJa; // as printed, e.g. "ギアドラゴン", which Japanese skill text names in 〈〉
     public string rarity;
     public string illustrator;
     public string skillText; // skill badge, e.g. "Twin Drive!!" — distinct from the full abilityText
@@ -51,6 +54,7 @@ public class CardData : ScriptableObject
     public TriggerIcon triggerIcon; // Critical Draw Stand Heal Front Over
     public AbilityType abilityType;
     public string abilityText;
+    public string abilityTextJa; // the official Japanese text, which SkillParser reads; abilityText is what players see
     public bool isTriggerUnit;
     public bool hasSentinel;
     public bool isOrderCard;
@@ -284,7 +288,10 @@ public class GameState : MonoBehaviour
     public bool isFirstTurn; // no attack turn1
     public int orderPlayedThisTurn; // limit one per turn
     public bool gameOver;
+    public int winnerIndex = -1; // once gameOver: the winner's player index, or -1 for a draw
+    public string endReason;     // e.g. "Bo reached 6 damage"
     public int orderLimit = 1;
+    readonly bool[] mHadDeck = new bool[2]; // per player: the deck count has been above 0
     public string attackTarget; // defender's circle under attack, e.g. "LeftFront"; null when there's no battle or it's not picked yet
 
     // Events that AROverlay and UI subscribe to
@@ -298,6 +305,7 @@ public class GameState : MonoBehaviour
     public static System.Action<string, int, int> OnCardPowerChanged;
     public static System.Action<string, string> OnRulePrompt;
     public static System.Action<string, string> OnRuleNotice; // title, body — board-wide referee messages
+    public static System.Action OnGameOver; // after EndGame's "Game Over" notice; winnerIndex and endReason are set
 
     // Tracker-driven card changes; the card's zone/orientation/facing is already updated when these fire
     public static System.Action<CardInstance, PlayerState, string> OnCardMoved; // card, previous owner, previous zone
@@ -334,7 +342,7 @@ public class GameState : MonoBehaviour
             card.zone = zone;
         }
 
-        MatchLog.CardMoved(card, fromOwner, fromZone);
+        MatchLogger.CardMoved(card, fromOwner, fromZone);
         OnCardMoved?.Invoke(card, fromOwner, fromZone);
         BroadcastState();
     }
@@ -343,7 +351,7 @@ public class GameState : MonoBehaviour
     {
         if (card.orientation == orientation) return;
         card.orientation = orientation;
-        MatchLog.CardTurned(card);
+        MatchLogger.CardTurned(card);
         OnCardOrientationChanged?.Invoke(card);
     }
 
@@ -351,7 +359,7 @@ public class GameState : MonoBehaviour
     public void AdjustCount(PlayerState player, string zone, int delta)
     {
         player.AdjustCount(zone, delta);
-        MatchLog.Action(player.playerName + ": " + zone + " " + delta.ToString("+0;-0") + " (now " + player.CountInZone(zone) + ")");
+        MatchLogger.Action(player.playerName + ": " + zone + " " + delta.ToString("+0;-0") + " (now " + player.CountInZone(zone) + ")");
         CheckWinCondition();
         BroadcastState();
     }
@@ -360,30 +368,51 @@ public class GameState : MonoBehaviour
     {
         if (card.facing == facing) return;
         card.facing = facing;
-        MatchLog.CardFlipped(card);
+        MatchLogger.CardFlipped(card);
         OnCardFacingChanged?.Invoke(card);
         BroadcastState();
     }
 
-    /* Only six damage ends the game: the camera can't see the face-down deck, and a vanguard
-     hidden under a hand isn't really gone, so deck-out and no-vanguard aren't auto-checked. */
+    /* Six damage or an empty deck loses. The deck is the HUD's count, as the camera can't see it,
+     and only once it has had cards (the starting count, or online the opponent's first update).
+     A vanguard hidden under a hand isn't really gone, so no-vanguard isn't auto-checked. */
     public void CheckWinCondition()
     {
         if (gameOver || players[0] == null || players[1] == null) return;
 
-        bool p0Loses = players[0].CountInZone("Damage") >= 6;
-        bool p1Loses = players[1].CountInZone("Damage") >= 6;
-        if (!p0Loses && !p1Loses) return;
+        bool[] loses = new bool[2];
+        string reason = null;
+        for (int i = 0; i < 2; i++)
+        {
+            int deck = players[i].CountInZone("Deck");
+            if (deck > 0) mHadDeck[i] = true;
 
+            if (players[i].CountInZone("Damage") >= 6) reason = players[i].playerName + " reached 6 damage";
+            else if (mHadDeck[i] && deck <= 0) reason = players[i].playerName + "'s deck ran out";
+            else continue;
+            loses[i] = true;
+        }
+        if (!loses[0] && !loses[1]) return;
+
+        EndGame(loses[0] && loses[1] ? null : players[loses[0] ? 1 : 0], loses[0] && loses[1] ? "both players lost at once" : reason);
+    }
+
+    // Ends the match; a null winner is a draw (MatchTimer's time running out)
+    public void EndGame(PlayerState winner, string reason)
+    {
+        if (gameOver) return;
         gameOver = true;
-        string result = p0Loses && p1Loses ? "Draw" : (p0Loses ? players[1] : players[0]).playerName + " wins";
-        OnRuleNotice?.Invoke("Game Over", result + " — 6 damage reached.");
+        winnerIndex = winner != null ? winner.playerIndex : -1;
+        endReason = reason;
+        OnRuleNotice?.Invoke("Game Over", (winner != null ? winner.playerName + " wins" : "Draw") + " — " + reason + ".");
+        OnGameOver?.Invoke();
     }
 
     // Broadcasts the current phase and game state to all listeners
     public void BroadcastState()
     {
         if (players[0] == null || players[1] == null) return;
+        CheckWinCondition(); // every count change passes through here, e.g. the deck's last draw
         OnPhaseChanged?.Invoke(currentPhase, CurrentPlayer.playerName);
         OnGameStateUpdated?.Invoke(this);
     }

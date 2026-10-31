@@ -10,6 +10,7 @@ public class PhaseHUDOverlay : MonoBehaviour
     public TextMeshProUGUI phaseText;
     public TextMeshProUGUI turnPlayerText;
     public TextMeshProUGUI waitingText; // RulesEngine.Waiting: what the phase still needs
+    public TextMeshProUGUI timerText;   // MatchTimer's time left, when the match has a limit
     public Image phaseIcon;
     public string[] sideLabels = { "Left", "Right" }; // by player index, matching BoardLayout's over-the-board sides
 
@@ -59,6 +60,12 @@ public class PhaseHUDOverlay : MonoBehaviour
     // Every frame: it changes on voice keywords and counts as well as phase changes
     void Update()
     {
+        if (timerText != null)
+        {
+            timerText.text = MatchTimer.Label;
+            timerText.color = MatchTimer.Remaining < 300 ? new Color(1f, 0.4f, 0.35f) : Color.white; // red for the last 5 minutes
+        }
+
         if (waitingText == null) return;
         if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
         string waiting = mRules != null ? mRules.Waiting : null;

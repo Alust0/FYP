@@ -12,17 +12,17 @@ using UnityEngine;
 
 /* Carries camera pictures (JPEG bytes) between the two PCs of an online match, for SplitScreenView.
 
- Direct: the host listens on a free port and puts its addresses in the room document ("video");
+ Direct: the host listens on a free port and puts its addresses in the room entry ("video");
  the guest connects. Works on one network or one PC, and needs Windows Firewall to let Unity in.
  Each side's first message is the room code, so a wrong connection is dropped.
 
- Fallback, when there's no direct connection: a picture every few seconds through Firestore, in
- a document next to the room ("<code>_video<seat>"), which the same rules cover and the lobby's
- room search skips (it has no status). Slow, and every picture counts against Firestore's quota. */
+ Fallback, when there's no direct connection: a picture every few seconds through the Realtime Database, in
+ an entry next to the room ("<code>_video<seat>"), which the same rules cover and the lobby's
+ room search skips (it has no status). Slow, and every picture counts toward the database's download allowance. */
 public class CameraFeedLink : MonoBehaviour
 {
     public float directSeconds = 0.1f;   // between pictures over a direct connection
-    public float fallbackSeconds = 3f;   // between pictures through Firestore
+    public float fallbackSeconds = 3f;   // between pictures through the database
     public float connectWaitSeconds = 8f; // before falling back
 
     public bool Direct => mConnection != null && mConnection.Verified && !mConnection.Closed;
@@ -73,7 +73,7 @@ public class CameraFeedLink : MonoBehaviour
         lock (mAcceptLock) mAccepted?.Close();
         try { mListener?.Stop(); } catch (SocketException) { }
         mListener = null;
-        if (mRoomCode != null && mLastFrameMs != 0) FirestoreRest.DeleteWithoutWaiting(FramePath(mRoomCode, mLocalSeat));
+        if (mRoomCode != null && mLastFrameMs != 0) RtdbRest.DeleteWithoutWaiting(FramePath(mRoomCode, mLocalSeat));
     }
 
     void Update()
@@ -123,7 +123,7 @@ public class CameraFeedLink : MonoBehaviour
         }
         catch (SocketException e)
         {
-            Debug.LogWarning("[CameraFeedLink] Couldn't listen for the guest (" + e.Message + "); pictures go through Firestore.");
+            Debug.LogWarning("[CameraFeedLink] Couldn't listen for the guest (" + e.Message + "); pictures go through the database.");
             yield break;
         }
 
@@ -131,8 +131,8 @@ public class CameraFeedLink : MonoBehaviour
         new Thread(AcceptLoop) { IsBackground = true, Name = "CameraFeed accept" }.Start(mListener);
 
         var video = new Dictionary<string, object> { ["port"] = (long)port, ["ips"] = LocalAddresses().Cast<object>().ToList() };
-        FirestoreRest.Result result = null;
-        yield return FirestoreRest.Patch("rooms/" + mRoomCode, new Dictionary<string, object> { ["video"] = video }, new[] { "video" }, r => result = r);
+        RtdbRest.Result result = null;
+        yield return RtdbRest.Patch("rooms/" + mRoomCode, new Dictionary<string, object> { ["video"] = video }, new[] { "video" }, r => result = r);
         Debug.Log("[CameraFeedLink] Listening on port " + port + (result.ok ? "." : ", but couldn't tell the guest: " + result.error));
     }
 
@@ -164,8 +164,8 @@ public class CameraFeedLink : MonoBehaviour
                 continue;
             }
 
-            FirestoreRest.Result room = null;
-            yield return FirestoreRest.Get("rooms/" + mRoomCode, r => room = r);
+            RtdbRest.Result room = null;
+            yield return RtdbRest.Get("rooms/" + mRoomCode, r => room = r);
             Dictionary<string, object> video = room.ok ? room.fields.GetMap("video") : null;
 
             if (video != null)
@@ -223,15 +223,15 @@ public class CameraFeedLink : MonoBehaviour
         return addresses.Distinct().ToList();
     }
 
-    // Firestore fallback
+    // Database fallback
 
     IEnumerator Upload(byte[] jpeg)
     {
         mUploading = true;
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var fields = new Dictionary<string, object> { ["jpg"] = Convert.ToBase64String(jpeg), ["ms"] = now };
-        FirestoreRest.Result result = null;
-        yield return FirestoreRest.Patch(FramePath(mRoomCode, mLocalSeat), fields, new[] { "jpg", "ms" }, r => result = r);
+        RtdbRest.Result result = null;
+        yield return RtdbRest.Patch(FramePath(mRoomCode, mLocalSeat), fields, new[] { "jpg", "ms" }, r => result = r);
         if (result.ok) mLastFrameMs = now;
         mUploading = false;
     }
@@ -244,8 +244,8 @@ public class CameraFeedLink : MonoBehaviour
             yield return new WaitForSecondsRealtime(fallbackSeconds);
             if (!UsingFallback) continue;
 
-            FirestoreRest.Result frame = null;
-            yield return FirestoreRest.Get(FramePath(mRoomCode, 1 - mLocalSeat), r => frame = r);
+            RtdbRest.Result frame = null;
+            yield return RtdbRest.Get(FramePath(mRoomCode, 1 - mLocalSeat), r => frame = r);
             if (!frame.ok || frame.fields.GetLong("ms") == lastSeen) continue;
 
             lastSeen = frame.fields.GetLong("ms");
