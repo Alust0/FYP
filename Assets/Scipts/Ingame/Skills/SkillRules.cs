@@ -27,6 +27,7 @@ public class SkillRules
 
     readonly GameState gs;
     readonly System.Action<string, string> mNotice;
+    readonly System.Action<string, string, System.Func<bool>> mToDo; // a notice that stays up until it's done
     readonly List<Prompt> mPrompts = new List<Prompt>(); // the first is the one being asked about
     readonly Dictionary<(CardInstance, Skill), int> mUsed = new Dictionary<(CardInstance, Skill), int>(); // this turn
     readonly HashSet<(PlayerState, object)> mUsedThisGame = new HashSet<(PlayerState, object)>(); // once-a-game skills, or their group, e.g. "Divine"
@@ -34,6 +35,17 @@ public class SkillRules
     readonly Dictionary<PlayerState, int> mSoulBlastUnseen = new Dictionary<PlayerState, int>(); // Soul Blast counted, its cards not yet seen in the drop zone
     CardInstance mRestDue; // a Rest cost's unit, whose resting isn't an attack
     SkillFrame mFrame; // the skill being resolved, on its owner's PC
+    SkillFrame mLastFrame; // the last one resolved, as the camera sees the cards it moved a moment after
+    float mLastFrameEnded;
+    const float AllowSeconds = 5f;
+    // A paid cost's zones (Cost.Zones), lit up while the player moves the real cards
+    readonly List<(PlayerState owner, string zone, float until)> mPaidZones = new List<(PlayerState, string, float)>();
+    const float PaidZoneSeconds = 6f;
+    // Arrows for cards to move, e.g. a paid cost's (Cost.Arrow) or a retired unit's: RulesEngine's
+    public CardMoves Moves;
+    // A Discard cost's drop zone stays lit until the owner's drop count reaches this
+    readonly List<(PlayerState owner, int drop)> mDiscardsDue = new List<(PlayerState, int)>();
+    readonly HashSet<(PlayerState, string, string, SkillTiming)> mFired = new HashSet<(PlayerState, string, string, SkillTiming)>(); // Repeat's, this turn
     bool mPumping; // a step's count change calls Recheck, which mustn't run the steps again from inside
 
     // This PC's latest skill used or skipped, and how many, uploaded by OnlineMatch for the other PC
@@ -41,10 +53,11 @@ public class SkillRules
     public static string LastBody { get; private set; }
     public static int SentCount { get; private set; }
 
-    public SkillRules(GameState state, System.Action<string, string> notice)
+    public SkillRules(GameState state, System.Action<string, string> notice, System.Action<string, string, System.Func<bool>> toDo)
     {
         gs = state;
         mNotice = notice;
+        mToDo = toDo;
     }
 
     // For RulesEngine's undo: what's been used and what's waiting to be asked about
@@ -57,6 +70,8 @@ public class SkillRules
         public Dictionary<PlayerState, int> soulBlastUnseen;
         public CardInstance restDue;
         public SkillFrame frame;
+        public HashSet<(PlayerState, string, string, SkillTiming)> fired;
+        public List<(PlayerState, int)> discardsDue;
     }
 
     public object SaveState() => new State
@@ -68,6 +83,8 @@ public class SkillRules
         soulBlastUnseen = new Dictionary<PlayerState, int>(mSoulBlastUnseen),
         restDue = mRestDue,
         frame = mFrame,
+        fired = new HashSet<(PlayerState, string, string, SkillTiming)>(mFired),
+        discardsDue = new List<(PlayerState, int)>(mDiscardsDue),
     };
 
     /* A skill part-way through its steps can't be wound back, so one started since the save is
@@ -85,6 +102,10 @@ public class SkillRules
         mSoulBlastUnseen.Clear();
         foreach (var pair in state.soulBlastUnseen) mSoulBlastUnseen[pair.Key] = pair.Value;
         mRestDue = state.restDue;
+        mFired.Clear();
+        mFired.UnionWith(state.fired);
+        mDiscardsDue.Clear();
+        mDiscardsDue.AddRange(state.discardsDue);
         mFrame = state.frame != null && state.frame == mFrame ? mFrame : null;
         mPumping = false;
         if (Busy) Ask();
@@ -92,8 +113,8 @@ public class SkillRules
 
     // Changes whenever anything SaveState keeps does, so RulesEngine can tell when to save
     public string StateKey =>
-        mPrompts.Count + "|" + mUsed.Values.Sum() + "|" + mUsedThisGame.Count + "|" + mPersonaRode?.playerIndex + "|" +
-        mSoulBlastUnseen.Values.Sum() + "|" + mRestDue?.id + "|" + (mFrame != null ? mFrame.GetHashCode() + ":" + mFrame.Current?.GetHashCode() : "");
+        mPrompts.Count + "|" + mUsed.Values.Sum() + "|" + mUsedThisGame.Count + "|" + mFired.Count + "|" + mPersonaRode?.playerIndex + "|" +
+        mSoulBlastUnseen.Values.Sum() + "|" + mRestDue?.id + "|" + mDiscardsDue.Count + "|" + (mFrame != null ? mFrame.GetHashCode() + ":" + mFrame.Current?.GetHashCode() : "");
 
     // An [AUTO] skill is waiting for Activate or Skip; one waits while another skill resolves
     public bool Busy => mFrame == null && mPrompts.Count > 0;
@@ -122,16 +143,20 @@ public class SkillRules
     public string StepWaiting => mFrame == null ? null
         : mFrame.Owner.playerName + ": " + mFrame.Current?.Instruction(mFrame) + " (" + mFrame.Card.data.DisplayName + ")";
 
+    // The lobby's Card skills switch is off: the basic rules only, no skill is asked about or paid for
+    static bool Off => !MatchSession.SkillsOn;
+
     // timing has just happened to card: its [AUTO] skills for that timing get asked about (other: the card the timing names, e.g. the rider)
     public void Happened(SkillTiming timing, CardInstance card, CardInstance other = null)
     {
-        if (card == null || card.zoneOwner == null) return;
+        if (Off || card == null || card.zoneOwner == null) return;
         PlayerState owner = card.zoneOwner;
 
         foreach (Skill skill in SkillParser.Parse(card.data))
         {
-            if (!skill.UsableNow(gs, card, timing) || UsedUp(owner, card, skill) || !GateOpen(owner, skill)) continue;
+            if (!skill.UsableNow(gs, card, timing) || UsedUp(owner, card, skill) || !GateOpen(owner, skill) || !PrisonReady(owner, skill)) continue;
             if (skill is AutoSkill auto && !auto.OtherFits(other)) continue; // e.g. "ridden by" another card
+            if (Repeat(owner, card, skill, timing)) continue;
             if (!MatchSession.IsLocal(owner))
             {
                 mNotice("Skill", owner.playerName + "'s " + card.data.DisplayName + ": its " + skill.Marker + " can activate.");
@@ -168,9 +193,10 @@ public class SkillRules
             if (Busy) Ask();
             return;
         }
-        mNotice(p.card.data.DisplayName + " [AUTO]", p.owner.playerName + ": " + p.skill.Text +
+        mToDo(p.card.data.DisplayName + " [AUTO]", p.owner.playerName + ": " + p.skill.Text +
             "\nCost: " + p.skill.CostText + "." + (p.skill.CanPay(p.owner, p.card) ? "" : " Can't be paid right now.") +
-            " Activate or Skip" + (mPrompts.Count > 1 ? ", or Later to do another first" : "") + ".");
+            (p.skill.Mandatory ? " It has to be used: Activate" : " Activate or Skip") + (mPrompts.Count > 1 ? ", or Later to do another first" : "") + ".",
+            () => Busy && mPrompts[0] == p);
     }
 
     /* Seen somewhere else since it went off, from a rear-guard or guardian circle or the order zone.
@@ -206,6 +232,11 @@ public class SkillRules
     {
         if (!Busy) return;
         Prompt p = mPrompts[0];
+        if (p.skill.Mandatory)
+        {
+            mNotice("Skill", p.card.data.DisplayName + "'s [AUTO] has no cost and doesn't say \"may\", so it has to be used. Activate it.");
+            return;
+        }
         mPrompts.RemoveAt(0);
         MatchLogger.Action(p.owner.playerName + ": skipped " + p.card.data.DisplayName + "'s [AUTO]");
         Tell(p.card.data.DisplayName + " [AUTO]", p.owner.playerName + " skipped it: " + p.skill.Text);
@@ -227,11 +258,11 @@ public class SkillRules
     {
         var ready = new List<(CardInstance, Skill)>();
         PlayerState cp = gs.CurrentPlayer;
-        if (Resolving || cp == null || !MatchSession.IsLocal(cp)) return ready;
+        if (Off || Resolving || cp == null || !MatchSession.IsLocal(cp)) return ready;
 
         foreach (CardInstance unit in Units(cp))
             foreach (Skill skill in SkillParser.Parse(unit.data))
-                if (skill.UsableNow(gs, unit, SkillTiming.None) && !UsedUp(cp, unit, skill) && GateOpen(cp, skill) && skill.CanPay(cp, unit))
+                if (skill.UsableNow(gs, unit, SkillTiming.None) && !UsedUp(cp, unit, skill) && GateOpen(cp, skill) && PrisonReady(cp, skill) && skill.CanPay(cp, unit))
                     ready.Add((unit, skill));
         return ready;
     }
@@ -261,9 +292,11 @@ public class SkillRules
             : " Cost: " + skill.CostText + (todo.Count > 0 ? " (" + string.Join(", ", todo) + ")" : "") + ".";
 
         MatchLogger.Action(owner.playerName + ": activated " + card.data.DisplayName + "'s " + skill.Marker + " (" + skill.CostText + ")");
-        Tell(card.data.DisplayName + " " + skill.Marker, owner.playerName + " activated it." + paid + " Effect: " + skill.Effect);
+        // Stays up until the costs are paid and the effect is done
+        SkillFrame frame = new SkillFrame(this, owner, card, skill);
+        Tell(card.data.DisplayName + " " + skill.Marker, owner.playerName + " activated it." + paid + " Effect: " + skill.Effect, () => mFrame == frame);
 
-        mFrame = new SkillFrame(this, owner, card, skill);
+        mFrame = frame;
         Pump();
     }
 
@@ -286,6 +319,8 @@ public class SkillRules
             if (step == null)
             {
                 MatchLogger.Action(mFrame.Owner.playerName + ": " + mFrame.Card.data.DisplayName + "'s " + mFrame.Skill.Marker + " resolved");
+                mLastFrame = mFrame;
+                mLastFrameEnded = UnityEngine.Time.time;
                 mFrame = null;
                 break;
             }
@@ -295,7 +330,12 @@ public class SkillRules
             bool done = begun ? step.Recheck(mFrame) : step.Begin(mFrame);
             if (!done)
             {
-                if (!begun) StepNotice(mFrame, step.Instruction(mFrame) + ".");
+                if (!begun)
+                {
+                    SkillFrame f = mFrame;
+                    int cursor = f.Cursor;
+                    StepNotice(f, step.Instruction(f) + ".", () => mFrame == f && f.Cursor == cursor); // until this step is done
+                }
                 return;
             }
             mFrame.Next();
@@ -311,14 +351,37 @@ public class SkillRules
         Pump();
     }
 
-    // "skip step": the step waiting isn't done, e.g. a "you may" the player doesn't want
+    // "skip step": the step waiting isn't done, e.g. a "you may" the player doesn't want, or a condition that isn't met
     public void SkipStep()
     {
         if (mFrame?.Current == null) return;
+        if (mFrame.Current is OpponentStep)
+        {
+            StepNotice(mFrame, "this part is " + OpponentStep.Opponent(mFrame).playerName + "'s to do, so it can't be skipped.");
+            return;
+        }
         MatchLogger.Action(mFrame.Owner.playerName + ": skipped a step of " + mFrame.Card.data.DisplayName + "'s " + mFrame.Skill.Marker);
+        if (mFrame.Current is ConditionStep) Stop(mFrame, "its condition isn't met, so it does nothing more.");
         mFrame.Next();
         Pump();
     }
+
+    // A condition not met (ConditionStep): the skill ends without its other steps
+    internal void Stop(SkillFrame f, string why)
+    {
+        f.Stopped = true;
+        StepNotice(f, why);
+    }
+
+    // For ConditionStep's "このターンにあなたがペルソナライドしているなら"
+    internal bool HasPersonaRode(PlayerState player) => mPersonaRode == player;
+
+    /* A step gives a unit power and critical (PowerStep): RulesEngine adds them, battle-only ones to be
+     taken off when the battle ends (card, power, critical, battle only) */
+    public System.Action<CardInstance, int, int, bool> AddBonus;
+
+    // A step makes the attacked unit unhittable this battle (CantBeHitStep): RulesEngine's perfect guard, for its owner
+    public System.Action<PlayerState> PerfectGuard;
 
     // "pay first" / "pay second": which option of a choice of costs
     public void Choose(int option)
@@ -359,10 +422,12 @@ public class SkillRules
     }
 
     /* A card put on its owner's trigger zone while a Reveal step waits: that's it being shown, not a
-     drive or damage check. True when it's taken as the reveal. */
+     drive or damage check. On another zone only the card asked for counts, e.g. a set order shown on
+     the order zone, not played. True when it's taken as the reveal. */
     public bool TakeShown(CardInstance card)
     {
         if (!(mFrame?.Current is RevealStep reveal) || card.zoneOwner != mFrame.Owner) return false;
+        if (card.zone != "Trigger" && !reveal.Filter.Matches(card.data)) return false;
         if (reveal.Offer(mFrame, card))
         {
             mFrame.Next();
@@ -380,20 +445,64 @@ public class SkillRules
             mSoulBlastUnseen[f.Owner] = unseen + cost.Amount;
         }
         if (cost is RestCost) mRestDue = f.Card;
+        if (cost is DiscardCost)
+        {
+            // After any discards still to come
+            int from = mDiscardsDue.Where(d => d.owner == f.Owner).Select(d => d.drop).Append(f.Owner.CountInZone("Drop")).Max();
+            mDiscardsDue.Add((f.Owner, from + cost.Amount));
+        }
+        else foreach (string zone in cost.Zones(f.Card)) mPaidZones.Add((f.Owner, zone, UnityEngine.Time.time + PaidZoneSeconds));
+        (string from, string to)? arrow = cost.Arrow;
+        if (arrow != null) Moves?.Expect(f.Owner, arrow.Value.from, arrow.Value.to, null);
         if (f.Skill.Costs.Contains(cost)) return; // said when it was activated
 
         string todo = cost.Instruction(f.Card); // an option picked from a choice
         StepNotice(f, "Paid " + cost + (todo != null ? ": " + todo : "") + ".");
     }
 
-    // A step's message, under the skill's card name
-    internal void StepNotice(SkillFrame f, string body) =>
-        mNotice(f.Card.data.DisplayName + " " + f.Skill.Marker, f.Owner.playerName + ": " + body);
+    /* Where the owner moves cards now: the waiting step's zones, a cost's for a few seconds after paying
+     it, and the drop zone until a discard paid is in it */
+    public List<(PlayerState owner, string zone)> AttentionZones()
+    {
+        mPaidZones.RemoveAll(z => z.until < UnityEngine.Time.time);
+        mDiscardsDue.RemoveAll(d => d.owner.CountInZone("Drop") >= d.drop);
+        var zones = mPaidZones.Select(z => (z.owner, z.zone)).ToList();
+        zones.AddRange(mDiscardsDue.Select(d => (d.owner, "Drop")));
+        if (mFrame != null && mFrame.Begun && mFrame.Current != null)
+            zones.AddRange(mFrame.Current.Zones(mFrame).Select(zone => (mFrame.Owner, zone)));
+        return zones;
+    }
+
+    // A step's message that the opponent needs too: online it goes to their PC as well
+    internal void Announce(SkillFrame f, string body) =>
+        Tell(f.Card.data.DisplayName + " " + f.Skill.Marker, f.Owner.playerName + ": " + body);
+
+    // A ChooseOpponentStep waiting on this PC: the opponent's circles to pick from (OpponentUnitPicker)
+    public ChooseOpponentStep OpponentChoiceDue => mFrame != null && mFrame.Begun && MatchSession.IsLocal(mFrame.Owner) ? mFrame.Current as ChooseOpponentStep : null;
+    public PlayerState ChoiceOpponent => mFrame != null ? OpponentStep.Opponent(mFrame) : null;
+    public List<string> OpponentChoices() => OpponentChoiceDue?.Choices(mFrame) ?? new List<string>();
+
+    public void ChooseOpponent(string zone)
+    {
+        ChooseOpponentStep step = OpponentChoiceDue;
+        if (step == null || !step.Choose(mFrame, zone)) return;
+        mFrame.Next();
+        Pump();
+    }
+
+    // A step's message, under the skill's card name; with stillToDo, it stays up until that's false
+    internal void StepNotice(SkillFrame f, string body, System.Func<bool> stillToDo = null)
+    {
+        string title = f.Card.data.DisplayName + " " + f.Skill.Marker;
+        if (stillToDo != null) mToDo(title, f.Owner.playerName + ": " + body, stillToDo);
+        else mNotice(title, f.Owner.playerName + ": " + body);
+    }
 
     // Shown here, and online sent on for the other PC (OnlineMatch)
-    void Tell(string title, string body)
+    void Tell(string title, string body, System.Func<bool> stillToDo = null)
     {
-        mNotice(title, body);
+        if (stillToDo != null) mToDo(title, body, stillToDo);
+        else mNotice(title, body);
         LastTitle = title;
         LastBody = body;
         SentCount++;
@@ -415,6 +524,47 @@ public class SkillRules
     // A keyword's condition, e.g. Limit Break (4), checked as it goes off or is offered (14.2.3)
     bool GateOpen(PlayerState owner, Skill skill) => skill.Gate == null || skill.Gate.Open(owner, mPersonaRode == owner);
 
+    public enum Move { Ride, Call, Order, Guard }
+
+    // Words in a skill's effect, English or Japanese, that say it does the move
+    static readonly Dictionary<Move, string[]> MoveWords = new Dictionary<Move, string[]>
+    {
+        [Move.Ride] = new[] { "ride", "ライド" },
+        [Move.Call] = new[] { "call", "コール", "登場" },
+        [Move.Order] = new[] { "order", "オーダー" },
+        [Move.Guard] = new[] { "guardian", "(gc)", "ガーディアン", "(g)" },
+    };
+
+    /* The skill that lets one of owner's cards make this move against the usual rules, as "Card's
+     [ACT]": one resolving now, or resolved in the last few seconds, whose effect does that move.
+     Null if none, and the rule break is a mistake */
+    public string Allowing(PlayerState owner, Move move)
+    {
+        SkillFrame f = mFrame ?? (UnityEngine.Time.time - mLastFrameEnded < AllowSeconds ? mLastFrame : null);
+        if (f == null || f.Owner != owner) return null;
+        string effect = (f.Skill.Effect ?? f.Skill.Text ?? "").ToLowerInvariant();
+        return MoveWords[move].Any(effect.Contains) ? f.Card.data.DisplayName + "'s " + f.Skill.Marker : null;
+    }
+
+    // "...stores it in your prison", "if your opponent has cards in your prison": only with a Prison in its owner's order zone
+    static bool PrisonReady(PlayerState owner, Skill skill)
+    {
+        string text = skill.Text ?? "";
+        bool needsPrison = text.IndexOf("your prison", System.StringComparison.OrdinalIgnoreCase) >= 0 || text.Contains("あなたの監獄");
+        return !needsPrison || Prison.Has(owner);
+    }
+
+    /* The camera reading one card twice (a second target of it, or it flickering out and back) isn't it
+     happening again: not while the same card's skill is still waiting, and once a turn for timings
+     that can't come twice, e.g. a ride or an order played */
+    bool Repeat(PlayerState owner, CardInstance card, Skill skill, SkillTiming timing)
+    {
+        string number = card.data.cardNumber;
+        if (mPrompts.Any(p => p.owner == owner && p.card.data.cardNumber == number && p.skill.Text == skill.Text)) return true;
+        bool onceATurn = timing == SkillTiming.PlacedOnVC || timing == SkillTiming.RiddenUpon || timing == SkillTiming.PlacedInOrderZone;
+        return onceATurn && !mFired.Add((owner, number, skill.Text, timing));
+    }
+
     // RulesEngine saw a Persona Ride
     public void PersonaRode(PlayerState player) => mPersonaRode = player;
 
@@ -429,9 +579,62 @@ public class SkillRules
         gs.AdjustCount(owner, "Drop", -1);
     }
 
-    // A Rest cost's unit resting: paying the cost, not attacking
+    // An order just played: its cost to play it first, e.g. resting a unit, then its skills
+    public void PayToPlay(CardInstance card)
+    {
+        PlayerState owner = card.zoneOwner;
+        ExtraSkill cost = Off ? null : SkillParser.PlayCost(card.data);
+        if (cost == null || owner == null || !MatchSession.IsLocal(owner) || mFrame != null) return;
+
+        SkillFrame frame = new SkillFrame(this, owner, card, cost);
+        Tell(card.data.DisplayName + " " + cost.Marker, owner.playerName + " played it. Pay its cost: " + cost.Text + ".", () => mFrame == frame);
+        mFrame = frame;
+        Pump();
+    }
+
+    // An Over trigger revealed in a drive check: its additional effect, run like a skill
+    public void OverTriggerEffect(CardInstance card, PlayerState owner)
+    {
+        ExtraSkill effect = Off ? null : SkillParser.OverTriggerEffect(card.data);
+        if (effect == null || owner == null || !MatchSession.IsLocal(owner)) return;
+        if (mFrame != null)
+        {
+            mNotice(card.data.DisplayName + " " + effect.Marker, owner.playerName + ": additional effect, do it by hand: " + effect.Text);
+            return;
+        }
+
+        SkillFrame frame = new SkillFrame(this, owner, card, effect);
+        Tell(card.data.DisplayName + " " + effect.Marker, owner.playerName + ": additional effect: " + effect.Text, () => mFrame == frame);
+        mFrame = frame;
+        Pump();
+    }
+
+    // A step waiting for the opponent (OpponentStep), as they're told; online OnlineMatch sends it to their PC for its Done
+    public string OpponentStepWaiting => mFrame != null && mFrame.Begun && mFrame.Current is OpponentStep
+        ? mFrame.Card.data.DisplayName + " " + mFrame.Skill.Marker + ": " + mFrame.Current.Instruction(mFrame) : null;
+
+    // The opponent's Done, from their PC (VoiceCommands.HeardRemote)
+    public void OpponentDone()
+    {
+        if (OpponentStepWaiting != null) Done();
+    }
+
+    // The [AUTO] being asked about has to be used (Skill.Mandatory): no Skip
+    public bool PromptMandatory => Busy && mPrompts[0].skill.Mandatory;
+
+    // A Rest cost's unit resting, or any unit for a "rest one of your units" step: paying the cost, not attacking
     public bool TakeRestDue(CardInstance card)
     {
+        if (mFrame != null && mFrame.Begun && mFrame.Current is RestUnitStep rest && card.zoneOwner == mFrame.Owner && Skill.IsUnitCircle(card.zone))
+        {
+            if (rest.Take(mFrame))
+            {
+                mFrame.Next();
+                Pump();
+            }
+            else StepNotice(mFrame, "Rested " + card.data.DisplayName + ". " + rest.Instruction(mFrame) + ".");
+            return true;
+        }
         if (card == null || card != mRestDue) return false;
         mRestDue = null;
         return true;
@@ -444,6 +647,10 @@ public class SkillRules
         mSoulBlastUnseen.Clear();
         mRestDue = null;
         mFrame = null;
+        mLastFrame = null;
+        mPaidZones.Clear();
+        mDiscardsDue.Clear();
+        mFired.Clear();
         mPersonaRode = null;
     }
 

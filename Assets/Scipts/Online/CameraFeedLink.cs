@@ -133,7 +133,7 @@ public class CameraFeedLink : MonoBehaviour
         var video = new Dictionary<string, object> { ["port"] = (long)port, ["ips"] = LocalAddresses().Cast<object>().ToList() };
         RtdbRest.Result result = null;
         yield return RtdbRest.Patch("rooms/" + mRoomCode, new Dictionary<string, object> { ["video"] = video }, new[] { "video" }, r => result = r);
-        Debug.Log("[CameraFeedLink] Listening on port " + port + (result.ok ? "." : ", but couldn't tell the guest: " + result.error));
+        Debug.Log("[CameraFeedLink] Listening on port " + port + (result.succeeded ? "." : ", but couldn't tell the guest: " + result.error));
     }
 
     void AcceptLoop(object state)
@@ -166,7 +166,7 @@ public class CameraFeedLink : MonoBehaviour
 
             RtdbRest.Result room = null;
             yield return RtdbRest.Get("rooms/" + mRoomCode, r => room = r);
-            Dictionary<string, object> video = room.ok ? room.fields.GetMap("video") : null;
+            Dictionary<string, object> video = room.succeeded ? room.fields.GetMap("video") : null;
 
             if (video != null)
             {
@@ -232,7 +232,7 @@ public class CameraFeedLink : MonoBehaviour
         var fields = new Dictionary<string, object> { ["jpg"] = Convert.ToBase64String(jpeg), ["ms"] = now };
         RtdbRest.Result result = null;
         yield return RtdbRest.Patch(FramePath(mRoomCode, mLocalSeat), fields, new[] { "jpg", "ms" }, r => result = r);
-        if (result.ok) mLastFrameMs = now;
+        if (result.succeeded) mLastFrameMs = now;
         mUploading = false;
     }
 
@@ -246,7 +246,7 @@ public class CameraFeedLink : MonoBehaviour
 
             RtdbRest.Result frame = null;
             yield return RtdbRest.Get(FramePath(mRoomCode, 1 - mLocalSeat), r => frame = r);
-            if (!frame.ok || frame.fields.GetLong("ms") == lastSeen) continue;
+            if (!frame.succeeded || frame.fields.GetLong("ms") == lastSeen) continue;
 
             lastSeen = frame.fields.GetLong("ms");
             try { mFallbackFrame = Convert.FromBase64String(frame.fields.GetString("jpg") ?? ""); }

@@ -15,6 +15,8 @@ public class BattleOverlay : MonoBehaviour
     public TextMeshProUGUI resultText;
     public TextMeshProUGUI shieldBreakdownText; // optional: shows guardian shield total
 
+    RulesEngine mRules;
+
     void OnEnable()
     {
         GameState.OnBattleStarted += ShowBattleComparison;
@@ -37,11 +39,13 @@ public class BattleOverlay : MonoBehaviour
         if (attackerPowerText != null) attackerPowerText.text = "ATK: " + attackPower;
         if (defenderPowerText != null) defenderPowerText.text = "DEF: " + defendPower;
 
-        bool hits = attackPower >= defendPower; // attacker must meet or exceed
+        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        bool guarded = mRules != null && mRules.TargetCantBeHit; // a perfect guard
+        bool hits = attackPower >= defendPower && !guarded; // attacker must meet or exceed
 
         if (resultText != null)
         {
-            resultText.text = hits ? "HIT!" : "NO HIT";
+            resultText.text = guarded ? "GUARDED" : hits ? "HIT!" : "NO HIT";
             resultText.color = hits ? Color.red : Color.green; // red hit green blocked
         }
     }

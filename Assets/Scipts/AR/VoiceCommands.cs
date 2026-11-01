@@ -17,7 +17,7 @@ public partial class VoiceCommands : MonoBehaviour
     {
         NextPhase, TurnEnd, Draw, SoulCharge, CounterBlast,
         AttackLeft, AttackVanguard, AttackRight,
-        Guard, NoGuard, DriveCheck, DamageCheck,
+        Guard, NoGuard, DriveCheck, DamageCheck, PerfectGuard,
         ActivateSkill, SkipSkill,
         ActivateVanguard, ActivateLeftFront, ActivateRightFront, ActivateLeftBack, ActivateCenterBack, ActivateRightBack,
         SkillDone, SkipStep, PayFirst, PaySecond, // a skill's steps (SkillRules)
@@ -41,6 +41,7 @@ public partial class VoiceCommands : MonoBehaviour
         ["no guard"] = Command.NoGuard,
         ["drive check"] = Command.DriveCheck,
         ["damage check"] = Command.DamageCheck,
+        ["perfect guard"] = Command.PerfectGuard, // a Sentinel: the attacked unit can't be hit
         ["activate skill"] = Command.ActivateSkill,
         ["skip skill"] = Command.SkipSkill,
         ["activate vanguard"] = Command.ActivateVanguard,
@@ -180,6 +181,7 @@ public partial class VoiceCommands : MonoBehaviour
         ShowToast(who, phrase);
         MatchLogger.Action(who.playerName + " said \"" + phrase + "\" (on their PC)");
         if (TryDeclaration(command, out RulesEngine.Declaration declaration)) mRules?.Declare(declaration, who);
+        else if (command == Command.SkillDone) mRules?.Skills?.OpponentDone(); // their part of this PC's skill (OpponentStep)
     }
 
     /* Online it's always this PC's player. On one PC, the defender's keywords are the player not
@@ -191,7 +193,7 @@ public partial class VoiceCommands : MonoBehaviour
         bool skillAnswer = command == Command.ActivateSkill || command == Command.SkipSkill || command >= Command.SkillDone;
         if (skillAnswer && mRules?.Skills?.PromptOwner != null)
             return mRules.Skills.PromptOwner;
-        bool defending = command == Command.Guard || command == Command.NoGuard || command == Command.DamageCheck;
+        bool defending = command == Command.Guard || command == Command.NoGuard || command == Command.DamageCheck || command == Command.PerfectGuard;
         return defending ? gs.Opponent : gs.CurrentPlayer;
     }
 
@@ -261,6 +263,7 @@ public partial class VoiceCommands : MonoBehaviour
             case Command.NoGuard: declaration = RulesEngine.Declaration.NoGuard; return true;
             case Command.DriveCheck: declaration = RulesEngine.Declaration.DriveCheck; return true;
             case Command.DamageCheck: declaration = RulesEngine.Declaration.DamageCheck; return true;
+            case Command.PerfectGuard: declaration = RulesEngine.Declaration.PerfectGuard; return true;
             default: declaration = default; return false;
         }
     }

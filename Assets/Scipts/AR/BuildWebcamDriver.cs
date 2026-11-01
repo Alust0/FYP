@@ -65,9 +65,11 @@ public class BuildWebcamDriver : MonoBehaviour
     static DriverConfig sConfig;
     static IntPtr sUserData;
     static BuildWebcamDriver sInstance;
+    static readonly int GainId = Shader.PropertyToID("_Gain");
 
     WebCamTexture mWebcam;
     RenderTexture mFlipped;
+    Material mBrightness; // flips and brightens each frame; null if the shader is missing
     Texture2D mReadback;
     byte[] mPixels;
     GCHandle mPixelsHandle;
@@ -78,6 +80,10 @@ public class BuildWebcamDriver : MonoBehaviour
      too, or alt-tabbing pauses the game, its camera and the online sync. */
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void KeepRunningInBackground() => Application.runInBackground = true;
+
+    /* True while this feeds Vuforia and can brighten its frames (GameSettings.CameraBrightness).
+     UWP can't reach the webcam's own brightness: there's no DirectShow, and the webcam is in use */
+    public static bool AdjustsBrightness => sInstance != null && sInstance.mBrightness != null;
 
     [MonoPInvokeCallback(typeof(DriverCreatedFn))]
     static void OnDriverCreated(IntPtr driver) => sDriver = driver;
@@ -182,6 +188,10 @@ public class BuildWebcamDriver : MonoBehaviour
         mPixelsHandle = GCHandle.Alloc(mPixels, GCHandleType.Pinned);
         mImagePtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(CameraImage)));
 
+        Shader brightness = Resources.Load<Shader>("CameraBrightness");
+        if (brightness != null && brightness.isSupported) mBrightness = new Material(brightness);
+        else Debug.LogWarning("[BuildWebcamDriver] CameraBrightness shader unavailable; camera brightness can't be changed.");
+
         var data = new DriverData { DriverCreated = sOnDriverCreated, GetConfig = sOnGetConfig };
         sUserData = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(DriverData)));
         Marshal.StructureToPtr(data, sUserData, false); // must stay valid while Vuforia runs, so never freed
@@ -209,7 +219,12 @@ public class BuildWebcamDriver : MonoBehaviour
         if (!mVuforiaRunning || sDriver == IntPtr.Zero || mReadback == null || !mWebcam.didUpdateThisFrame) return;
 
         // Unity textures are stored bottom row first; Vuforia wants the top row first
-        Graphics.Blit(mWebcam, mFlipped, new Vector2(1f, -1f), new Vector2(0f, 1f));
+        if (mBrightness != null)
+        {
+            mBrightness.SetFloat(GainId, Mathf.Pow(2f, (GameSettings.CameraBrightness - 0.5f) * 2f)); // ×0.5 to ×2
+            Graphics.Blit(mWebcam, mFlipped, mBrightness);
+        }
+        else Graphics.Blit(mWebcam, mFlipped, new Vector2(1f, -1f), new Vector2(0f, 1f));
         RenderTexture previous = RenderTexture.active;
         RenderTexture.active = mFlipped;
         mReadback.ReadPixels(new Rect(0, 0, sConfig.Width, sConfig.Height), 0, 0, false);
@@ -237,5 +252,6 @@ public class BuildWebcamDriver : MonoBehaviour
         if (mWebcam != null) mWebcam.Stop();
         if (mPixelsHandle.IsAllocated) mPixelsHandle.Free();
         if (mImagePtr != IntPtr.Zero) Marshal.FreeHGlobal(mImagePtr);
+        if (mBrightness != null) Destroy(mBrightness);
     }
 }

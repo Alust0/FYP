@@ -38,17 +38,46 @@ public class UISetup : MonoBehaviour
         CreateNotificationPanel(); // before the sidebar, whose Settings menu has to draw over it
         CreateLogPanel(); // before the sidebar too, whose Settings menu opens it
         CreateSidebar();
+        CreateExitButton(); // last, over everything
         WireEventBridge();
 
         gameObject.AddComponent<VoiceCommands>(); // keywords: next phase, guard, drive check...
         gameObject.AddComponent<HandZones>(); // hand on the deck draws; its on-screen buttons are off (useButtons)
         gameObject.AddComponent<CardBackTracker>(); // face-down cards: the deck, flipped damage
         gameObject.AddComponent<AttackTargetPicker>(); // pops up over the defender's front row when attacking
+        gameObject.AddComponent<CounterBlastPicker>(); // which damage cards a Counter Blast flips
+        gameObject.AddComponent<OpponentUnitPicker>(); // over the opponent's units a skill has its owner choose
+        gameObject.AddComponent<ZoneHighlighter>(); // lights up the zones a skill, check or cost needs cards moved on
 
         // F2 test panel for placing cards without a camera, e.g. in a second editor
         if (Application.isEditor) gameObject.AddComponent<DebugCardPlacer>();
 
         Debug.Log("[UISetup] All UI elements created successfully.");
+    }
+
+    GameObject mExitButton;
+
+    void OnDestroy() => GameState.OnGameOver -= ShowExitButton;
+
+    // "Exit to Menu" in the bottom-right corner, shown once the game is over
+    void CreateExitButton()
+    {
+        mExitButton = new GameObject("ExitButton", typeof(RectTransform));
+        mExitButton.transform.SetParent(canvas.transform, false);
+        RectTransform rt = (RectTransform)mExitButton.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 0f);
+        rt.anchoredPosition = new Vector2(-16f, 16f);
+        rt.sizeDelta = new Vector2(240f, 70f);
+        mExitButton.AddComponent<Image>().color = new Color(0.55f, 0.15f, 0.15f, 0.95f);
+        mExitButton.AddComponent<Button>().onClick.AddListener(() => UnityEngine.SceneManagement.SceneManager.LoadScene("Menu"));
+        CreateText("Label", mExitButton.transform, Vector2.zero, rt.sizeDelta, "Exit to Menu", 26, TextAlignmentOptions.Center).raycastTarget = false;
+        mExitButton.SetActive(false);
+        GameState.OnGameOver += ShowExitButton;
+    }
+
+    void ShowExitButton()
+    {
+        if (mExitButton != null) mExitButton.SetActive(true);
     }
 
     // Creates the main Canvas with correct settings
@@ -245,9 +274,18 @@ public class UISetup : MonoBehaviour
                 (string zone, string label) = HudZones[row];
                 Vector2 pos = new Vector2(12f, -112f - row * 26f);
 
-                TextMeshProUGUI countText = CreateText(label + "P" + (player + 1), columnRT, pos, new Vector2(110f, 24f), label + ": 0", 18, TextAlignmentOptions.Left);
-                var counter = new PhaseHUDOverlay.ZoneCounter { playerIndex = player, zone = zone, label = label, text = countText };
-                counter.parts.Add(countText.gameObject);
+                var counter = new PhaseHUDOverlay.ZoneCounter { playerIndex = player, zone = zone, label = label };
+                // Damage and Energy as bars (damage cards red, Counter Blasted gray), the rest as text
+                if (zone == "Damage" || zone == "Energy")
+                {
+                    counter.bar = StatBar.Create(columnRT, pos + new Vector2(0f, -1f), new Vector2(110f, 22f), player, zone == "Damage");
+                    counter.parts.Add(counter.bar.gameObject);
+                }
+                else
+                {
+                    counter.text = CreateText(label + "P" + (player + 1), columnRT, pos, new Vector2(110f, 24f), label + ": 0", 18, TextAlignmentOptions.Left);
+                    counter.parts.Add(counter.text.gameObject);
+                }
                 if (MatchSession.IsLocalSeat(player))
                 {
                     counter.parts.Add(CreateCountButton(columnRT, pos + new Vector2(118f, 0f), "-", player, zone, -1));
@@ -375,6 +413,9 @@ public class UISetup : MonoBehaviour
         notificationOverlay.notificationBody = bodyText;
         notificationOverlay.notificationIcon = iconImg;
         notificationOverlay.slideUp = true;
+
+        // Clicks go through to what's under it, e.g. a card's "i"
+        foreach (Graphic graphic in sectionObj.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
     }
 
     // The notifications so far, scrollable, at the top of the camera area; the sidebar's log button or L

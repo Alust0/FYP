@@ -83,7 +83,7 @@ public class AccountLock : MonoBehaviour
             {
                 yield return RtdbRest.Create(Sessions, playerId, Claim(), r => write = r);
             }
-            else if (!session.ok)
+            else if (!session.succeeded)
             {
                 Debug.LogWarning("[AccountLock] Reading " + path + " failed (" + session.status + "): " + session.error);
                 failed = session;
@@ -105,7 +105,7 @@ public class AccountLock : MonoBehaviour
                 yield return RtdbRest.Patch(path, Claim(), new[] { "clientId", "device", "beatMs" }, r => write = r, session.version);
             }
 
-            if (write.ok)
+            if (write.succeeded)
             {
                 mPlayerId = playerId;
                 mHeartbeat = StartCoroutine(Heartbeat());
@@ -139,7 +139,7 @@ public class AccountLock : MonoBehaviour
                 yield return RtdbRest.Create(Sessions, mPlayerId, Claim(), null);
                 continue; // if another copy got it first, the next beat sees that
             }
-            if (!session.ok) continue; // a dropped read; the next beat tries again
+            if (!session.succeeded) continue; // a dropped read; the next beat tries again
 
             if (session.fields.GetString("clientId") != MatchSession.ClientId)
             {

@@ -32,6 +32,17 @@ NATIONS_EN = {
     "コロコロ": "CoroCoro", "バディファイト": "buddy fight", "ぶいすぽっ！": "VSPO!",
     "ペルソナシリーズ": "Persona", "イナズマイレブン": "Inazuma Eleven",
     "クレイエレメンタル": "",  # Cray Elementals have no nation, so they fit any deck
+    # the scraper's own machine-translated nation_en spellings
+    "Blunt Gate": "Brandt Gate", "Ketel Sanctuary": "Keter Sanctuary", "megalanica": "Magallanica",
+    "Stoikeia": "Stoicheia", "inazuma eleven": "Inazuma Eleven", "persona series": "Persona",
+    "Brandgate": "Brandt Gate", "Brantgate": "Brandt Gate", "Megalanica": "Magallanica",
+    "Stargate": "Star Gate", "Buspo!": "VSPO!", "clay elemental": "",
+}
+# The same misspellings in names and card text
+TEXT_NATION_FIXES = {
+    "Blunt Gate": "Brandt Gate", "Brandgate": "Brandt Gate", "Brantgate": "Brandt Gate",
+    "Ketel Sanctuary": "Keter Sanctuary", "megalanica": "Magallanica", "Megalanica": "Magallanica",
+    "Stoikeia": "Stoicheia", "Stargate": "Star Gate", "Buspo!": "VSPO!", "clay elemental": "Cray Elemental",
 }
 
 
@@ -57,6 +68,10 @@ def to_fields(card):
     for name in ("nation", "nationEn"):
         if name in fields:
             fields[name] = english_nation(fields[name])
+    for name in ("nameEn", "skillEn", "effectEn", "flavorEn"):
+        for wrong, right in TEXT_NATION_FIXES.items():
+            if name in fields:
+                fields[name] = fields[name].replace(wrong, right)
     for name in NUMBER_FIELDS:
         value = card.get(name)
         fields[name] = int(value) if isinstance(value, (int, float)) else 0

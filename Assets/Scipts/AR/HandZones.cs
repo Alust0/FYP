@@ -12,7 +12,8 @@ using UnityEngine.UI;
  hand over it. Holding a hand on one button for holdSeconds runs it. In the Draw
  Phase, or after an Energy Blast, a hand going onto the deck and away again counts as the draw: the camera can't see one card
  leave a face-down deck, but it can see the hand. CardBackTracker losing and finding the deck's
- card back counts the same. H shows what the check sees. Added by UISetup. Its UI is built in HandZones.UI.cs. */
+ card back counts the same. In the Ride Phase a hand going onto the ride deck and away is a card
+ taken from it, so the ride counts as from the ride deck (RulesEngine.RideDeckTouched). H shows what the check sees. Added by UISetup. Its UI is built in HandZones.UI.cs. */
 public partial class HandZones : MonoBehaviour
 {
     [Tooltip("Show the hand buttons (Next Phase, attack targets). Off: only the hand-on-deck draw is watched.")]
@@ -53,6 +54,7 @@ public partial class HandZones : MonoBehaviour
     const int GlobalCols = 16, GlobalRows = 9; // whole-picture cells, to tell a hand from the camera moving
     const float Adapt = 0.05f; // how fast an uncovered area's normal look follows slow light changes
     const float ArmSeconds = 0.6f;
+    const float RelearnSeconds = 1f, MaxRelearnSeconds = 4f; // a lit circle quiet this long, or this long lit at most
     static readonly int Slots = RulesEngine.FrontRow.Length; // the row: Next Phase in the middle, or the three attack targets
 
     class Area
@@ -62,6 +64,7 @@ public partial class HandZones : MonoBehaviour
         public string pickKey; // a trigger pick: the board zone key of the circle, e.g. "P1_LeftFront"
         public string pickZone; // and its circle, e.g. "LeftFront"
         public bool isDeck;
+        public bool isRideDeck;
         public Rect view; // fraction of the camera view, origin bottom-left
         public Color[] baseline; // normal look per cell; null until the first picture
         public float baselineSince;
@@ -74,6 +77,7 @@ public partial class HandZones : MonoBehaviour
         public Color[] previousBaseline; // the normal look before the last settle, in case what settled leaves again
         public float shownSince; // Time.time it last lit up
         public float stillSince; // Time.time it stopped changing between samples
+        public bool relearn; // a circle just lit: its look is learnt again until it's quiet (Check)
         public RectTransform ui;
         public RectTransform fill;
         public TextMeshProUGUI label;
@@ -92,6 +96,7 @@ public partial class HandZones : MonoBehaviour
 
     readonly List<Area> mAreas = new List<Area>();
     Area mDeck;
+    Area mRideDeck;
     Color[] mGlobalBaseline;
     int mDeckDrawTurn = -1; // turn whose draw the deck touch already counted
     float mDrawWatchStart = float.PositiveInfinity; // Time.time the deck started being watched this Draw Phase
@@ -140,8 +145,12 @@ public partial class HandZones : MonoBehaviour
             }
 
         mDeck = new Area { isDeck = true };
-        BuildDeckFrame(mDeck);
+        BuildDeckFrame(mDeck, "Draw\nfrom here");
         mAreas.Add(mDeck);
+
+        mRideDeck = new Area { isRideDeck = true };
+        BuildDeckFrame(mRideDeck, "Ride\nfrom here");
+        mAreas.Add(mRideDeck);
 
         BuildPreview();
     }
@@ -207,7 +216,14 @@ public partial class HandZones : MonoBehaviour
             if (shown && !area.shown)
             {
                 area.shownSince = Time.time;
-                if (area.covered) area.fired = true;
+                if (area.pickZone != null)
+                {
+                    // Its look from now on, e.g. with the attacker just rested on it, not from before
+                    area.relearn = true;
+                    area.baseline = null;
+                    area.covered = false;
+                }
+                else if (area.covered) area.fired = true;
             }
             if (area.isDeck && shown && !area.shown) StartDrawWatch();
             area.shown = shown;
@@ -228,10 +244,14 @@ public partial class HandZones : MonoBehaviour
      to come; the attack target buttons, in place of the usual ones, while your attack needs a target */
     bool IsShown(Area area, GameState gs)
     {
+        if (gs.gameOver) return false; // nothing more to do once it's over
         bool yourTurn = MatchSession.IsLocal(gs.CurrentPlayer);
         if (area.isDeck)
             return yourTurn && area.view.width > 0f &&
-                ((gs.currentPhase == TurnPhase.DrawPhase && mDeckDrawTurn != gs.turnNumber) || ExtraDrawDue);
+                ((gs.currentPhase == TurnPhase.DrawPhase && !DrewThisTurn(gs)) || ExtraDrawDue);
+
+        // The ride deck while this turn's ride is still to come, once its discard is in the drop zone
+        if (area.isRideDeck) return yourTurn && area.view.width > 0f && mRules != null && mRules.RideDeckRideDue && !mRules.RideDiscardDue;
 
         if (area.pickZone != null)
         {
@@ -273,19 +293,27 @@ public partial class HandZones : MonoBehaviour
         }
     }
 
-    // The turn player's Deck zone, projected through the camera; its normal look restarts when it moves
+    // The turn player's Deck and Ride Deck zones, projected through the camera
     void UpdateDeckArea(GameState gs)
     {
+        mDeckKey = TurnPlayerKey(gs, "Deck");
+        Follow(mDeck, mDeckKey);
+        Follow(mRideDeck, TurnPlayerKey(gs, "RideDeck"));
+    }
+
+    string TurnPlayerKey(GameState gs, string zone) => mBoard == null ? null
+        : mBoard.boardMode == BoardLayout.BoardMode.Multiplayer ? "P1_" + zone : "P" + (gs.currentPlayerIndex + 1) + "_" + zone;
+
+    // Puts the area on the zone; its normal look restarts when the zone moves
+    void Follow(Area area, string key)
+    {
         Rect view = Rect.zero;
-        string key = mBoard == null ? null
-            : mBoard.boardMode == BoardLayout.BoardMode.Multiplayer ? "P1_Deck" : "P" + (gs.currentPlayerIndex + 1) + "_Deck";
-        mDeckKey = key;
         if (mBoard != null) mBoard.TryGetZoneViewRect(key, mCamera, out view);
 
-        if (Vector2.Distance(view.center, mDeck.view.center) > 0.01f || Mathf.Abs(view.width - mDeck.view.width) > 0.01f)
+        if (Vector2.Distance(view.center, area.view.center) > 0.01f || Mathf.Abs(view.width - area.view.width) > 0.01f)
         {
-            mDeck.view = view;
-            mDeck.baseline = null;
+            area.view = view;
+            area.baseline = null;
         }
     }
 
@@ -411,6 +439,21 @@ public partial class HandZones : MonoBehaviour
         bool still = area.lastCells != null && ChangedFraction(cells, area.lastCells, Color.clear) == 0f;
         if (!still) area.stillSince = now;
         area.lastCells = cells;
+
+        /* A circle just lit: what's still moving there, e.g. the hand that rested the attacker and the
+         card it turned, isn't a finger. Its look is learnt again until it's been quiet for a moment. */
+        if (area.relearn)
+        {
+            area.covered = false;
+            if (!still)
+            {
+                area.baseline = (Color[])cells.Clone();
+                area.baselineSince = now;
+            }
+            if (now - area.baselineSince >= RelearnSeconds || now - area.shownSince >= MaxRelearnSeconds) area.relearn = false;
+            return;
+        }
+
         /* Not while lit if it was covered after lighting up: that's an arm resting there. Covered from
          before (e.g. the attacker's card just rested) it settles all the same. */
         bool maySettle = !area.shown || area.coveredSince < area.shownSince;
@@ -442,7 +485,8 @@ public partial class HandZones : MonoBehaviour
             return;
         }
 
-        if (changed <= clearFraction)
+        // A circle clears lower than it covers, or a fingertip near the line flickers and its hold keeps starting over
+        if (changed <= (area.pickZone != null ? Mathf.Min(clearFraction, pickCoveredFraction * 0.5f) : clearFraction))
         {
             area.covered = false;
             // Deck: on and off again, one half of the draw (TryCountDraw)
@@ -452,6 +496,8 @@ public partial class HandZones : MonoBehaviour
                 mHandTouch = new Vector2(area.coveredSince, now);
                 TryCountDraw();
             }
+            // Ride deck: on and off again, a card taken off it to ride
+            if (area.isRideDeck && area.shown && held >= minDeckTouchSeconds && held < maxCoverSeconds) mRules?.RideDeckTouched();
             return;
         }
 
@@ -463,14 +509,17 @@ public partial class HandZones : MonoBehaviour
             if (changed > fingerMaxFraction) area.coveredSince = now; // a hand or arm over it: the hold starts over
             if (area.shown && !area.fired && now - area.coveredSince >= pickHoldSeconds && IsFingertip(area))
             {
-                area.fired = true;
+                /* Every circle under the arm has to clear too, or the next pick (a Critical trigger's power)
+                 goes to the one the arm crossed as the hand pulls back */
+                foreach (Area a in mAreas)
+                    if (a.pickZone != null && a.covered) a.fired = true;
                 if (mRules != null && mRules.IsChoosingTarget) mRules.ChooseTarget(AttackTargetPicker.Facing(area.pickZone));
                 else mRules?.Pick(area.pickZone);
             }
             return;
         }
 
-        if (!area.isDeck && area.shown && !area.fired && now - area.coveredSince >= holdSeconds && !OtherButtonCovered(area))
+        if (IsButton(area) && area.shown && !area.fired && now - area.coveredSince >= holdSeconds && !OtherButtonCovered(area))
         {
             area.fired = true;
             if (area.targetZone != null) mRules?.ChooseTarget(area.targetZone);
@@ -482,7 +531,7 @@ public partial class HandZones : MonoBehaviour
     bool OtherButtonCovered(Area area) =>
         mAreas.Any(a => IsButton(a) && a.covered && a.view.center != area.view.center);
 
-    static bool IsButton(Area area) => !area.isDeck && area.pickZone == null;
+    static bool IsButton(Area area) => !area.isDeck && !area.isRideDeck && area.pickZone == null;
 
     bool IsFingertip(Area area) =>
         !mAreas.Any(a => a != area && a.pickZone != null && a.shown && a.covered && a.changed <= fingerMaxFraction && Reach(a) > Reach(area));
@@ -491,7 +540,7 @@ public partial class HandZones : MonoBehaviour
     public float PickProgress(string pickKey)
     {
         Area area = mAreas.FirstOrDefault(a => a.pickKey == pickKey);
-        if (area == null || !area.shown || !area.covered || area.fired) return 0f;
+        if (area == null || !area.shown || !area.covered || area.fired || !IsFingertip(area)) return 0f;
         return Mathf.Clamp01((Time.time - area.coveredSince) / pickHoldSeconds);
     }
 
@@ -522,12 +571,15 @@ public partial class HandZones : MonoBehaviour
         GameState gs = GameState.Instance;
         if (!ExtraDrawDue)
         {
-            if (mDeckDrawTurn == gs.turnNumber) return;
+            if (DrewThisTurn(gs)) return;
             mDeckDrawTurn = gs.turnNumber;
         }
         Debug.Log("[HandZones] Draw counted: the camera saw the " + seen + ".");
         UISetup.Draw(gs.CurrentPlayer);
     }
+
+    // The rules' own record, which Undo puts back, so an undone draw is watched for again
+    bool DrewThisTurn(GameState gs) => mRules != null ? mRules.DrewThisTurn : mDeckDrawTurn == gs.turnNumber;
 
     static void ResetArea(Area area)
     {

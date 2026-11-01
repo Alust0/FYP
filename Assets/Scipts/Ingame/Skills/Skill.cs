@@ -30,6 +30,10 @@ public abstract class Skill
     public SkillGate Gate { get; internal set; } // a keyword's condition, e.g. Limit Break (4); null for none
     public IReadOnlyList<Cost> Costs { get; }
     public PlayerOrder Order { get; internal set; }
+    public bool Optional { get; internal set; } // its text says the player may ("してよい")
+
+    // An [AUTO] with no cost that doesn't say "may" has to be used: it can't be skipped
+    public bool Mandatory => this is AutoSkill && Costs.Count == 0 && !Optional;
     public List<Step> Steps { get; internal set; } = new List<Step>(); // its costs, then its effect
     internal string CostLabel; // the English costs, when the costs were read from the Japanese
 

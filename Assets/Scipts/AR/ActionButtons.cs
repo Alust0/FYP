@@ -18,6 +18,7 @@ public class ActionButtons : MonoBehaviour
     const string KeepTrigger = "keep trigger"; // and to leave a trigger's bonuses where they are
     const string EnergyDraw = "energy draw";
     const string LaterSkill = "later skill"; // ask about the next [AUTO] first
+    const string YourPartDone = "your part done"; // online: this PC's player did their part of the opponent's skill
 
     readonly Button[] mButtons = new Button[MaxButtons];
     readonly TextMeshProUGUI[] mLabels = new TextMeshProUGUI[MaxButtons];
@@ -89,6 +90,11 @@ public class ActionButtons : MonoBehaviour
         else if (phrase == KeepTrigger) mRules?.KeepPicks();
         else if (phrase == EnergyDraw) mRules?.EnergyDraw();
         else if (phrase == LaterSkill) mRules?.Skills?.Later();
+        else if (phrase == YourPartDone)
+        {
+            OnlineMatch.DoneOpponentStep();
+            VoiceCommands.Instance?.Press("skill done"); // reaches the skill owner's PC (OpponentStep)
+        }
         else if (phrase != null) VoiceCommands.Instance?.Press(phrase);
     }
 
@@ -99,6 +105,13 @@ public class ActionButtons : MonoBehaviour
         GameState gs = GameState.Instance;
         if (mRules == null || mRules.Skills == null || gs == null || gs.players[0] == null) return actions;
 
+        // Online: the opponent's skill waiting on this PC's player, first of all
+        if (MatchSession.IsOnline && OnlineMatch.OpponentStepForYou != null)
+        {
+            actions.Add(("Done\n(your part)", YourPartDone));
+            return actions;
+        }
+
         // An [AUTO] skill to answer comes before anything else, in any phase
         SkillRules skills = mRules.Skills;
         if (skills.Busy)
@@ -106,7 +119,7 @@ public class ActionButtons : MonoBehaviour
             if (MatchSession.IsLocal(skills.PromptOwner))
             {
                 actions.Add(("Activate" + (skills.PromptCost.Length > 0 ? "\n" + skills.PromptCost : ""), "activate skill"));
-                actions.Add(("Skip", "skip skill"));
+                if (!skills.PromptMandatory) actions.Add(("Skip", "skip skill")); // one with no cost and no "may" has to be used
                 if (skills.PromptCount > 1) actions.Add(("Later", LaterSkill));
             }
             return actions;
@@ -116,6 +129,13 @@ public class ActionButtons : MonoBehaviour
         if (skills.Stepping)
         {
             if (!MatchSession.IsLocal(skills.PromptOwner)) return actions;
+
+            // The opponent's part: their Done, online on their PC (OnlineMatch); it can't be skipped
+            if (skills.OpponentStepWaiting != null)
+            {
+                if (!MatchSession.IsOnline) actions.Add(("Done\n(opponent's part)", "skill done"));
+                return actions;
+            }
             ChoiceCost choice = skills.ChoiceDue;
             if (choice != null)
             {
@@ -134,7 +154,7 @@ public class ActionButtons : MonoBehaviour
         if (gs.currentPhase == TurnPhase.MainPhase)
         {
             foreach ((CardInstance card, Skill skill) in skills.ReadyActs())
-                actions.Add((card.data.cardName + "\n[ACT]" + (skill.Costs.Count > 0 ? " " + skill.ShortCostText : ""), VoiceCommands.ActivatePhrase(card.zone)));
+                actions.Add((card.data.DisplayName + "\n[ACT]" + (skill.Costs.Count > 0 ? " " + skill.ShortCostText : ""), VoiceCommands.ActivatePhrase(card.zone)));
             if (mRules.CanEnergyDraw) actions.Add(("Energy Blast " + RulesEngine.EnergyDrawCost + ":\nDraw 1", EnergyDraw));
             return actions;
         }
@@ -185,8 +205,10 @@ public class ActionButtons : MonoBehaviour
                         actions.Add(("Guard", "guard"));
                         actions.Add(("No Guard", "no guard"));
                     }
+                    break;
                 }
-                else if (mRules.VanguardAttacking)
+                // A perfect guard comes from a Sentinel placed on the Guardian circle, not a button
+                if (mRules.VanguardAttacking)
                 {
                     if (attackerHere) actions.Add(("Drive Check", "drive check")); // only once the guard is settled
                 }

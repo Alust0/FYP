@@ -86,6 +86,7 @@ public partial class AttackTargetPicker
         fillImage.color = new Color(0.2f, 1f, 0.4f, 0.5f);
         fillImage.raycastTarget = false;
 
-        return new Marker { rect = rect, image = image, button = button, label = label, fill = fill };
+        Ripple ripple = Ripple.Add(rect, new Color(1f, 0.3f, 0.3f));
+        return new Marker { rect = rect, image = image, button = button, label = label, fill = fill, ripple = ripple };
     }
 }

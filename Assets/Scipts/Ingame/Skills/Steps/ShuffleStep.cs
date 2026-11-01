@@ -7,4 +7,6 @@ public class ShuffleStep : Step
         f.Rules.StepNotice(f, "Shuffle your deck.");
         return true;
     }
+
+    public override string Summary => "shuffle";
 }

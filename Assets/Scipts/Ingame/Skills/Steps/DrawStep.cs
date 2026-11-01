@@ -32,5 +32,7 @@ public class DrawStep : Step
         if (f.Left > 0) GameState.Instance.AdjustCount(f.Owner, "Deck", -f.Left);
     }
 
+    public override string Summary => "draw " + Amount;
+
     public override string Instruction(SkillFrame f) => "draw " + (f.Left > 0 ? f.Left : Amount) + " card(s) from your deck";
 }

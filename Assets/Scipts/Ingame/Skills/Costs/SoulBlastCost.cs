@@ -14,5 +14,9 @@ public class SoulBlastCost : Cost
         Adjust(owner, "Drop", Amount);
     }
 
+    // The soul is under the vanguard
+    public override System.Collections.Generic.IEnumerable<string> Zones(CardInstance card) => new[] { "Vanguard", "Drop" };
+    public override (string from, string to)? Arrow => ("Vanguard", "Drop");
+
     public override string Instruction(CardInstance card) => "put " + Amount + " card(s) from your soul into the drop zone";
 }

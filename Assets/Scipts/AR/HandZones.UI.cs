@@ -45,6 +45,7 @@ public partial class HandZones
         string zone = area.pickZone;
         button.onClick.AddListener(() => mRules?.Pick(zone));
         AddFrame(area.ui, new Color(0.2f, 0.8f, 1f, 0.95f));
+        Ripple.Add(area.ui, new Color(0.2f, 0.8f, 1f));
 
         area.fill = AddRect(area.ui, "Fill", new Color(0.2f, 1f, 0.4f, 0.45f));
         area.fill.anchorMin = Vector2.zero;
@@ -55,11 +56,14 @@ public partial class HandZones
         area.label = AddLabel(area.ui, "");
     }
 
-    void BuildDeckFrame(Area area)
+    void BuildDeckFrame(Area area, string label)
     {
-        area.ui = AddRect(mCanvas, "HandDeck", new Color(1f, 0.85f, 0.2f, 0.12f));
-        AddFrame(area.ui, new Color(1f, 0.85f, 0.2f, 0.95f));
-        area.label = AddLabel(area.ui, "Draw\nfrom here");
+        // The ride deck in orange, like ZoneHighlighter's arrow from it to the vanguard circle
+        Color color = area.isRideDeck ? new Color(1f, 0.42f, 0.3f) : new Color(1f, 0.85f, 0.2f);
+        area.ui = AddRect(mCanvas, area.isRideDeck ? "HandRideDeck" : "HandDeck", new Color(color.r, color.g, color.b, 0.12f));
+        AddFrame(area.ui, new Color(color.r, color.g, color.b, 0.95f));
+        Ripple.Add(area.ui, color);
+        area.label = AddLabel(area.ui, label);
     }
 
     /* H: the picture being checked, bottom-right of the camera view, with every live area boxed
@@ -126,7 +130,9 @@ public partial class HandZones
         if (area.fill != null)
         {
             float hold = area.pickZone != null ? pickHoldSeconds : holdSeconds;
-            float progress = area.covered && !area.fired ? (Time.time - area.coveredSince) / hold : 0f;
+            // On circles, only the fingertip's: the ones the arm crosses on the way won't be picked
+            bool holding = area.covered && !area.fired && (area.pickZone == null || IsFingertip(area));
+            float progress = holding ? (Time.time - area.coveredSince) / hold : 0f;
             area.fill.localScale = new Vector3(Mathf.Clamp01(progress), 1f, 1f);
         }
 

@@ -20,6 +20,12 @@ public partial class DeckBuilder
         Button back = AddButton(root, "Back", OnBack, PanelColor, Color.white, 20);
         Place((RectTransform)back.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-200f, -82f), new Vector2(-48f, -32f));
 
+        // Export / Import, top middle over the deck panel (0.64 to 1 across, inset 6 and 48, so centred at 0.82 less 21 px)
+        mExportButton = AddButton(root, "Export", OnExport, RowColor, Color.white, 22);
+        Place((RectTransform)mExportButton.transform, new Vector2(0.82f, 1f), new Vector2(0.82f, 1f), new Vector2(-141f, -82f), new Vector2(-27f, -32f));
+        Button import = AddButton(root, "Import", OnImport, RowColor, Color.white, 22);
+        Place((RectTransform)import.transform, new Vector2(0.82f, 1f), new Vector2(0.82f, 1f), new Vector2(-15f, -82f), new Vector2(99f, -32f));
+
         BuildCardDetails(root);
         BuildBrowser(root);
         BuildDeckPanel(root);
@@ -167,8 +173,6 @@ public partial class DeckBuilder
 
         TMP_Text heading = AddText(panel, "Deck", 40, Color.white, TextAlignmentOptions.Left);
         PlaceTop(heading.rectTransform, 0f, 1f, 18f, 56f, 28f, 28f);
-        mCountText = AddText(panel, "", 24, Muted, TextAlignmentOptions.MidlineRight);
-        PlaceTop(mCountText.rectTransform, 0f, 1f, 18f, 56f, 140f, 316f);
 
         // Which part of the deck is shown and gets clicked cards: main deck, ride deck, tokens / crests
         mSectionDropdown = AddDropdown(panel);
@@ -204,11 +208,13 @@ public partial class DeckBuilder
         mDeleteButton = AddButton(panel, "Delete", OnDelete, RowColor, Color.white, 30);
         Place((RectTransform)mDeleteButton.transform, new Vector2(0.7f, 0f), new Vector2(1f, 0f), new Vector2(6f, 24f), new Vector2(-28f, 88f));
 
-        // Messages show in a bar over the bottom of the deck's cards, only while there is one
+        // Messages show in a bar over the bottom of the deck's cards, only while there is one; clicks pass through
         RectTransform statusBar = AddBox(list, "StatusBar", new Color(0f, 0f, 0f, 0.8f));
         Place(statusBar, Vector2.zero, new Vector2(1f, 0f), Vector2.zero, new Vector2(0f, 64f));
+        statusBar.GetComponent<Image>().raycastTarget = false;
         mStatusText = AddText(statusBar, "", 22, Color.white, TextAlignmentOptions.Center);
         Place(mStatusText.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
+        mStatusText.raycastTarget = false;
         mStatusBar = statusBar.gameObject;
         mStatusBar.SetActive(false);
     }

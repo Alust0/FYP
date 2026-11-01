@@ -59,7 +59,8 @@ public class SettingsMenu : MonoBehaviour
         if (mBrightnessMovedAt >= 0f && Time.unscaledTime - mBrightnessMovedAt >= BrightnessDelay)
         {
             mBrightnessMovedAt = -1f;
-            if (!WebcamAutoFocus.TrySetBrightness(CameraChoice.Current, brightnessSlider.value))
+            if (BuildWebcamDriver.AdjustsBrightness) GameSettings.CameraBrightness = brightnessSlider.value;
+            else if (!WebcamAutoFocus.TrySetBrightness(CameraChoice.Current, brightnessSlider.value))
                 Debug.LogWarning("[SettingsMenu] Couldn't set the brightness of " + CameraChoice.Current);
         }
 
@@ -86,7 +87,9 @@ public class SettingsMenu : MonoBehaviour
         ResetLeave();
 
         // Read each time: the camera, or its brightness in another program, may have changed
-        bool adjustable = WebcamAutoFocus.TryGetBrightness(CameraChoice.Current, out float brightness);
+        // UWP builds brighten the picture instead of the webcam
+        float brightness = GameSettings.CameraBrightness;
+        bool adjustable = BuildWebcamDriver.AdjustsBrightness || WebcamAutoFocus.TryGetBrightness(CameraChoice.Current, out brightness);
         brightnessSlider.SetValueWithoutNotify(brightness);
         brightnessSlider.interactable = adjustable;
         ShowBrightness(adjustable);

@@ -20,6 +20,9 @@ public static class MatchSession
     // The lobby's Timer: minutes until the match ends in a draw (see MatchTimer); 0 for no limit
     public static int TimerMinutes { get; private set; }
 
+    // The lobby's Card skills switch: off plays the basic rules only, no [AUTO]/[ACT]/order costs (SkillRules)
+    public static bool SkillsOn { get; private set; } = true;
+
     /* Id of the deck picked in the lobby (see DeckRepository): a saved deck's, or a starter set code
      like "D-SD01"; null for the Inspector test deck. Kept between matches */
     public static string DeckId;
@@ -27,20 +30,22 @@ public static class MatchSession
     // New every run rather than per account, so two editors on one PC with the same login still count as two players
     public static readonly string ClientId = Guid.NewGuid().ToString("N");
 
-    public static void Begin(string roomCode, int localSeat, string hostName, string guestName, int timerMinutes)
+    public static void Begin(string roomCode, int localSeat, string hostName, string guestName, int timerMinutes, bool skills)
     {
         RoomCode = roomCode;
         TimerMinutes = timerMinutes;
+        SkillsOn = skills;
         LocalSeat = localSeat;
         PlayerNames[0] = hostName;
         PlayerNames[1] = guestName;
     }
 
-    public static void BeginSolo(string name, int timerMinutes)
+    public static void BeginSolo(string name, int timerMinutes, bool skills)
     {
         End();
         IsSolo = true;
         TimerMinutes = timerMinutes;
+        SkillsOn = skills;
         PlayerNames[0] = name;
         PlayerNames[1] = "No opponent";
     }
@@ -51,6 +56,7 @@ public static class MatchSession
         IsSolo = false;
         LocalSeat = 0;
         TimerMinutes = 0;
+        SkillsOn = true;
         PlayerNames[0] = "Player 1";
         PlayerNames[1] = "Player 2";
     }

@@ -71,19 +71,19 @@ public partial class VuforiaCardOverlayManager
         closeBtn.targetGraphic = detailBg;
         CreateText(detailObj.transform, "Close", new Vector2(0.88f, 0.9f), new Vector2(0.98f, 0.99f), 48, new Color(0.6f, 0.1f, 0.1f)).text = "X";
 
-        TextMeshProUGUI skillTitle = CreateText(detailObj.transform, "SkillTitle", new Vector2(0.04f, 0.89f), new Vector2(0.87f, 0.98f), 49, Color.black);
+        TextMeshProUGUI skillTitle = CreateText(detailObj.transform, "SkillTitle", new Vector2(0.04f, 0.89f), new Vector2(0.87f, 0.98f), 69, Color.black);
         skillTitle.enableAutoSizing = true;
-        skillTitle.fontSizeMin = 29;
-        skillTitle.fontSizeMax = 49;
-        TextMeshProUGUI skillInfo = CreateText(detailObj.transform, "SkillInfo", new Vector2(0.04f, 0.83f), new Vector2(0.96f, 0.89f), 31, new Color(0.25f, 0.25f, 0.25f));
+        skillTitle.fontSizeMin = 49;
+        skillTitle.fontSizeMax = 69;
+        TextMeshProUGUI skillInfo = CreateText(detailObj.transform, "SkillInfo", new Vector2(0.04f, 0.83f), new Vector2(0.96f, 0.89f), 51, new Color(0.25f, 0.25f, 0.25f));
         skillInfo.enableAutoSizing = true;
-        skillInfo.fontSizeMin = 21;
-        skillInfo.fontSizeMax = 31;
-        TextMeshProUGUI skillBody = CreateText(detailObj.transform, "SkillBody", new Vector2(0.05f, 0.03f), new Vector2(0.95f, 0.82f), 37, Color.black);
+        skillInfo.fontSizeMin = 41;
+        skillInfo.fontSizeMax = 51;
+        TextMeshProUGUI skillBody = CreateText(detailObj.transform, "SkillBody", new Vector2(0.05f, 0.03f), new Vector2(0.95f, 0.82f), 57, Color.black);
         skillBody.alignment = TextAlignmentOptions.TopLeft;
         skillBody.enableAutoSizing = true; // long skills shrink to fit
-        skillBody.fontSizeMin = 19;
-        skillBody.fontSizeMax = 37;
+        skillBody.fontSizeMin = 24;
+        skillBody.fontSizeMax = 57;
 
         CardOverlayUI ui = canvasObj.AddComponent<CardOverlayUI>();
         ui.cardNameText = nameText;

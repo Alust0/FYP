@@ -127,6 +127,9 @@ public class DeckTargetLoader : MonoBehaviour
 
         if (missing.Count > 0)
             Debug.LogWarning("[DeckTargetLoader] No picture or target for: " + string.Join(", ", missing));
+        // A card that's never seen on the mat may just not be in this list, or be another printing of it
+        MatchLogger.Action("Cards the camera knows: " + string.Join(", ", cardNumbers.Except(missing)) +
+            (missing.Count > 0 ? ". No picture for: " + string.Join(", ", missing) : ""));
         Debug.Log("[DeckTargetLoader] " + (cardNumbers.Count - missing.Count) + " cards ready (" + copiesPerCard + " targets each), from " + string.Join(" + ", deckNames) +
             ". Only these cards are recognised.");
 

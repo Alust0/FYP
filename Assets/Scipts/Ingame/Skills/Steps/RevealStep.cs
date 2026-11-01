@@ -21,10 +21,15 @@ public class RevealStep : Step
             return false;
         }
         f.Locals["revealed"] = card;
-        f.Rules.StepNotice(f, "Revealed " + card.data.DisplayName + ". Take it back.");
+        bool toHand = f.Cursor + 1 < f.Skill.Steps.Count && f.Skill.Steps[f.Cursor + 1] is ToHandStep; // that step says where it goes
+        f.Rules.StepNotice(f, "Revealed " + card.data.DisplayName + "." + (toHand ? "" : " Take it back."));
         return true;
     }
 
+    public override System.Collections.Generic.IEnumerable<string> Zones(SkillFrame f) => new[] { "Trigger" };
+
+    public override string Summary => "check the card shown";
+
     public override string Instruction(SkillFrame f) =>
-        "show " + Filter + " by putting it on your trigger zone for the camera (Done if it can't be read)";
+        "show " + Filter + " by putting it on your trigger zone (or any zone) for the camera (Done if it can't be read)";
 }

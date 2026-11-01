@@ -12,7 +12,9 @@ using UnityEngine;
                   targets; said is that player's latest voice keyword and saidN how many they've said;
                   pick / pickN the same for where they gave a trigger's power, critical or stand;
                   turned whether their view is turned (RotatedView)
-   turn           {player, number, phase} — written by whichever PC moved the turn on
+   turn           {player, number, phase} — written by whichever PC moved the turn on, or undid
+   undo           {at, seat, sinceMs, player, number, phase} — the latest undo: when it was sent, by
+                  whom, and when the state it went back to began, so the other PC goes back there too
  The opponent's cards go through the same GameState calls the trackers use, so the rules, HUD and
  battle overlay treat them like cards seen by a camera. Added by GameSetup when the match is online. */
 public class OnlineMatch : MonoBehaviour
@@ -52,6 +54,8 @@ public class OnlineMatch : MonoBehaviour
     long mAppliedSaidN = -1; // the opponent's keyword count last shown; -1 until their seat is first seen
     long mAppliedPickN = -1; // likewise their trigger picks
     long mAppliedSkillN = -1; // and the skills they used or skipped
+    int mSentUndos; // RulesEngine.UndoCount already uploaded
+    long mAppliedUndoAt = -1; // the room's undo last handled; -1 until the room is first read
 
     // Keyed by the CardInstance.id the opponent's PC gave the card
     readonly Dictionary<string, RemoteCard> mRemoteCards = new Dictionary<string, RemoteCard>();
@@ -60,6 +64,17 @@ public class OnlineMatch : MonoBehaviour
 
     // The opponent's view is turned (RotatedView), so the picture sent to them turns its zone labels to suit
     public static bool OpponentTurned { get; private set; }
+
+    /* A step of the opponent's skill that's this PC's player to do (their OpponentStep), as they're told;
+     null for none. ActionButtons shows its Done, whose "skill done" reaches their PC */
+    public static string OpponentStepForYou { get; private set; }
+    static string sDoneStep; // the one already answered, until their PC moves on
+
+    public static void DoneOpponentStep()
+    {
+        sDoneStep = OpponentStepForYou;
+        OpponentStepForYou = null;
+    }
 
     // Turn and phase as one number that only goes up as the game goes on
     int TurnKey() => gs.turnNumber * 10 + (int)gs.currentPhase;
@@ -74,6 +89,7 @@ public class OnlineMatch : MonoBehaviour
 
         gs = GameState.Instance;
         OpponentTurned = false;
+        OpponentStepForYou = sDoneStep = null;
         rules = FindFirstObjectByType<RulesEngine>();
         if (rules == null)
         {
@@ -83,6 +99,7 @@ public class OnlineMatch : MonoBehaviour
 
         yield return new WaitUntil(() => rules.IsStarted);
         mSyncedTurnKey = TurnKey();
+        mSentUndos = RulesEngine.UndoCount;
 
         int remote = MatchSession.RemoteSeat;
         Notice("Online match", "Room " + MatchSession.RoomCode + ": you are " + gs.players[MatchSession.LocalSeat].playerName +
@@ -130,6 +147,12 @@ public class OnlineMatch : MonoBehaviour
             seat["skillText"] = SkillRules.LastBody;
             seat["skillN"] = (long)SkillRules.SentCount;
         }
+        // A step of this PC's skill that's the opponent's to do: their PC shows it and its Done
+        string opponentStep = rules.Skills?.OpponentStepWaiting;
+        if (opponentStep != null) seat["oppStep"] = opponentStep;
+        // Their cards this PC's rules want moved, e.g. retired by a skill: arrows on their PC (CardMoves)
+        string moves = rules.Moves.ForPlayer(gs.players[MatchSession.RemoteSeat]);
+        if (moves != null) seat["moves"] = moves;
         seat["turned"] = GameSettings.RotateView;
         string seatJson = RtdbRest.ToJson(seat);
         if (seatJson != mUploadedSeat)
@@ -138,8 +161,26 @@ public class OnlineMatch : MonoBehaviour
             mask.Add(SeatField(local));
         }
 
+        // An undo goes back, so it writes the turn even though it's behind the one written before
+        int undos = RulesEngine.UndoCount;
+        bool undid = undos > mSentUndos;
+        if (undid)
+        {
+            var undo = RulesEngine.LastUndo;
+            fields["undo"] = new Dictionary<string, object>
+            {
+                ["at"] = NowMs,
+                ["seat"] = local,
+                ["sinceMs"] = undo.sinceMs,
+                ["player"] = undo.player,
+                ["number"] = undo.turn,
+                ["phase"] = (int)undo.phase,
+            };
+            mask.Add("undo");
+        }
+
         int turnKey = TurnKey();
-        if (turnKey > mSyncedTurnKey)
+        if (turnKey > mSyncedTurnKey || undid)
         {
             fields["turn"] = new Dictionary<string, object>
             {
@@ -161,10 +202,11 @@ public class OnlineMatch : MonoBehaviour
 
         RtdbRest.Result result = null;
         yield return RtdbRest.Patch(RoomPath, fields, mask, r => result = r);
-        if (!result.ok) yield break; // kept as unsent, so the next sync tries again
+        if (!result.succeeded) yield break; // kept as unsent, so the next sync tries again
 
         if (mask.Contains(SeatField(local))) mUploadedSeat = seatJson;
-        if (mask.Contains("turn")) mSyncedTurnKey = Mathf.Max(mSyncedTurnKey, turnKey);
+        if (mask.Contains("turn")) mSyncedTurnKey = undid ? turnKey : Mathf.Max(mSyncedTurnKey, turnKey);
+        if (undid) mSentUndos = undos;
         if (beat) mLastBeat = Time.time;
     }
 
@@ -201,7 +243,7 @@ public class OnlineMatch : MonoBehaviour
         RtdbRest.Result room = null;
         yield return RtdbRest.Get(RoomPath, r => room = r);
 
-        if (!room.ok)
+        if (!room.succeeded)
         {
             if (!mReadFailing) Debug.LogWarning("[OnlineMatch] Couldn't read the room: " + room.error);
             mReadFailing = true;
@@ -210,13 +252,14 @@ public class OnlineMatch : MonoBehaviour
         mReadFailing = false;
 
         CheckOpponent(room.fields);
+        ApplyUndo(room.fields.GetMap("undo")); // first: the turn written with it is behind this PC's
         ApplyTurn(room.fields.GetMap("turn"));
 
         Dictionary<string, object> seat = room.fields.GetMap(SeatField(MatchSession.RemoteSeat));
         if (seat != null)
         {
             string seatJson = RtdbRest.ToJson(seat);
-            if (seatJson != mAppliedSeat)
+            if (seatJson != mAppliedSeat && !gs.gameOver) // the board is final once the game is over
             {
                 mAppliedSeat = seatJson;
                 // An error in the rules must not end this coroutine, which would stop syncing for good
@@ -241,6 +284,24 @@ public class OnlineMatch : MonoBehaviour
         mOpponentGone = closed || silent;
     }
 
+    // The opponent undid: this PC goes back to the same moment. Undos from before this PC joined aren't news
+    void ApplyUndo(Dictionary<string, object> undo)
+    {
+        long at = undo?.GetLong("at") ?? 0;
+        if (mAppliedUndoAt < 0 || at <= mAppliedUndoAt)
+        {
+            mAppliedUndoAt = Math.Max(mAppliedUndoAt, at);
+            return;
+        }
+        mAppliedUndoAt = at;
+        if ((int)undo.GetLong("seat") == MatchSession.LocalSeat) return; // this PC's own
+
+        rules.ApplyRemoteUndo(undo.GetLong("sinceMs"), (int)undo.GetLong("player"), (int)undo.GetLong("number"),
+            (TurnPhase)undo.GetLong("phase"), gs.players[MatchSession.RemoteSeat].playerName);
+        mSyncedTurnKey = TurnKey();
+        mAppliedSeat = null; // their half again, over the counts the rollback put back
+    }
+
     void ApplyTurn(Dictionary<string, object> turn)
     {
         if (turn == null) return;
@@ -257,6 +318,19 @@ public class OnlineMatch : MonoBehaviour
     void ApplySeat(Dictionary<string, object> seat)
     {
         OpponentTurned = seat.GetBool("turned");
+        rules.Moves.ApplyRemote(seat.GetString("moves"), gs.players[MatchSession.LocalSeat]);
+
+        // Their skill waiting on this PC's player: a to-do here, answered with ActionButtons' Done
+        string step = seat.GetString("oppStep");
+        if (step != OpponentStepForYou && step != sDoneStep)
+        {
+            OpponentStepForYou = step;
+            if (step != null)
+            {
+                GameState.OnRuleToDo?.Invoke("Your part", step, () => OpponentStepForYou == step);
+                Notice("Your part", step);
+            }
+        }
 
         /* Their latest keyword, before their cards: a guard or damage check is said before the
          cards it's about are put down. Keywords from before this PC joined aren't news. */

@@ -21,7 +21,8 @@ public class PhaseHUDOverlay : MonoBehaviour
         public int playerIndex;
         public string zone; // PlayerState zone name, or "CB" for face-up damage
         public string label;
-        public TextMeshProUGUI text;
+        public TextMeshProUGUI text; // or, for Damage and Energy, a bar
+        public StatBar bar;
         public List<GameObject> parts = new List<GameObject>(); // the line's text and -/+ buttons, hidden when Energy is off
     }
 
@@ -101,6 +102,7 @@ public class PhaseHUDOverlay : MonoBehaviour
                 if (part != null && part.activeSelf != shown) part.SetActive(shown);
 
             PlayerState player = state.players[counter.playerIndex];
+            if (counter.bar != null && player != null) counter.bar.Refresh(state); // Damage and Energy (StatBar)
             if (counter.text == null || player == null) continue;
 
             bool isDamage = counter.zone == "Damage";

@@ -14,6 +14,7 @@ using Vuforia;
  so the real playmat must line up with the zones drawn on screen. Its UI is built in VuforiaCardOverlayManager.UI.cs. */
 public partial class VuforiaCardOverlayManager : MonoBehaviour
 {
+    RulesEngine mRules; // for LeaveIfGone
     [Header("Scene References")]
     public BoardLayout board;
     public GameObject overlayPrefab; // optional custom overlay prefab; a minimal one is built if left empty
@@ -41,6 +42,8 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     public bool scanOnlyInsideZones = true;
     [Tooltip("Seconds a card must stay over a zone before it counts as placed there, so sliding a card across the board doesn't enter every zone on the way.")]
     public float zoneSettleSeconds = 0.4f;
+    [Tooltip("Seconds a rear-guard or check card must stay out of view before it counts as taken off the board (to hand, soul, deck...). Longer than a hand usually covers a card.")]
+    public float goneAfterSeconds = 3f;
 
     [Header("Duplicate Targets")]
     [Tooltip("Two tracked targets whose centers are closer on screen than this fraction of a card's longer side count as the same physical card, and only one of them is shown. Raise it if duplicates still slip through, lower it if neighbouring cards hide each other.")]
@@ -72,6 +75,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         public bool retired; // dropped as a duplicate match; kept so Cloud Reco re-matches stay ignored
         public bool isDeckCopy; // one of several deck targets with the same picture, for identical cards
         public float lastSeenTime = float.NegativeInfinity; // Time.time of its last tracked frame
+        public bool reportedOutside; // logged once as seen but outside every zone
     }
 
     // Keyed by Cloud Reco's UniqueTargetId, or "Deck_" + card number + "#" + copy for deck targets
@@ -298,6 +302,15 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         {
             if (tracked.hasPose) tracked.lastSeenTime = Time.time;
             tracked.insideBorder = tracked.hasPose && tracked.target != null && IsInsideBorder(tracked, cam);
+
+            // Seen by Vuforia but never picked up: says why, as nothing else would
+            if (tracked.awaitingFirstPose && tracked.hasPose && !tracked.insideBorder && !tracked.reportedOutside && cam != null && tracked.target != null)
+            {
+                tracked.reportedOutside = true;
+                Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
+                Debug.Log("[VuforiaCardOverlayManager] Seeing " + tracked.cardNumber + " at screen (" + (int)screen.x + ", " + (int)screen.y +
+                    ") but outside every board zone, so it's ignored. If it's on a zone, recalibrate the board.");
+            }
         }
 
         CheckNewMatches();
@@ -311,7 +324,11 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
             if (tracked.duplicateOf != null) continue; // another target is already standing for this physical card
 
             UpdateFacing(tracked, cam);
-            if (!tracked.hasPose) continue; // target currently untracked
+            if (!tracked.hasPose)
+            {
+                LeaveIfGone(tracked);
+                continue;
+            }
 
             if (tracked.insideBorder) UpdateOrientation(tracked, cam); // a card in hand isn't standing or resting
             UpdateZone(tracked, cam); // also takes it off the board once it has left
@@ -336,6 +353,26 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         float unseen = Time.time - tracked.lastSeenTime;
         if (unseen > faceDownAfterSeconds || (unseen > faceDownWithBackSeconds && CardBackWhereItWas(tracked, cam)))
             gs.SetFacing(tracked.instance, CardFacing.FaceDown);
+    }
+
+    /* A rear-guard or check card out of view for goneAfterSeconds has been taken off the board, so
+     it no longer counts there (picks, [ACT] skills, boosts). Back on the same circle, the rules don't
+     treat it as a new call. Piles keep their cards: they lie under each other. So do the vanguard,
+     which only leaves by being ridden over, and the guardians, which often overlap, unless the rules
+ are waiting for that card to go (RulesEngine.ExpectsMove, e.g. guardians after the battle). */
+    void LeaveIfGone(TrackedCard tracked)
+    {
+        string zone = tracked.instance.zone;
+        if (zone == null || Time.time - tracked.lastSeenTime < goneAfterSeconds) return;
+        if (zone != "LeftFront" && zone != "RightFront" && zone != "LeftBack" && zone != "RightBack" && zone != "CenterBack" && zone != "Trigger")
+        {
+            if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+            if (mRules == null || !mRules.ExpectsMove(tracked.instance)) return;
+        }
+
+        Debug.Log("[VuforiaCardOverlayManager] " + tracked.cardNumber + " out of view for " + goneAfterSeconds + " s: taken off " + zone + ".");
+        tracked.pendingZoneKey = null;
+        SetZone(tracked, null);
     }
 
     // Vuforia leaves a lost target at its last pose, so that's where the card was

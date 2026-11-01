@@ -18,8 +18,8 @@ public class Deck
     public string id; // saved decks: a GUID; starter decks: the set code; Inspector decks: empty
     public string deckName;
     public List<DeckEntry> cards = new List<DeckEntry>(); // the main deck
-    public List<DeckEntry> rideDeck = new List<DeckEntry>(); // up to 4 cards; part of the 50
-    public List<DeckEntry> extras = new List<DeckEntry>(); // tokens and crests, outside the 50
+    public List<DeckEntry> rideDeck = new List<DeckEntry>(); // up to 4 cards, on top of the main deck's 50
+    public List<DeckEntry> extras = new List<DeckEntry>(); // tokens and crests, outside both
     // Sleeve pictures (SleeveLibrary ids, e.g. "s120"), so the camera knows the card backs; empty for none
     public string deckSleeve;
     public string rideDeckSleeve;
@@ -30,9 +30,14 @@ public class Deck
     // Decks saved before the ride deck and extras existed load them as null
     public IEnumerable<DeckEntry> AllEntries => cards.Concat(rideDeck ?? new List<DeckEntry>()).Concat(extras ?? new List<DeckEntry>());
 
-    // Main deck and ride deck, which make up the 50
-    public int TotalCards => cards.Concat(rideDeck ?? new List<DeckEntry>())
-        .Where(entry => !string.IsNullOrWhiteSpace(entry.cardNumber)).Sum(entry => entry.count);
+    // Main deck and ride deck: 50 + 4
+    public int TotalCards => MainCards + RideCards;
+
+    public int MainCards => Count(cards);
+    public int RideCards => Count(rideDeck);
+
+    static int Count(List<DeckEntry> entries) =>
+        (entries ?? new List<DeckEntry>()).Where(entry => !string.IsNullOrWhiteSpace(entry.cardNumber)).Sum(entry => entry.count);
 
     // The first card, shown as the deck's cover
     public string CoverCard => UniqueCardNumbers.FirstOrDefault();

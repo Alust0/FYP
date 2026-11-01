@@ -21,7 +21,7 @@ public static class RtdbRest
 {
     public class Result
     {
-        public bool ok;
+        public bool succeeded;
         public long status; // HTTP code, 0 if the server was never reached; 404 when nothing is there
         public string error;
         public string id; // last part of the path, e.g. the room code
@@ -32,7 +32,7 @@ public static class RtdbRest
     // One finished request, kept after the UnityWebRequest is disposed
     class Response
     {
-        public bool ok;
+        public bool succeeded;
         public long status;
         public string text;
         public string error;
@@ -72,7 +72,7 @@ public static class RtdbRest
         string path = collection + "/" + id;
         Response read = null;
         yield return Send("GET", path, null, null, null, true, r => read = r);
-        if (!read.ok)
+        if (!read.succeeded)
         {
             done(ToResult(read, path, false));
             yield break;
@@ -107,7 +107,7 @@ public static class RtdbRest
          read, then PUT the whole value back with the changes, only if the ETag still matches */
         Response read = null;
         yield return Send("GET", path, null, null, null, true, r => read = r);
-        if (!read.ok)
+        if (!read.succeeded)
         {
             done?.Invoke(ToResult(read, path, false));
             yield break;
@@ -157,7 +157,7 @@ public static class RtdbRest
         return Send("GET", collection, query, null, null, false, r =>
         {
             var results = new List<Result>();
-            if (!r.ok)
+            if (!r.succeeded)
             {
                 Debug.LogWarning("[RtdbRest] Query on " + collection + " failed (" + r.status + "): " + r.error + " " + r.text);
                 done(results);
@@ -172,7 +172,7 @@ public static class RtdbRest
                     if (!equalTo.All(pair => JToken.DeepEquals(value[pair.Key], ToToken(pair.Value)))) continue;
                     results.Add(new Result
                     {
-                        ok = true,
+                        succeeded = true,
                         status = r.status,
                         id = child.Name,
                         version = value.ToString(Formatting.None),
@@ -215,7 +215,7 @@ public static class RtdbRest
             yield return request.SendWebRequest();
             done(new Response
             {
-                ok = request.result == UnityWebRequest.Result.Success,
+                succeeded = request.result == UnityWebRequest.Result.Success,
                 status = request.responseCode == 401 ? 403 : request.responseCode, // 401 is the rules saying no
                 text = request.downloadHandler?.text,
                 error = request.error,
@@ -227,8 +227,8 @@ public static class RtdbRest
     // A read of nothing (null) is a 404, like a missing Firestore document
     static Result ToResult(Response response, string path, bool isRead)
     {
-        var result = new Result { ok = response.ok, status = response.status, id = LastPart(path) };
-        if (!response.ok)
+        var result = new Result { succeeded = response.succeeded, status = response.status, id = LastPart(path) };
+        if (!response.succeeded)
         {
             result.error = response.error + " " + response.text;
             return result;
@@ -237,7 +237,7 @@ public static class RtdbRest
         JToken value = Parse(response.text);
         if (isRead && value.Type == JTokenType.Null)
         {
-            result.ok = false;
+            result.succeeded = false;
             result.status = 404;
             result.error = "Nothing at " + path;
             return result;

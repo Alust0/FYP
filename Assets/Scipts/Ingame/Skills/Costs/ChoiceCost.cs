@@ -16,6 +16,8 @@ public class ChoiceCost : Cost
 
     public override bool CanPay(PlayerState owner, CardInstance card) => Options.Any(o => o.CanPay(owner, card));
 
+    public override IEnumerable<string> Zones(CardInstance card) => Options.SelectMany(o => o.Zones(card)).Distinct();
+
     // Paid through the option picked
     public override void Pay(PlayerState owner, CardInstance card) { }
 

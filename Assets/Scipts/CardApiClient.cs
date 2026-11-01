@@ -129,8 +129,8 @@ namespace Vanguard.Api
                 card.drive = 1;
             }
 
-            // Check for Sentinel/Perfect Guard keyword
-            if (card.abilityText.Contains("Sentinel") || card.abilityText.Contains("守護者"))
+            // Check for Sentinel/Perfect Guard keyword; the Japanese names it reliably, the English may say "Guardian"
+            if (card.abilityText.Contains("Sentinel") || System.Text.RegularExpressions.Regex.IsMatch(card.abilityTextJa, @"【永】[:：]\s*守護者"))
             {
                 card.hasSentinel = true;
             }

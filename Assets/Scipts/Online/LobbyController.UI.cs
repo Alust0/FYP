@@ -111,9 +111,14 @@ public partial class LobbyController
         mTimerDropdown.AddOptions(TimerOptions.Select(TimerName).ToList());
 
         mHostButton = AddButton(panel, "Host Room", OnHost, Accent, DarkText, 32);
-        PlaceTop((RectTransform)mHostButton.transform, 0f, 1f, 278f, 70f, 28f, 28f);
+        PlaceTop((RectTransform)mHostButton.transform, 0f, 0.62f, 278f, 70f, 28f, 8f);
         mCancelButton = AddButton(panel, "Cancel", OnCancelHost, RowColor, Color.white, 32);
-        PlaceTop((RectTransform)mCancelButton.transform, 0f, 1f, 278f, 70f, 28f, 28f);
+        PlaceTop((RectTransform)mCancelButton.transform, 0f, 0.62f, 278f, 70f, 28f, 8f);
+
+        // Off: the basic rules only, no card skills; the guest gets the host's (and Test Solo uses it too)
+        mSkillsToggle = AddToggle(panel, "Card skills");
+        PlaceTop((RectTransform)mSkillsToggle.transform, 0.62f, 1f, 291f, 44f, 12f, 28f);
+        mSkillsToggle.isOn = true;
 
         mStatusText = AddText(panel, "", 24, Color.white, TextAlignmentOptions.Top);
         Place(mStatusText.rectTransform, Vector2.zero, new Vector2(1f, 1f), new Vector2(28f, 12f), new Vector2(-28f, -368f));

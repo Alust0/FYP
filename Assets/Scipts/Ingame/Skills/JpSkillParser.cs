@@ -48,6 +48,15 @@ public static class JpSkillParser
     static readonly Regex RevealRx = new Regex(@"公開(?!した|され|しな)"); // "公開してよい", not "公開したか" or "公開された中から"
     static readonly Regex SearchRx = new Regex(@"山札から.*探し"); // "あなたの山札から監獄カードを1枚まで探し"
     static readonly Regex ShuffleRx = new Regex(@"^山札をシャッフル");
+    static readonly Regex ToHandRx = new Regex(@"手札に加え"); // "公開して手札に加え"
+    static readonly Regex OrderOnlyRx = new Regex(@"^あなたが(先攻|後攻)なら$"); // checked as skill.Order, not a step
+    // Only when or how long the next clause lasts, or that the one before was done: no step of their own
+    static readonly Regex ConnectorRx = new Regex(@"^(そのターン中|そのバトル中|その後|そうしたら|そうしたなら|公開したなら|山札から探したなら|山札から探したら|コールしたら)$");
+    static readonly Regex SelfBoostRx = new Regex(@"^(?:さらに)?このユニットの(パワー|クリティカル)\+(\d+)(?:し|してよい)?$"); // "このユニットのパワー+5000"
+    static readonly Regex ConditionRx = new Regex(@"なら$"); // "相手のヴァンガードがグレード3以上なら"
+    static readonly Regex StandSelfRx = new Regex(@"^このユニットを【スタンド】させ(る)?$");
+    static readonly Regex CantBeHitRx = new Regex(@"ヒットされない$"); // a Sentinel's "あなたのユニット1枚はヒットされない"
+    static readonly Regex ChooseDiscardRx = new Regex(@"^手札から(\d+)枚選び$"); // "手札から1枚選び、捨てる"
     static readonly Regex GradeRx = new Regex(@"グレード(\d+)(以上)?");
     static readonly Regex RaceRx = new Regex(@"〈([^〉]+)〉");
     static readonly Regex NameRx = new Regex(@"「([^」]+)」");
@@ -249,6 +258,7 @@ public static class JpSkillParser
         }
         skill.Order = body.Contains("あなたが後攻なら") ? PlayerOrder.Second : body.Contains("あなたが先攻なら") ? PlayerOrder.First : PlayerOrder.Any;
         skill.Gate = HeaderGate(header);
+        skill.Optional = body.Contains("てよい"); // "...してよい": the player may; otherwise an [AUTO] with no cost must be used
         // 【D-双闘】 can be done once a fight (its reminder text, removed)
         skill.PerGame = header.Contains("ファイト1回") || mBody.StartsWith("【D-双闘】");
         skill.Steps = SkillParser.WithCosts(costs, EffectSteps(mEffect));
@@ -319,7 +329,7 @@ public static class JpSkillParser
         return costs;
     }
 
-    static Cost ParseCost(string item)
+    internal static Cost ParseCost(string item)
     {
         Match blast = BlastRx.Match(item);
         if (blast.Success)
@@ -341,17 +351,26 @@ public static class JpSkillParser
     }
 
     /* A step per clause the engine knows, null for one it doesn't. "...を1枚選び、公開してよい":
-     the choosing clause belongs to the reveal after it, and says which card it is. A search
-     ("...探し、公開して") says which card too, but stays the player's to do. A search with no
-     "山札をシャッフル" of its own ends with one. A choice ("以下を1つ行う", "1枚引くか、...") and
-     what the opponent reveals are the player's. */
-    static IEnumerable<Step> EffectSteps(string effect)
+     the choosing clause belongs to the reveal after it, and says which card it is. So does a search
+     ("...探し、公開して"), and "手札に加え" after the reveal is the shown card going into the hand. A
+     search with no "山札をシャッフル" of its own ends with one. A choice ("以下を1つ行う",
+     "1枚引くか、...") and what the opponent reveals are the player's. */
+    internal static IEnumerable<Step> EffectSteps(string effect)
     {
         string[] clauses = ClauseRx.Split(effect).Select(c => c.Trim()).Where(c => c.Length > 0).ToArray();
-        bool searched = false, shuffled = false;
+        bool searched = false, shuffled = false, revealed = false;
+        bool battleOnly = false; // "そのバトル中" before a bonus: it ends with the battle, not the turn
+        bool opponentActs = false; // the clauses after "相手は..." are the opponent's part too
         for (int i = 0; i < clauses.Length; i++)
         {
             string c = clauses[i];
+            if (OrderOnlyRx.IsMatch(c)) continue;
+            if (ConnectorRx.IsMatch(c))
+            {
+                if (c == "そのバトル中") battleOnly = true;
+                else if (c == "そのターン中") battleOnly = false;
+                continue;
+            }
             if (c.Contains("以下を1つ"))
             {
                 yield return null;
@@ -363,8 +382,33 @@ public static class JpSkillParser
                 if (c.EndsWith("か")) i++; // the other option
                 continue;
             }
+            // "相手は手札から1枚選び、あなたの監獄に収容する": the opponent does it (OpponentStep), not a condition about them
+            if ((c.StartsWith("相手は") || c.StartsWith("相手が")) && !ConditionRx.IsMatch(c))
+            {
+                if (!opponentActs) yield return new OpponentStep();
+                opponentActs = true;
+                continue;
+            }
+            // "あなたのユニットを1枚選び、そのバトル中、ヒットされない": the choosing is the perfect guard's
+            if (c.EndsWith("選び") && clauses.Skip(i + 1).Take(2).Any(CantBeHitRx.IsMatch)) continue;
+            Match discard = ChooseDiscardRx.Match(c);
+            if (!opponentActs && discard.Success && i + 1 < clauses.Length && clauses[i + 1].StartsWith("捨て"))
+            {
+                yield return new DiscardStep(int.Parse(discard.Groups[1].Value));
+                i++;
+                continue;
+            }
+
+            // "相手のリアガードを1枚選び、退却させる": picked on screen (ChooseOpponentStep), with what happens to it
+            Match choose = ChooseOpponentRx.Match(c);
+            if (!opponentActs && choose.Success)
+            {
+                yield return ChooseOpponent(choose, clauses, ref i, battleOnly);
+                continue;
+            }
+
             searched |= SearchRx.IsMatch(c);
-            if (c.EndsWith("選び") && i + 1 < clauses.Length && RevealRx.IsMatch(clauses[i + 1])) continue;
+            if ((c.EndsWith("選び") || SearchRx.IsMatch(c)) && i + 1 < clauses.Length && RevealRx.IsMatch(clauses[i + 1])) continue;
 
             string before = i > 0 && (clauses[i - 1].EndsWith("選び") || SearchRx.IsMatch(clauses[i - 1])) ? clauses[i - 1] : "";
             Match m;
@@ -372,15 +416,78 @@ public static class JpSkillParser
             else if ((m = SoulChargeRx.Match(c)).Success) yield return new CountStep(CountStep.Kind.SoulCharge, int.Parse(m.Groups[1].Value));
             else if ((m = CounterChargeRx.Match(c)).Success) yield return new CountStep(CountStep.Kind.CounterCharge, int.Parse(m.Groups[1].Value));
             else if ((m = EnergyChargeRx.Match(c)).Success) yield return new CountStep(CountStep.Kind.EnergyCharge, int.Parse(m.Groups[1].Value));
-            else if (RevealRx.IsMatch(c)) yield return before.StartsWith("相手") ? null : new RevealStep(Filter(before + c)); // "相手は自分の手札から1枚選び、公開する"
+            else if (RevealRx.IsMatch(c))
+            {
+                revealed = !before.StartsWith("相手"); // "相手は自分の手札から1枚選び、公開する"
+                if (revealed) yield return new RevealStep(Filter(before + c));
+                else if (!opponentActs) yield return null;
+                if (revealed && ToHandRx.IsMatch(c)) yield return new ToHandStep(searched); // "公開して手札に加え"
+            }
+            else if (revealed && ToHandRx.IsMatch(c)) yield return new ToHandStep(searched);
             else if (ShuffleRx.IsMatch(c))
             {
                 shuffled = true;
                 yield return new ShuffleStep();
             }
-            else yield return null;
+            else if ((m = SelfBoostRx.Match(c)).Success) yield return new PowerStep(m.Groups[1].Value == "クリティカル", int.Parse(m.Groups[2].Value), battleOnly);
+            else if (StandSelfRx.IsMatch(c)) yield return new StandStep();
+            else if (CantBeHitRx.IsMatch(c)) yield return new CantBeHitStep();
+            else if (ConditionRx.IsMatch(c)) yield return new ConditionStep(c);
+            else if (!opponentActs && (m = DiscardRx.Match(c)).Success) yield return new DiscardStep(int.Parse(m.Groups[1].Value));
+            else if (!opponentActs) yield return null;
         }
         if (searched && !shuffled) yield return new ShuffleStep();
+    }
+
+    static readonly Regex ChooseOpponentRx = new Regex(@"^(.*?)相手の(前列の|後列の)?(?:他の)?(リアガード|ユニット)を(\d+)枚(まで)?選び$");
+    static readonly Regex OpponentPowerRx = new Regex(@"^パワー([-−+])(\d+)(?:する|し)?$");
+
+    /* What a chosen opponent's unit has done to it, by the keyword: (Japanese, the step's English, what the
+     opponent does, the zone of theirs it goes to for an arrow (CardMoves), or null: off the board, or stays) */
+    static readonly (string ja, string act, string theirs, string to)[] OpponentActs =
+    {
+        ("退却させ", "retire it", "put {card} into your drop zone", "Drop"),
+        ("山札の下に置", "put it on the bottom of the deck", "put {card} on the bottom of your deck", "Deck"),
+        ("呪縛", "lock it", "turn {card} face down: it's locked", null),
+        ("監獄に収容", "put it into the prison", "give {card} to your opponent for their prison", null),
+        ("バインド", "bind it", "put {card} into your bind zone", "Bind"),
+        ("ソウルに置", "put it into the soul", "put {card} into the soul the skill says", null),
+        ("手札に戻", "return it to the hand", "return {card} to your hand", null),
+        ("【レスト】させ", "rest it", "rest {card} (turn it sideways)", null),
+    };
+
+    /* The step for "...相手のリアガードを1枚選び" and the clause after it saying what happens ("そのターン中"
+     and the like in between), which it takes up. An action it doesn't know is left for the clauses after. */
+    static ChooseOpponentStep ChooseOpponent(Match m, string[] clauses, ref int i, bool battleOnly)
+    {
+        var where = m.Groups[2].Value == "前列の" ? ChooseOpponentStep.Where.FrontRow
+            : m.Groups[2].Value == "後列の" ? ChooseOpponentStep.Where.BackRow
+            : m.Groups[3].Value == "ユニット" ? ChooseOpponentStep.Where.Units : ChooseOpponentStep.Where.Rearguards;
+        int count = int.Parse(m.Groups[4].Value);
+        bool upTo = m.Groups[5].Success;
+        CardFilter filter = Filter(m.Groups[1].Value);
+
+        int j = i + 1;
+        bool battle = battleOnly;
+        for (; j < clauses.Length && ConnectorRx.IsMatch(clauses[j]); j++)
+            if (clauses[j] == "そのバトル中") battle = true;
+            else if (clauses[j] == "そのターン中") battle = false;
+        string next = j < clauses.Length ? clauses[j] : "";
+
+        Match power = OpponentPowerRx.Match(next);
+        if (power.Success)
+        {
+            i = j;
+            int amount = int.Parse(power.Groups[2].Value) * (power.Groups[1].Value == "+" ? 1 : -1);
+            return new ChooseOpponentStep(where, count, upTo, filter, ChooseOpponentStep.Act.Power, "change its power", null, amount, battle);
+        }
+        foreach ((string ja, string act, string theirs, string to) in OpponentActs)
+        {
+            if (!next.Contains(ja)) continue;
+            i = j;
+            return new ChooseOpponentStep(where, count, upTo, filter, ja == "退却させ" ? ChooseOpponentStep.Act.Retire : ChooseOpponentStep.Act.Other, act, theirs, to: to);
+        }
+        return new ChooseOpponentStep(where, count, upTo, filter, ChooseOpponentStep.Act.Other, "use the skill on it", "{card} was chosen; do what the skill says to it");
     }
 
     static CardFilter Filter(string text)

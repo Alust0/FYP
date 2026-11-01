@@ -13,6 +13,8 @@ public class CountStep : Step
         Amount = amount;
     }
 
+    public override string Summary => (What == Kind.SoulCharge ? "Soul Charge " : What == Kind.CounterCharge ? "Counter Charge " : "Energy Charge ") + Amount;
+
     public override bool Begin(SkillFrame f)
     {
         GameState gs = GameState.Instance;

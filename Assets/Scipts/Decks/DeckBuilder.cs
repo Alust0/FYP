@@ -13,7 +13,7 @@ using static MenuUI;
 /* Deck scene: the account's saved decks on the left, a card browser in the middle (one set or all
  of them, narrowed by a card-number search) and the open deck on the right. Clicking a card adds a copy. Decks save to
  Cloud Save through DeckRepository. Builds its own UI (DeckBuilder.UI.cs), like the lobby.
- Deck rules: up to maxCopies of a card number, and one nation. Cray Elementals (no nation) go in any
+ Deck rules: up to maxCopies of a card number, 4 Sentinels, and one nation. Cray Elementals (no nation) go in any
  deck, and dual-nation cards go in a deck of either of their nations.
  Scan Cards shows the camera instead of the card grid, and CardScanner adds each card it finds
  like a click. */
@@ -26,6 +26,7 @@ public partial class DeckBuilder : MonoBehaviour
     [SerializeField] private bool showScanButton = false;
     [Tooltip("Copies allowed of one card number.")]
     [SerializeField] private int maxCopies = 4;
+    const int MaxSentinels = 4; // cards with Sentinel (守護者), all together
     [Tooltip("Cards in a full deck. The count turns gold at exactly this many; saving isn't blocked.")]
     [SerializeField] private int deckSize = 50;
     [Tooltip("Cards added to the browser at a time; scrolling to the bottom adds the next lot.")]
@@ -118,7 +119,6 @@ public partial class DeckBuilder : MonoBehaviour
     string mDiscardWarned; // the action already warned about, so doing it again discards
     bool mBusy;
     TMP_InputField mNameInput;
-    TMP_Text mCountText;
     TMP_Text mNationText;
     RectTransform mEntriesContent;
     TMP_Text mDeckHint;
@@ -126,6 +126,7 @@ public partial class DeckBuilder : MonoBehaviour
     Button mUndoButton;
     Button mCancelButton;
     Button mDeleteButton;
+    Button mExportButton;
     readonly List<Deck> mUndo = new List<Deck>(); // the open deck before each card change, newest last
     const int MaxUndo = 50;
     TMP_Text mStatusText;
@@ -297,6 +298,17 @@ public partial class DeckBuilder : MonoBehaviour
             return;
         }
 
+        // An imported deck can be over the limits that adding cards keeps to
+        string tooBig = mDeck.RideCards > RideDeckSize ? "The ride deck holds " + RideDeckSize + " cards"
+            : mDeck.MainCards > deckSize ? "The main deck holds " + deckSize + " cards"
+            : Sentinels() > MaxSentinels ? "A deck holds " + MaxSentinels + " Sentinels"
+            : null;
+        if (tooBig != null)
+        {
+            SetStatus(tooBig + ". Remove some, then save.");
+            return;
+        }
+
         SetBusy(true, "Saving...");
         try
         {
@@ -352,6 +364,39 @@ public partial class DeckBuilder : MonoBehaviour
             Debug.LogWarning("[DeckBuilder] Couldn't delete the deck: " + e.Message);
             if (this != null) SetBusy(false, "Couldn't delete the deck. Check your internet connection.");
         }
+    }
+
+    // The open deck as a .json file in Downloads (DeckFiles)
+    void OnExport()
+    {
+        if (mDeck == null) return;
+        DeckFiles.Export(Copy(mDeck), message =>
+        {
+            if (this != null && message != null) SetStatus(message);
+        });
+    }
+
+    // A deck file picked from Downloads, opened as a new deck to check and save
+    void OnImport()
+    {
+        if (mBusy || !CanDiscard("import")) return;
+        DeckFiles.Import((imported, message) =>
+        {
+            if (this == null) return;
+            if (imported != null) ShowImported(imported);
+            else if (message != null) SetStatus(message);
+        });
+    }
+
+    void ShowImported(Deck imported)
+    {
+        Open(imported);
+        MarkDirty();
+        ShowDeck();
+        string over = imported.RideCards > RideDeckSize ? " The ride deck has " + imported.RideCards + " (max " + RideDeckSize + ")."
+            : imported.MainCards > deckSize ? " The main deck has " + imported.MainCards + " (max " + deckSize + ")."
+            : "";
+        SetStatus("Imported \"" + imported.deckName + "\" (" + imported.TotalCards + " cards). Check it, then Save." + over);
     }
 
     // Before a change, so Undo can go back to this
@@ -496,7 +541,9 @@ public partial class DeckBuilder : MonoBehaviour
                 int count = mDeck != null ? SectionCards(section).Sum(e => e.count) : 0;
                 size = section == DeckSection.Ride ? count + "/" + RideDeckSize : count.ToString();
             }
-            options.Add(SectionName(section) + "  <color=#7A8294>" + size + "</color>");
+            // Over its limit (a big import): the count turns red
+            bool over = mDeck != null && (section == DeckSection.Main ? mDeck.MainCards > deckSize : section == DeckSection.Ride && mDeck.RideCards > RideDeckSize);
+            options.Add(SectionName(section) + "  <color=" + (over ? "#FF7A7A" : "#7A8294") + ">" + size + "</color>");
         }
         mSectionDropdown.ClearOptions();
         mSectionDropdown.AddOptions(options);
@@ -598,19 +645,23 @@ public partial class DeckBuilder : MonoBehaviour
         return elemental ? "Cray Elemental" : "No nation";
     }
 
-    /* Changes the copies in the picked section; null if done, else why not. The copy limit counts the
-     main and ride decks together (the 50); tokens and crests have none. */
+    /* Changes the copies in the picked section; null if done, else why not. The main deck holds 50 and
+     the ride deck 4 on top; the copy limit counts the two together; tokens and crests have none. */
     string ChangeCount(string number, int delta)
     {
         List<DeckEntry> cards = SectionCards(mSection);
         DeckEntry entry = cards.FirstOrDefault(e => SameCard(e.cardNumber, number));
         if (delta > 0)
         {
-            if (mSection == DeckSection.Ride && cards.Sum(e => e.count) + delta > RideDeckSize)
+            if (mSection == DeckSection.Ride && mDeck.RideCards + delta > RideDeckSize)
                 return "The ride deck holds " + RideDeckSize + " cards.";
-            int inFifty = mDeck.cards.Concat(mDeck.rideDeck).Where(e => SameCard(e.cardNumber, number)).Sum(e => e.count);
-            if (mSection != DeckSection.Extras && inFifty + delta > maxCopies)
+            if (mSection == DeckSection.Main && mDeck.MainCards + delta > deckSize)
+                return "The main deck is full: " + deckSize + " cards.";
+            int inDeck = mDeck.cards.Concat(mDeck.rideDeck).Where(e => SameCard(e.cardNumber, number)).Sum(e => e.count);
+            if (mSection != DeckSection.Extras && inDeck + delta > maxCopies)
                 return "A deck can have at most " + maxCopies + " copies of " + number + ".";
+            if (mSection != DeckSection.Extras && IsSentinel(number) && Sentinels() + delta > MaxSentinels)
+                return "A deck can have at most " + MaxSentinels + " Sentinels.";
         }
 
         RememberDeck();
@@ -625,6 +676,10 @@ public partial class DeckBuilder : MonoBehaviour
     }
 
     static bool SameCard(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    // Sentinels (守護者) in the main and ride decks; a card whose details haven't loaded isn't counted
+    bool IsSentinel(string number) => mCardData.TryGetValue(number, out CardData card) && card != null && IsKind(card, "Sentinel");
+    int Sentinels() => mDeck.cards.Concat(mDeck.rideDeck).Where(e => IsSentinel(e.cardNumber)).Sum(e => e.count);
 
     /* Each card in the chosen Start/Trial Deck once, on top of what's there, once every card's
      nation is known. Only for those sets, as booster sets mix nations */
@@ -648,7 +703,7 @@ public partial class DeckBuilder : MonoBehaviour
         if (mDeck == null) Open(new Deck { deckName = set });
         RememberDeck();
 
-        int leftOut = 0;
+        int leftOut = 0, noRoom = 0;
         foreach (string number in numbers)
         {
             if (mDeck.cards.Any(e => string.Equals(e.cardNumber, number, StringComparison.OrdinalIgnoreCase))) continue;
@@ -658,12 +713,20 @@ public partial class DeckBuilder : MonoBehaviour
                 leftOut++;
                 continue;
             }
+            if (mDeck.MainCards >= deckSize)
+            {
+                noRoom++;
+                continue;
+            }
             mDeck.cards.Add(new DeckEntry { cardNumber = number, count = 1 });
         }
 
         MarkDirty();
         ShowDeck();
-        if (leftOut > 0) SetStatus(leftOut + " cards of another nation were left out.");
+        var notes = new List<string>();
+        if (leftOut > 0) notes.Add(leftOut + " cards of another nation were left out.");
+        if (noRoom > 0) notes.Add(noRoom + " didn't fit in the " + deckSize + "-card main deck.");
+        if (notes.Count > 0) SetStatus(string.Join(" ", notes));
     }
 
     void MarkDirty()
@@ -682,6 +745,7 @@ public partial class DeckBuilder : MonoBehaviour
         mNameInput.SetTextWithoutNotify(open ? mDeck.deckName : "");
         mSaveButton.interactable = open && !mBusy && DeckRepository.IsLoggedIn;
         mDeleteButton.interactable = open && !mBusy;
+        mExportButton.interactable = open;
         ShowSummary();
 
         foreach (Transform cell in mEntriesContent) Destroy(cell.gameObject);
@@ -707,21 +771,16 @@ public partial class DeckBuilder : MonoBehaviour
         FreeUnusedPictures();
     }
 
-    // Card count and nation above the cards, section counts, and whether the Save button has anything to save
+    // The nation above the cards, section counts, and whether the Save button has anything to save
     void ShowSummary()
     {
         ShowSectionOptions();
         ShowSaveLabel();
         if (mDeck == null)
         {
-            mCountText.text = "";
             mNationText.text = "";
             return;
         }
-
-        int total = mDeck.TotalCards;
-        mCountText.text = total + " / " + deckSize + " cards";
-        mCountText.color = total == deckSize ? Accent : Muted;
 
         string nation = DeckNationLabel();
         int notChecked = mDeck.AllEntries.Count(entry => mNotInDatabase.Contains(entry.cardNumber));

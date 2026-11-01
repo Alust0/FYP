@@ -4,7 +4,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// Displays popup notifications for Persona Ride, Stride, Triggers and Gifts
+/* Displays popup notifications: Persona Ride, Stride, Triggers, Gifts and the referee's notices. Most go
+ after a few seconds. A to-do (GameState.OnRuleToDo: a skill's prompt, cost or step, a trigger pick, a
+ check to reveal...) stays up until it's done: newer notices show over it, then it comes back. */
 public class NotificationOverlay : MonoBehaviour
 {
     [Header("Notification Panel")]
@@ -49,6 +51,14 @@ public class NotificationOverlay : MonoBehaviour
     readonly Queue<(string title, string body, Sprite icon)> mQueue = new Queue<(string, string, Sprite)>();
     string mShowingKey;
 
+    class ToDo
+    {
+        public string title, body;
+        public System.Func<bool> stillToDo;
+        public int turn; // only this turn's: a to-do left over isn't kept up forever
+    }
+    readonly List<ToDo> mToDos = new List<ToDo>(); // newest last
+
     // Starts out of sight below the screen; stays active so this keeps listening
     void Start()
     {
@@ -81,6 +91,7 @@ public class NotificationOverlay : MonoBehaviour
         GameState.OnTriggerActivated += ShowTrigger;
         GameState.OnGiftReceived += ShowGift;
         GameState.OnRuleNotice += ShowRuleNotice;
+        GameState.OnRuleToDo += AddToDo;
     }
 
     void OnDisable()
@@ -89,6 +100,29 @@ public class NotificationOverlay : MonoBehaviour
         GameState.OnTriggerActivated -= ShowTrigger;
         GameState.OnGiftReceived -= ShowGift;
         GameState.OnRuleNotice -= ShowRuleNotice;
+        GameState.OnRuleToDo -= AddToDo;
+    }
+
+    // Comes just before its notice, which is shown as usual
+    void AddToDo(string title, string body, System.Func<bool> stillToDo)
+    {
+        mToDos.RemoveAll(t => t.title == title && t.body == body);
+        mToDos.Add(new ToDo { title = title, body = body, stillToDo = stillToDo, turn = Turn });
+    }
+
+    static int Turn => GameState.Instance != null ? GameState.Instance.turnNumber : 0;
+
+    // The newest to-do not done yet; done ones are dropped
+    ToDo OpenToDo()
+    {
+        mToDos.RemoveAll(t => t.turn != Turn || !StillToDo(t));
+        return mToDos.Count > 0 ? mToDos[mToDos.Count - 1] : null;
+    }
+
+    static bool StillToDo(ToDo t)
+    {
+        try { return t.stillToDo(); }
+        catch { return false; }
     }
 
     // Shows a referee message from the RulesEngine, e.g. a phase reminder or a rule warning
@@ -154,21 +188,35 @@ public class NotificationOverlay : MonoBehaviour
         if (hideCoroutine == null) hideCoroutine = StartCoroutine(ShowQueue());
     }
 
-    // Shows each queued notification in turn, then hides the panel
+    /* Shows each queued notification in turn. Then the newest to-do not done yet comes back (or stays)
+     until it's done or another notification comes; with none left, the panel hides */
     IEnumerator ShowQueue()
     {
         bool slidUp = false;
-        while (mQueue.Count > 0)
+        while (true)
         {
-            (string title, string body, Sprite icon) = mQueue.Dequeue();
-            mShowingKey = title + "|" + body;
-
-            if (notificationTitle != null) notificationTitle.text = title;
-            if (notificationBody != null) notificationBody.text = body;
-            if (notificationIcon != null)
+            ToDo todo = null;
+            string title, body;
+            Sprite icon = null;
+            if (mQueue.Count > 0) (title, body, icon) = mQueue.Dequeue();
+            else
             {
-                notificationIcon.sprite = icon;
-                notificationIcon.enabled = icon != null; // no blank white square on text-only notices
+                todo = OpenToDo();
+                if (todo == null) break;
+                (title, body) = (todo.title, todo.body);
+            }
+
+            string key = title + "|" + body;
+            if (key != mShowingKey)
+            {
+                mShowingKey = key;
+                if (notificationTitle != null) notificationTitle.text = title;
+                if (notificationBody != null) notificationBody.text = body;
+                if (notificationIcon != null)
+                {
+                    notificationIcon.sprite = icon;
+                    notificationIcon.enabled = icon != null; // no blank white square on text-only notices
+                }
             }
             notificationPanel.SetActive(true);
             if (slideUp && !slidUp)
@@ -177,7 +225,8 @@ public class NotificationOverlay : MonoBehaviour
                 yield return Slide(shownY);
             }
 
-            yield return new WaitForSeconds(mQueue.Count > 0 ? queuedDuration : displayDuration);
+            if (todo != null) yield return new WaitUntil(() => mQueue.Count > 0 || OpenToDo() != todo);
+            else yield return new WaitForSeconds(mQueue.Count > 0 ? queuedDuration : displayDuration);
         }
 
         if (slideUp) yield return Slide(HiddenY);

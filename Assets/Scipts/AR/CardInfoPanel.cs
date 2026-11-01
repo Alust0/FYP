@@ -25,13 +25,9 @@ public class CardInfoPanel : MonoBehaviour
     static readonly HashSet<string> sLoading = new HashSet<string>();
 
     CardData mShown;
-    Vector2 mArtBox;
+    Vector2 mArtBox; // the picture's box as UISetup made it; read on first use, as Awake runs before `art` is set
 
-    void Awake()
-    {
-        Instance = this;
-        if (art != null) mArtBox = art.rectTransform.sizeDelta;
-    }
+    void Awake() => Instance = this;
 
     void OnEnable() => GameState.OnCardMoved += OnCardMoved;
     void OnDisable() => GameState.OnCardMoved -= OnCardMoved;
@@ -82,6 +78,7 @@ public class CardInfoPanel : MonoBehaviour
     void ShowArt(CardData data)
     {
         if (art == null) return;
+        if (mArtBox == Vector2.zero) mArtBox = art.rectTransform.sizeDelta;
         Texture2D texture = Art(data);
         art.texture = texture;
         art.color = texture != null ? Color.white : new Color(1f, 1f, 1f, 0.08f);

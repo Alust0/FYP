@@ -24,7 +24,10 @@ public class SkillFrame
     }
 
     // Null once the last step is done
-    public Step Current => Cursor < Skill.Steps.Count ? Skill.Steps[Cursor] : null;
+    public Step Current => !Stopped && Cursor < Skill.Steps.Count ? Skill.Steps[Cursor] : null;
+
+    // A condition wasn't met (ConditionStep): the steps left aren't done
+    public bool Stopped { get; set; }
 
     public void Next()
     {

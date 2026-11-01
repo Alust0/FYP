@@ -10,5 +10,7 @@ public class CounterBlastCost : Cost
 
     public override void Pay(PlayerState owner, CardInstance card) => Adjust(owner, "FaceDownDamage", Amount);
 
+    public override System.Collections.Generic.IEnumerable<string> Zones(CardInstance card) => new[] { "Damage" };
+
     public override string Instruction(CardInstance card) => "turn " + Amount + " damage face down";
 }

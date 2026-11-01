@@ -20,6 +20,7 @@ using static MenuUI;
    createdMs, host {id, name, beatMs}, guest {id, name, beatMs}
    deck, cover, gameVersion, cardsVersion — shown in the list
    timerMinutes  the host's Timer, 0 for none (MatchSession.TimerMinutes)
+   noSkills   true when the host turned Card skills off (MatchSession.SkillsOn); missing means on
  and, once the match starts, turn/seat0/seat1 (see OnlineMatch). The host refreshes beatMs while
  waiting, so rooms left behind by a closed game drop off the list. Builds its own UI (LobbyController.UI.cs), like UISetup. */
 public partial class LobbyController : MonoBehaviour
@@ -64,6 +65,7 @@ public partial class LobbyController : MonoBehaviour
 
     // Hosting
     Toggle mPrivateToggle;
+    Toggle mSkillsToggle; // Card skills on/off, next to Host Room
     TMP_Dropdown mTimerDropdown;
     Button mHostButton;
     Button mCancelButton;
@@ -157,7 +159,8 @@ public partial class LobbyController : MonoBehaviour
 
         TMP_Text details = AddText(row, "Game v" + room.fields.GetString("gameVersion") + "   •   " +
             room.fields.GetLong("cardsVersion") + " cards" + (isPrivate ? "   •   Private" : "") +
-            (RoomTimer(room) > 0 ? "   •   " + TimerName(RoomTimer(room)) + " timer" : ""), 22, Muted, TextAlignmentOptions.Left);
+            (RoomTimer(room) > 0 ? "   •   " + TimerName(RoomTimer(room)) + " timer" : "") +
+            (RoomSkills(room) ? "" : "   •   No skills"), 22, Muted, TextAlignmentOptions.Left);
         Place(details.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(118f, -122f), new Vector2(-230f, -90f));
 
         // Different builds may not sync the same way, so joining needs the same game version
@@ -179,6 +182,8 @@ public partial class LobbyController : MonoBehaviour
     static string HostName(RtdbRest.Result room) => room.fields.GetMap("host").GetString("name") ?? "Someone";
 
     static int RoomTimer(RtdbRest.Result room) => (int)room.fields.GetLong("timerMinutes");
+
+    static bool RoomSkills(RtdbRest.Result room) => !room.fields.GetBool("noSkills");
 
     static string TimerName(int minutes) => minutes == 0 ? "None" : minutes == 60 ? "1 hour" : minutes + " min";
 
@@ -222,9 +227,9 @@ public partial class LobbyController : MonoBehaviour
             RtdbRest.Result result = null;
             yield return RtdbRest.Patch(RoomPath(room.id), fields, new[] { "status", "guest" }, r => result = r, room.version);
 
-            if (result.ok)
+            if (result.succeeded)
             {
-                StartMatch(room.id, 1, HostName(room), PlayerSession.Name, RoomTimer(room));
+                StartMatch(room.id, 1, HostName(room), PlayerSession.Name, RoomTimer(room), RoomSkills(room));
                 yield break;
             }
             Debug.LogWarning("[LobbyController] Join attempt " + (attempt + 1) + " failed: " + result.error);
@@ -237,7 +242,7 @@ public partial class LobbyController : MonoBehaviour
             // Usually the host's heartbeat changed the room just before: read it again and retry if it's still open
             RtdbRest.Result fresh = null;
             yield return RtdbRest.Get(RoomPath(room.id), r => fresh = r);
-            if (!fresh.ok || !IsJoinable(fresh))
+            if (!fresh.succeeded || !IsJoinable(fresh))
             {
                 problem = "That room just filled up or closed.";
                 break;
@@ -291,6 +296,7 @@ public partial class LobbyController : MonoBehaviour
             ["gameVersion"] = GameVersion,
             ["cardsVersion"] = CardImageLibrary.Count,
             ["timerMinutes"] = (long)timer,
+            ["noSkills"] = !mSkillsToggle.isOn,
         };
 
         // The one typed into the Room password box, or a made-up one if it's empty
@@ -303,7 +309,7 @@ public partial class LobbyController : MonoBehaviour
             if (!isPublic) fields["passwordHash"] = PasswordHash(candidate, password);
             yield return RtdbRest.Create(Rooms, candidate, fields, r => result = r);
 
-            if (result.ok) code = candidate;
+            if (result.succeeded) code = candidate;
             else if (result.status != 409) break; // 409: that code is taken, so try another
         }
 
@@ -341,13 +347,13 @@ public partial class LobbyController : MonoBehaviour
                 StopHosting("Your room was closed.");
                 yield break;
             }
-            if (!room.ok) continue; // a dropped read; the next poll tries again
+            if (!room.succeeded) continue; // a dropped read; the next poll tries again
 
             Dictionary<string, object> guest = room.fields.GetMap("guest");
             if (guest != null)
             {
                 mHostedCode = null;
-                StartMatch(code, 0, PlayerSession.Name, guest.GetString("name"), timer);
+                StartMatch(code, 0, PlayerSession.Name, guest.GetString("name"), timer, mSkillsToggle.isOn);
                 yield break;
             }
         }
@@ -381,9 +387,9 @@ public partial class LobbyController : MonoBehaviour
             return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(code + ":" + password)).Select(b => b.ToString("x2")));
     }
 
-    void StartMatch(string code, int localSeat, string hostName, string guestName, int timerMinutes)
+    void StartMatch(string code, int localSeat, string hostName, string guestName, int timerMinutes, bool skills)
     {
-        MatchSession.Begin(code, localSeat, hostName ?? "Player 1", guestName ?? "Player 2", timerMinutes);
+        MatchSession.Begin(code, localSeat, hostName ?? "Player 1", guestName ?? "Player 2", timerMinutes, skills);
         CameraChoice.Apply();
         SceneManager.LoadScene(matchSceneName);
     }
@@ -392,7 +398,7 @@ public partial class LobbyController : MonoBehaviour
     void OnTest()
     {
         if (IsHosting || mJoining) return;
-        MatchSession.BeginSolo(PlayerSession.Name, ChosenTimer);
+        MatchSession.BeginSolo(PlayerSession.Name, ChosenTimer, mSkillsToggle.isOn);
         CameraChoice.Apply();
         SceneManager.LoadScene(matchSceneName);
     }
@@ -531,6 +537,7 @@ public partial class LobbyController : MonoBehaviour
         mCancelButton.gameObject.SetActive(hosting);
         mPrivateToggle.interactable = !hosting;
         mTimerDropdown.interactable = !hosting; // the guest gets the timer the room was made with
+        mSkillsToggle.interactable = !hosting; // and its Card skills setting
         mDeckDropdown.interactable = !hosting;
         mCameraDropdown.interactable = !hosting && mCameras.Length > 0;
         mTestButton.interactable = !hosting;

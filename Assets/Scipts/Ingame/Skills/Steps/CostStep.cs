@@ -36,6 +36,8 @@ public class CostStep : Step
         if (Cost is ChoiceCost choice) Pay(f, choice.Options.FirstOrDefault(o => o.CanPay(f.Owner, f.Card)) ?? choice.Options[0]);
     }
 
+    public override System.Collections.Generic.IEnumerable<string> Zones(SkillFrame f) => Cost.Zones(f.Card);
+
     public override string Instruction(SkillFrame f) => "choose which cost to pay: " + Cost;
 
     static bool Pay(SkillFrame f, Cost cost)

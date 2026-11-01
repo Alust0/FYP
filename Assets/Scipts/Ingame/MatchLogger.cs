@@ -280,7 +280,12 @@ public class MatchLogger : MonoBehaviour
 
     // Writing
 
-    void Write(string category, string text) => WriteLine(DateTime.Now.ToString("HH:mm:ss") + " [" + Stamp() + "] " + category.PadRight(6) + " " + text);
+    // Nothing after the result: the game is over, and its log with it
+    void Write(string category, string text)
+    {
+        if (mLoggedResult) return;
+        WriteLine(DateTime.Now.ToString("HH:mm:ss") + " [" + Stamp() + "] " + category.PadRight(6) + " " + text);
+    }
 
     void WriteLine(string line)
     {

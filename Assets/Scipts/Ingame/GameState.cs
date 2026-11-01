@@ -179,15 +179,22 @@ public class PlayerState
 
     public int Untracked(string zone) => untrackedCards.TryGetValue(zone, out int n) ? n : 0;
 
-    // Damage still face up, i.e. what's left to pay Counter Blast with
-    public int FaceUpDamage => Mathf.Max(0,
-        damageZone.Count(c => c.facing == CardFacing.FaceUp) + Untracked("Damage") - Untracked("FaceDownDamage"));
+    public const int MaxDamage = 6;
 
-    // Changes a zone's count without a tracked card, never below zero cards in total
+    /* Damage still face up, i.e. what's left to pay Counter Blast with. Kept as counts, not read off
+     the cards: damage cards overlap, and the camera losing one isn't it being flipped */
+    public int FaceUpDamage => Mathf.Max(0, Untracked("Damage") - Untracked("FaceDownDamage"));
+
+    /* Changes a zone's count without a tracked card, never below zero cards in total. Damage stops at
+     6 (the game is over by then), and no more of it can be face down than there is */
     public void AdjustCount(string zone, int delta)
     {
         int tracked = CountInZone(zone) - Untracked(zone);
-        untrackedCards[zone] = Mathf.Max(-tracked, Untracked(zone) + delta);
+        int count = Mathf.Max(-tracked, Untracked(zone) + delta);
+        if (zone == "Damage") count = Mathf.Min(count, MaxDamage);
+        if (zone == "FaceDownDamage") count = Mathf.Clamp(count, 0, Untracked("Damage"));
+        untrackedCards[zone] = count;
+        if (zone == "Damage" && Untracked("FaceDownDamage") > count) untrackedCards["FaceDownDamage"] = count; // a heal takes face-down damage too
     }
 
     // Multi-card zone for a BoardLayout key suffix; null for single-card circles and unknown names
@@ -225,9 +232,12 @@ public class PlayerState
         }
     }
 
-    // Tracked cards in a zone plus its untracked count
+    /* Tracked cards in a zone plus its untracked count. Damage is the count alone (RulesEngine counts
+     each damage check, heal and HUD +/-): damage cards overlap, so the camera both loses them and reads
+     one card as two */
     public int CountInZone(string zone)
     {
+        if (zone == "Damage") return Untracked(zone);
         List<CardInstance> list = ZoneList(zone);
         int tracked = list != null ? list.Count : (CardOnCircle(zone) != null ? 1 : 0);
         return tracked + Untracked(zone);
@@ -292,7 +302,7 @@ public class GameState : MonoBehaviour
     public string endReason;     // e.g. "Bo reached 6 damage"
     public int orderLimit = 1;
     readonly bool[] mHadDeck = new bool[2]; // per player: the deck count has been above 0
-    public string attackTarget; // defender's circle under attack, e.g. "LeftFront"; null when there's no battle or it's not picked yet
+    [System.NonSerialized] public string attackTarget; // not saved in the scene, which would load it as "" not null. Defender's circle under attack, e.g. "LeftFront"; null when there's no battle or it's not picked yet
 
     // Events that AROverlay and UI subscribe to
     public static System.Action<TurnPhase, string> OnPhaseChanged;
@@ -305,6 +315,8 @@ public class GameState : MonoBehaviour
     public static System.Action<string, int, int> OnCardPowerChanged;
     public static System.Action<string, string> OnRulePrompt;
     public static System.Action<string, string> OnRuleNotice; // title, body — board-wide referee messages
+    // Just before a notice that's something to do (a skill's cost or step, a trigger pick...): it stays up while stillToDo is true
+    public static System.Action<string, string, System.Func<bool>> OnRuleToDo; // title, body, stillToDo
     public static System.Action OnGameOver; // after EndGame's "Game Over" notice; winnerIndex and endReason are set
 
     // Tracker-driven card changes; the card's zone/orientation/facing is already updated when these fire
@@ -328,6 +340,15 @@ public class GameState : MonoBehaviour
      OpenCV later) only ever call this, SetOrientation and SetFacing, so the rules don't care which one runs. */
     public void MoveCard(CardInstance card, PlayerState owner, string zone)
     {
+        if (gameOver) return; // the board is final once the game is over
+        // An order is never a unit: on the vanguard or a rear-guard circle it isn't counted as on the board
+        if (card.data.isOrderCard && Skill.IsUnitCircle(zone))
+        {
+            OnRuleNotice?.Invoke("Rule check", card.data.DisplayName + " is an order, so it can't go on a circle. Put it in the order zone.");
+            OnRulePrompt?.Invoke(card.data.cardName, "Orders go in the order zone.");
+            owner = null;
+            zone = null;
+        }
         if (card.zoneOwner == owner && card.zone == zone) return;
 
         PlayerState fromOwner = card.zoneOwner;
@@ -349,7 +370,7 @@ public class GameState : MonoBehaviour
 
     public void SetOrientation(CardInstance card, CardOrientation orientation)
     {
-        if (card.orientation == orientation) return;
+        if (gameOver || card.orientation == orientation) return;
         card.orientation = orientation;
         MatchLogger.CardTurned(card);
         OnCardOrientationChanged?.Invoke(card);
@@ -358,6 +379,7 @@ public class GameState : MonoBehaviour
     // Corrects a zone count by hand (HUD +/- now, gestures later) or from rules bookkeeping
     public void AdjustCount(PlayerState player, string zone, int delta)
     {
+        if (gameOver) return;
         player.AdjustCount(zone, delta);
         MatchLogger.Action(player.playerName + ": " + zone + " " + delta.ToString("+0;-0") + " (now " + player.CountInZone(zone) + ")");
         CheckWinCondition();
@@ -366,7 +388,7 @@ public class GameState : MonoBehaviour
 
     public void SetFacing(CardInstance card, CardFacing facing)
     {
-        if (card.facing == facing) return;
+        if (gameOver || card.facing == facing) return;
         card.facing = facing;
         MatchLogger.CardFlipped(card);
         OnCardFacingChanged?.Invoke(card);

@@ -10,6 +10,9 @@ public class RestCost : Cost
 
     public override void Pay(PlayerState owner, CardInstance card) { }
 
+    public override System.Collections.Generic.IEnumerable<string> Zones(CardInstance card) =>
+        card.zone != null ? new[] { card.zone } : new string[0];
+
     public override string Instruction(CardInstance card) => "rest " + card.data.DisplayName;
 
     public override string ToString() => Name;

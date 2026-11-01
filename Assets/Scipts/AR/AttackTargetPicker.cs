@@ -33,6 +33,7 @@ public partial class AttackTargetPicker : MonoBehaviour
         public Button button;
         public TextMeshProUGUI label;
         public RectTransform fill; // a finger hold's progress (HandZones)
+        public Ripple ripple; // only on a box that can be picked
     }
 
     readonly Marker[] mMarkers = new Marker[3];
@@ -67,8 +68,9 @@ public partial class AttackTargetPicker : MonoBehaviour
 
             Marker marker = mMarkers[i];
             marker.button.interactable = canPick;
+            marker.ripple.SetVisible(canPick);
             marker.image.color = canPick ? new Color(0.85f, 0.1f, 0.1f, 0.45f) : new Color(0.2f, 0.2f, 0.2f, 0.35f);
-            marker.label.text = (i + 1) + "  " + Names[i] + "\n" + (unit != null ? unit.data.cardName + "\n" + unit.TotalPower : canPick ? "" : "empty");
+            marker.label.text = (i + 1) + "  " + Names[i] + "\n" + (unit != null ? unit.data.DisplayName + "\n" + unit.TotalPower : canPick ? "" : "empty");
             Place(marker.rect, ScreenRect(cam, defender, zone, i));
             float hold = MatchSession.IsOnline && HandZones.Instance != null ? HandZones.Instance.PickProgress("P1_" + Facing(zone)) : 0f;
             marker.fill.localScale = new Vector3(hold, 1f, 1f);
