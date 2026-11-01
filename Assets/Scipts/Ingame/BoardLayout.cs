@@ -290,6 +290,12 @@ public class BoardLayout : MonoBehaviour
         obj.transform.localScale = new Vector3(size.x, size.y, 0.01f);
 
         StyleZone(obj);
+        // Damage is outlined in its seat's colour (blue first player, red second), like the HUD's damage bar
+        if (key.EndsWith("_Damage"))
+        {
+            LineRenderer outline = obj.GetComponent<LineRenderer>();
+            outline.startColor = outline.endColor = StatBar.SeatBorder[SeatOfZone(key)];
+        }
         CreateLabel(obj, label);
 
         RegisterZone(key, obj, position, size);

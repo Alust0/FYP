@@ -76,3 +76,8 @@ crashlytics-build.properties
 /Assets/Temps.meta
 /Assets/Editor/Migration/com.ptc.vuforia.engine-11.4.4.tgz
 /Assets/Editor/Migration/com.ptc.vuforia.engine-11.4.4.tgz.meta
+
+# Too big for GitHub: card pictures (downloaded from their image links when missing) and zipped builds
+/[Aa]ssets/StreamingAssets/cards/
+/[Aa]ssets/StreamingAssets/cards.meta
+*.zip
