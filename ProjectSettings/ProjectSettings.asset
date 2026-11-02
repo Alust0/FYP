@@ -829,6 +829,7 @@ PlayerSettings:
   platformCapabilities:
     WindowsStoreApps:
       InternetClientServer: True
+      PrivateNetworkClientServer: True
       InternetClient: True
       WebCam: True
       Microphone: True

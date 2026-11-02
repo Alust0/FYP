@@ -13,16 +13,18 @@ using UnityEngine;
 /* Carries camera pictures (JPEG bytes) between the two PCs of an online match, for SplitScreenView.
 
  Direct: the host listens on a free port and puts its addresses in the room entry ("video");
- the guest connects. Works on one network or one PC, and needs Windows Firewall to let Unity in.
+ the guest connects. Works on one network or one PC, and needs Windows Firewall to let Unity in
+ (a UWP build needs the privateNetworkClientServer capability for home/work networks).
  Each side's first message is the room code, so a wrong connection is dropped.
 
- Fallback, when there's no direct connection: a picture every few seconds through the Realtime Database, in
+ Fallback, when there's no direct connection: about a picture a second through the Realtime Database, in
  an entry next to the room ("<code>_video<seat>"), which the same rules cover and the lobby's
  room search skips (it has no status). Slow, and every picture counts toward the database's download allowance. */
 public class CameraFeedLink : MonoBehaviour
 {
     public float directSeconds = 0.1f;   // between pictures over a direct connection
-    public float fallbackSeconds = 3f;   // between pictures through the database
+    public float fallbackSeconds = 1f;   // between pictures through the database
+    public float fallbackPollSeconds = 0.4f; // between checks for the opponent's next database picture
     public float connectWaitSeconds = 8f; // before falling back
 
     public bool Direct => mConnection != null && mConnection.Verified && !mConnection.Closed;
@@ -188,25 +190,52 @@ public class CameraFeedLink : MonoBehaviour
         }
     }
 
+    /* Tries every address at once, so the host's virtual and VPN adapters don't each cost a wait;
+     the first that connects wins */
     static TcpClient TryConnect(List<string> ips, int port)
     {
+        var attempts = new List<(TcpClient client, Task task)>();
         foreach (string ip in ips)
         {
             var client = new TcpClient();
-            try
-            {
-                if (client.ConnectAsync(ip, port).Wait(1500) && client.Connected) return client;
-            }
-            catch (Exception) { } // refused or unreachable
-            client.Close();
+            try { attempts.Add((client, client.ConnectAsync(ip, port))); }
+            catch (Exception) { client.Close(); } // a bad address
         }
-        return null;
+
+        TcpClient winner = null;
+        DateTime giveUp = DateTime.UtcNow.AddSeconds(3);
+        while (winner == null && DateTime.UtcNow < giveUp && attempts.Any(a => !a.task.IsCompleted))
+        {
+            Thread.Sleep(20);
+            winner = attempts.FirstOrDefault(a => a.task.Status == TaskStatus.RanToCompletion && a.client.Connected).client;
+        }
+        winner ??= attempts.FirstOrDefault(a => a.task.Status == TaskStatus.RanToCompletion && a.client.Connected).client;
+
+        foreach (var attempt in attempts)
+        {
+            if (attempt.client == winner) continue;
+            attempt.task.ContinueWith(_ => { }); // its refusal isn't an unobserved exception
+            attempt.client.Close();
+        }
+        return winner;
     }
 
     // Loopback first, for two editor windows on one PC, then this PC's network addresses
     static List<string> LocalAddresses()
     {
         var addresses = new List<string> { "127.0.0.1" };
+#if ENABLE_WINMD_SUPPORT && !UNITY_EDITOR
+        // UWP: System.Net.NetworkInformation may come back empty there
+        try
+        {
+            foreach (Windows.Networking.HostName host in Windows.Networking.Connectivity.NetworkInformation.GetHostNames())
+                if (host.Type == Windows.Networking.HostNameType.Ipv4) addresses.Add(host.CanonicalName);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[CameraFeedLink] Couldn't list UWP network addresses: " + e.Message);
+        }
+#endif
         try
         {
             foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
@@ -220,6 +249,7 @@ public class CameraFeedLink : MonoBehaviour
         {
             Debug.LogWarning("[CameraFeedLink] Couldn't list network addresses: " + e.Message);
         }
+        if (addresses.Count == 1) Debug.LogWarning("[CameraFeedLink] Found no network address; only another window on this PC can connect directly.");
         return addresses.Distinct().ToList();
     }
 
@@ -236,17 +266,25 @@ public class CameraFeedLink : MonoBehaviour
         mUploading = false;
     }
 
+    /* Polls the tiny "ms" stamp often and downloads the picture only when it changed, so a new one
+     shows soon after it's sent and an unchanged one isn't downloaded again */
     IEnumerator FallbackDownloads()
     {
+        string path = FramePath(mRoomCode, 1 - mLocalSeat);
         long lastSeen = 0;
         while (true)
         {
-            yield return new WaitForSecondsRealtime(fallbackSeconds);
+            yield return new WaitForSecondsRealtime(fallbackPollSeconds);
             if (!UsingFallback) continue;
 
+            RtdbRest.Result stamp = null;
+            yield return RtdbRest.Get(path + "/ms", r => stamp = r);
+            // A single number comes back as the read's version, not as fields
+            if (!stamp.succeeded || !long.TryParse(stamp.version, out long ms) || ms == lastSeen) continue;
+
             RtdbRest.Result frame = null;
-            yield return RtdbRest.Get(FramePath(mRoomCode, 1 - mLocalSeat), r => frame = r);
-            if (!frame.succeeded || frame.fields.GetLong("ms") == lastSeen) continue;
+            yield return RtdbRest.Get(path, r => frame = r);
+            if (!frame.succeeded) continue;
 
             lastSeen = frame.fields.GetLong("ms");
             try { mFallbackFrame = Convert.FromBase64String(frame.fields.GetString("jpg") ?? ""); }

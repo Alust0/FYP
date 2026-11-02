@@ -25,6 +25,10 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     [Tooltip("One CloudRecoBehaviour per Vuforia Cloud database (DSeries1/2/3, etc). Each database has its own Access/Secret key pair and Vuforia can't search more than one per query, so every database needs its own CloudRecoBehaviour running at once. Leave empty to auto-collect every CloudRecoBehaviour under this GameObject.")]
     public List<CloudRecoBehaviour> cloudRecoBehaviours = new List<CloudRecoBehaviour>();
 
+    [Header("Overlay")]
+    [Tooltip("A card Vuforia sees tilted more than this many degrees from the mat has a bad pose: its overlay hides rather than lie skewed off the card.")]
+    [Range(10f, 90f)] public float maxTiltDegrees = 35f;
+
     [Header("Stand / Rest")]
     [Tooltip("Degrees a card must turn from upright on screen (vs the board's card axis) to count as rested.")]
     [Range(10f, 90f)] public float restAngle = 55f;
@@ -99,6 +103,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
     void OnEnable()
     {
+        sAll.Add(this);
         if (!useCloudReco) return;
 
         foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
@@ -126,6 +131,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
     void OnDisable()
     {
+        sAll.Remove(this);
         foreach (Action unregister in mUnregisterHandlers) unregister();
         mUnregisterHandlers.Clear();
     }
@@ -275,6 +281,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
         tracked.instance = new CardInstance(data);
         tracked.overlayUI?.Populate(data);
+        tracked.overlayUI?.Bind(tracked.instance); // its power, critical and shield follow the card's bonuses
         mResolvedCards.Add(tracked); // ResolveDuplicates decides on the next Update whether it gets shown
 
         Debug.Log("[VuforiaCardOverlayManager] Now tracking " + cardNumber + "\n" + FormatCardDetails(data));
@@ -315,6 +322,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
         CheckNewMatches();
         ResolveDuplicates();
+        foreach (TrackedCard tracked in mTrackedCards.Values) RefreshOverlayVisibility(tracked); // a card leaving the zones, or tilted too far
 
         if (board == null || cam == null) return;
 
@@ -386,7 +394,51 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
     void RefreshOverlayVisibility(TrackedCard tracked)
     {
-        tracked.overlay.SetActive(tracked.hasPose && tracked.insideBorder && tracked.instance != null && tracked.duplicateOf == null);
+        if (tracked.overlay == null) return;
+        bool shown = tracked.hasPose && tracked.insideBorder && tracked.instance != null && tracked.duplicateOf == null && !TooTilted(tracked);
+        if (tracked.overlay.activeSelf != shown) tracked.overlay.SetActive(shown);
+    }
+
+    bool TooTilted(TrackedCard tracked)
+    {
+        Camera cam = Camera.main;
+        return cam != null && tracked.target != null && Vector3.Angle(tracked.target.transform.up, MatNormal(cam)) > maxTiltDegrees;
+    }
+
+    static readonly List<VuforiaCardOverlayManager> sAll = new List<VuforiaCardOverlayManager>();
+    static int sNormalFrame = -1;
+    static Vector3 sNormal;
+
+    /* The mat's facing, toward the camera: the average facing of the cards seen on it, leaving out
+     any far from the rest, with the camera's view as one more vote. Cards lie flat on the mat, but
+     Vuforia sometimes gets one's tilt wrong (half covered, or at the image's edge). Once a frame. */
+    public static Vector3 MatNormal(Camera cam)
+    {
+        if (sNormalFrame == Time.frameCount) return sNormal;
+        sNormalFrame = Time.frameCount;
+
+        Vector3 view = -cam.transform.forward;
+        Vector3 rough = view;
+        foreach (VuforiaCardOverlayManager manager in sAll)
+            foreach (TrackedCard tracked in manager.mTrackedCards.Values)
+                if (tracked.hasPose && tracked.insideBorder && tracked.target != null) rough += tracked.target.transform.up;
+        rough.Normalize();
+
+        sNormal = view;
+        foreach (VuforiaCardOverlayManager manager in sAll)
+            foreach (TrackedCard tracked in manager.mTrackedCards.Values)
+                if (tracked.hasPose && tracked.insideBorder && tracked.target != null && Vector3.Angle(tracked.target.transform.up, rough) < 30f)
+                    sNormal += tracked.target.transform.up;
+        sNormal.Normalize();
+        return sNormal;
+    }
+
+    // A card's pose laid flat on the mat: where it is and which way it's turned, without Vuforia's tilt (OverlaySmoothing)
+    public static Quaternion FlatOnMat(Transform card, Camera cam)
+    {
+        Vector3 normal = MatNormal(cam);
+        Vector3 top = Vector3.ProjectOnPlane(card.forward, normal); // an image target's forward is its picture's up
+        return top.sqrMagnitude < 1e-6f ? card.rotation : Quaternion.LookRotation(top, normal);
     }
 
     // Whether the card's on-screen center is inside one of the board's zone borders

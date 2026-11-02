@@ -18,10 +18,15 @@ public partial class VoiceCommands : MonoBehaviour
         NextPhase, TurnEnd, Draw, SoulCharge, CounterBlast,
         AttackLeft, AttackVanguard, AttackRight,
         Guard, NoGuard, DriveCheck, DamageCheck, PerfectGuard,
+        NoTrigger, CriticalTrigger, DrawTrigger, FrontTrigger, HealTrigger, OverTrigger, StandTrigger, // a check card the camera didn't scan
         ActivateSkill, SkipSkill,
         ActivateVanguard, ActivateLeftFront, ActivateRightFront, ActivateLeftBack, ActivateCenterBack, ActivateRightBack,
         SkillDone, SkipStep, PayFirst, PaySecond, // a skill's steps (SkillRules)
     }
+
+    // The trigger each "... trigger" keyword names, in Command order from NoTrigger
+    static readonly TriggerIcon[] TriggerIcons =
+        { TriggerIcon.None, TriggerIcon.Critical, TriggerIcon.Draw, TriggerIcon.Front, TriggerIcon.Heal, TriggerIcon.Over, TriggerIcon.Stand };
 
     // The circles "activate ..." names, in Command order from ActivateVanguard
     static readonly string[] ActivateCircles = { "Vanguard", "LeftFront", "RightFront", "LeftBack", "CenterBack", "RightBack" };
@@ -42,6 +47,13 @@ public partial class VoiceCommands : MonoBehaviour
         ["drive check"] = Command.DriveCheck,
         ["damage check"] = Command.DamageCheck,
         ["perfect guard"] = Command.PerfectGuard, // a Sentinel: the attacked unit can't be hit
+        ["no trigger"] = Command.NoTrigger,
+        ["critical trigger"] = Command.CriticalTrigger,
+        ["draw trigger"] = Command.DrawTrigger,
+        ["front trigger"] = Command.FrontTrigger,
+        ["heal trigger"] = Command.HealTrigger,
+        ["over trigger"] = Command.OverTrigger,
+        ["stand trigger"] = Command.StandTrigger,
         ["activate skill"] = Command.ActivateSkill,
         ["skip skill"] = Command.SkipSkill,
         ["activate vanguard"] = Command.ActivateVanguard,
@@ -181,6 +193,7 @@ public partial class VoiceCommands : MonoBehaviour
         ShowToast(who, phrase);
         MatchLogger.Action(who.playerName + " said \"" + phrase + "\" (on their PC)");
         if (TryDeclaration(command, out RulesEngine.Declaration declaration)) mRules?.Declare(declaration, who);
+        else if (TryTrigger(command, out TriggerIcon icon)) mRules?.UnscannedCheck(who, icon);
         else if (command == Command.SkillDone) mRules?.Skills?.OpponentDone(); // their part of this PC's skill (OpponentStep)
     }
 
@@ -193,6 +206,7 @@ public partial class VoiceCommands : MonoBehaviour
         bool skillAnswer = command == Command.ActivateSkill || command == Command.SkipSkill || command >= Command.SkillDone;
         if (skillAnswer && mRules?.Skills?.PromptOwner != null)
             return mRules.Skills.PromptOwner;
+        if (TryTrigger(command, out _) && mRules?.CheckingPlayer != null) return mRules.CheckingPlayer; // whoever's check it is
         bool defending = command == Command.Guard || command == Command.NoGuard || command == Command.DamageCheck || command == Command.PerfectGuard;
         return defending ? gs.Opponent : gs.CurrentPlayer;
     }
@@ -204,6 +218,11 @@ public partial class VoiceCommands : MonoBehaviour
         if (TryDeclaration(command, out RulesEngine.Declaration declaration))
         {
             mRules.Declare(declaration, who);
+            return;
+        }
+        if (TryTrigger(command, out TriggerIcon icon))
+        {
+            mRules.UnscannedCheck(who, icon);
             return;
         }
 
@@ -267,6 +286,18 @@ public partial class VoiceCommands : MonoBehaviour
             default: declaration = default; return false;
         }
     }
+
+    // "no trigger", "critical trigger"...: an unscanned check card's trigger (None for no trigger)
+    static bool TryTrigger(Command command, out TriggerIcon icon)
+    {
+        int i = command - Command.NoTrigger;
+        icon = i >= 0 && i < TriggerIcons.Length ? TriggerIcons[i] : TriggerIcon.None;
+        return i >= 0 && i < TriggerIcons.Length;
+    }
+
+    // e.g. "critical trigger" for TriggerIcon.Critical, for ActionButtons
+    public static string TriggerPhrase(TriggerIcon icon) =>
+        Phrases.First(p => p.Value == Command.NoTrigger + System.Array.IndexOf(TriggerIcons, icon)).Key;
 
     // Logged by MatchLogger
     static void Notice(string title, string body) => GameState.OnRuleNotice?.Invoke(title, body);

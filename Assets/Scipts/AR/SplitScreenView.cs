@@ -13,6 +13,7 @@ public partial class SplitScreenView : MonoBehaviour
 {
     public Key toggleKey = Key.V;
     public int captureWidth = 640;
+    public int fallbackWidth = 480; // smaller through the database, so each picture downloads sooner
     [Range(1, 100)] public int directQuality = 70;
     [Range(1, 100)] public int fallbackQuality = 40;
 
@@ -158,11 +159,12 @@ public partial class SplitScreenView : MonoBehaviour
      texture, reads it back without stalling, and sends it as a JPEG. */
     void Capture()
     {
-        int height = Mathf.Max(1, Mathf.RoundToInt(captureWidth / ViewAspect)); // same shape as the view on screen
-        if (mCapture == null || mCapture.height != height || mCapture.width != captureWidth)
+        int wide = mLink.Direct ? captureWidth : fallbackWidth;
+        int height = Mathf.Max(1, Mathf.RoundToInt(wide / ViewAspect)); // same shape as the view on screen
+        if (mCapture == null || mCapture.height != height || mCapture.width != wide)
         {
             if (mCapture != null) mCapture.Release();
-            mCapture = new RenderTexture(captureWidth, height, 24);
+            mCapture = new RenderTexture(wide, height, 24);
         }
 
         /* The zone labels as the opponent reads them: their PC shows this picture turned round,

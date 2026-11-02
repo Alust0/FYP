@@ -1,8 +1,13 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Services.Authentication;
+using Unity.Services.CloudSave;
 using Unity.Services.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,21 +17,39 @@ using Firebase;
 using Firebase.Auth;
 #endif
 
-/* Login scene: Unity username/password sign-in (works on UWP, no browser), then a Firebase
- anonymous sign-in so Firestore rules allow access, then loads the menu. */
-public class LoginController : MonoBehaviour
+/* Login and SignUp scenes (same controller; the scene name picks the page): Unity username/password
+ sign-in (works on UWP, no browser), then a Firebase anonymous sign-in so Firestore rules allow access,
+ then loads the menu. On the login page Sign Up opens the sign-up page; on the sign-up page Login goes
+ back. Sign-up also takes an email, one account per email, proved by a mailed code (EmailOtp):
+ Realtime Database emails/{hash} holds {username, playerId} (so the login page takes the email in
+ place of the username) and the player's Cloud Save key "email" keeps it with the account. */
+public partial class LoginController : MonoBehaviour
 {
     [SerializeField] private TMP_InputField usernameInput;
     [SerializeField] private TMP_InputField passwordInput;
+    [SerializeField] private TMP_InputField emailInput; // sign-up page; made from the username box when empty
+    [SerializeField] private TMP_InputField confirmPasswordInput; // sign-up page only; optional
     [SerializeField] private Button loginButton;
     [SerializeField] private Button signUpButton;
     [SerializeField] private Button exitButton;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private string menuSceneName = "Menu";
+    [SerializeField] private string loginSceneName = "Login";
+    [SerializeField] private string signUpSceneName = "SignUp";
+    [SerializeField] private float welcomeSeconds = 1.5f; // "Connected! Welcome" shows this long before the menu
+    [SerializeField] private bool requireEmailCode = true; // sign-up mails a code to prove the email
 
-    // Unity's rules for username/password accounts
+    // Unity's rules for username/password accounts; a username shaped like an email is refused too
     static readonly Regex UsernameRule = new Regex(@"^[A-Za-z0-9.\-@_]{3,20}$");
     static readonly Regex PasswordRule = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,30}$");
+    static readonly Regex EmailRule = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+
+    const string Emails = "emails";
+    const string EmailKey = "email"; // Cloud Save
+
+    bool mSignUpPage;
+    EmailOtp mOtp; // the code mailed for the sign-up's email
+    string mVerifiedEmail; // proved on this visit, so a taken username afterwards doesn't need a new code
 
     async void Start()
     {
@@ -37,10 +60,22 @@ public class LoginController : MonoBehaviour
             return;
         }
 
+        mSignUpPage = SceneManager.GetActiveScene().name == signUpSceneName;
+        if (mSignUpPage && emailInput == null) emailInput = MakeEmailInput();
+        if (!mSignUpPage) SetPlaceholder(usernameInput, "Username or email");
+        // Typed text grows from the middle, like the placeholders
+        foreach (TMP_InputField input in new[] { usernameInput, passwordInput, emailInput, confirmPasswordInput })
+            if (input != null && input.textComponent != null) input.textComponent.alignment = TextAlignmentOptions.Center;
+
         passwordInput.contentType = TMP_InputField.ContentType.Password;
         passwordInput.ForceLabelUpdate();
-        loginButton.onClick.AddListener(OnLoginClicked);
-        signUpButton.onClick.AddListener(OnSignUpClicked);
+        if (confirmPasswordInput != null)
+        {
+            confirmPasswordInput.contentType = TMP_InputField.ContentType.Password;
+            confirmPasswordInput.ForceLabelUpdate();
+        }
+        loginButton.onClick.AddListener(mSignUpPage ? () => SceneManager.LoadScene(loginSceneName) : OnLoginClicked);
+        signUpButton.onClick.AddListener(mSignUpPage ? OnSignUpClicked : () => SceneManager.LoadScene(signUpSceneName));
         exitButton.onClick.AddListener(Application.Quit);
         SetBusy(true, "Starting...");
 
@@ -48,7 +83,11 @@ public class LoginController : MonoBehaviour
         {
             await UnityServices.InitializeAsync();
 
-            if (AuthenticationService.Instance.IsSignedIn)
+            if (mSignUpPage)
+            {
+                SetBusy(false, "");
+            }
+            else if (AuthenticationService.Instance.IsSignedIn)
             {
                 await FinishLoginAsync();
             }
@@ -70,9 +109,18 @@ public class LoginController : MonoBehaviour
     {
         if (!ReadInputs(out string username, out string password)) return;
 
-        await Run("Wrong username or password.", async () =>
+        await Run("Wrong username/email or password.", async () =>
         {
             SetBusy(true, "Logging in...");
+
+            // An email is swapped for its account's username; one not on file may be an old username with "@"
+            if (EmailRule.IsMatch(username))
+            {
+                RtdbRest.Result entry = await Rtdb(done => RtdbRest.Get(EmailPath(username), done));
+                if (entry.succeeded) username = entry.fields.GetString("username");
+                else if (entry.status != 404) Debug.LogWarning("[LoginController] Email lookup failed: " + entry.error);
+            }
+
             SignOutIfOtherAccount(username);
             // Unity login already done if only the Firebase step failed last time
             if (!AuthenticationService.Instance.IsSignedIn)
@@ -84,10 +132,22 @@ public class LoginController : MonoBehaviour
     async void OnSignUpClicked()
     {
         if (!ReadInputs(out string username, out string password)) return;
+        string email = emailInput.text.Trim().ToLowerInvariant();
 
+        if (!EmailRule.IsMatch(email))
+        {
+            SetBusy(false, "Enter a valid email address.");
+            return;
+        }
         if (!UsernameRule.IsMatch(username))
         {
-            SetBusy(false, "Username must be 3-20 characters: letters, numbers, . - @ _");
+            SetBusy(false, "Username must be 3-20 characters long and can only use letters, numbers and . - _ @");
+            return;
+        }
+        // The login page would read it as an email
+        if (EmailRule.IsMatch(username))
+        {
+            SetBusy(false, "Username can't be an email address. Put your email in the Email box.");
             return;
         }
         if (!PasswordRule.IsMatch(password))
@@ -95,24 +155,195 @@ public class LoginController : MonoBehaviour
             SetBusy(false, "Password needs 8-30 characters with an uppercase letter, a lowercase letter, a number and a symbol.");
             return;
         }
+        if (confirmPasswordInput != null && confirmPasswordInput.text != password)
+        {
+            SetBusy(false, "The passwords don't match.");
+            return;
+        }
 
         await Run("Couldn't create the account. That username may already be taken.", async () =>
         {
+            SetBusy(true, "Checking email...");
+            RtdbRest.Result entry = await Rtdb(done => RtdbRest.Get(EmailPath(email), done));
+            if (entry.succeeded && !IsOwnEntry(entry, username))
+            {
+                SetBusy(false, "That email is already used by another account.");
+                return;
+            }
+            if (!entry.succeeded && entry.status != 404)
+            {
+                Debug.LogWarning("[LoginController] Email check failed: " + entry.error);
+                SetBusy(false, "Couldn't check the email. Check your internet connection and try again.");
+                return;
+            }
+
+            // Not proved yet: mail a code (unless one is still good) and wait for the panel's Verify
+            if (requireEmailCode && email != mVerifiedEmail)
+            {
+                if (mOtp == null || mOtp.email != email) mOtp = new EmailOtp(email);
+                if (!mOtp.Live)
+                {
+                    SetBusy(true, "Sending a code to " + email + "...");
+                    string problem = await mOtp.SendAsync();
+                    if (problem != null)
+                    {
+                        SetBusy(false, problem);
+                        return;
+                    }
+                }
+                SetBusy(true, "");
+                ShowCodePanel();
+                return;
+            }
+
             SetBusy(true, "Creating account...");
             SignOutIfOtherAccount(username);
+            bool created = false;
             if (!AuthenticationService.Instance.IsSignedIn)
+            {
                 await AuthenticationService.Instance.SignUpWithUsernamePasswordAsync(username, password);
+                created = true;
+            }
+
+            if (!await ClaimEmailAsync(email, username))
+            {
+                // Undone so the username isn't used up by an account without its email
+                if (created) await AuthenticationService.Instance.DeleteAccountAsync();
+                return;
+            }
             await FinishLoginAsync();
         });
+    }
+
+    // Right code: the email counts as proved and sign-up carries on to making the account
+    void OnVerifyClicked()
+    {
+        string problem = mOtp.Check(mCodeInput.text);
+        if (problem != null)
+        {
+            mCodeMessage.text = problem;
+            return;
+        }
+        mVerifiedEmail = mOtp.email;
+        HideCodePanel();
+        OnSignUpClicked();
+    }
+
+    async void OnResendClicked()
+    {
+        if (mOtp.ResendIn > 0f)
+        {
+            mCodeMessage.text = $"Wait {Mathf.CeilToInt(mOtp.ResendIn)} s before asking for another code.";
+            return;
+        }
+
+        mResendButton.interactable = false;
+        mCodeMessage.text = "Sending a new code...";
+        string problem = await mOtp.SendAsync();
+        if (this == null) return; // scene left while sending
+        mResendButton.interactable = true;
+        mCodeMessage.text = problem ?? CodeSentText();
+    }
+
+    void OnCodeCancelled()
+    {
+        HideCodePanel();
+        SetBusy(false, "");
+    }
+
+    // Writes emails/{hash} for the signed-in account; false (with the reason shown) if it couldn't
+    async Task<bool> ClaimEmailAsync(string email, string username)
+    {
+        var fields = new Dictionary<string, object>
+        {
+            ["username"] = username,
+            ["playerId"] = PlayerSession.Id,
+            ["createdMs"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        };
+        RtdbRest.Result write = await Rtdb(done => RtdbRest.Create(Emails, EmailId(email), fields, done));
+        if (!write.succeeded && write.status == 409)
+        {
+            // Already there: fine if it's this account's, from a sign-up that failed after this step
+            RtdbRest.Result entry = await Rtdb(done => RtdbRest.Get(EmailPath(email), done));
+            if (!(entry.succeeded && IsOwnEntry(entry, username)))
+            {
+                SetBusy(false, "That email is already used by another account.");
+                return false;
+            }
+        }
+        else if (!write.succeeded)
+        {
+            Debug.LogWarning("[LoginController] Couldn't save the email: " + write.error);
+            SetBusy(false, "Couldn't save the email. Check your internet connection and try again.");
+            return false;
+        }
+
+        // A copy on the account itself; the database entry is what counts, so a failure here only logs
+        try
+        {
+            await CloudSaveService.Instance.Data.Player.SaveAsync(new Dictionary<string, object> { [EmailKey] = email });
+        }
+        catch (Exception e) when (e is CloudSaveException || e is RequestFailedException)
+        {
+            Debug.LogWarning("[LoginController] Couldn't copy the email to Cloud Save: " + e.Message);
+        }
+        return true;
+    }
+
+    static bool IsOwnEntry(RtdbRest.Result entry, string username) =>
+        string.Equals(entry.fields.GetString("username"), username, StringComparison.OrdinalIgnoreCase);
+
+    /* Emails are stored by SHA-256 of the lower-case address, so the readable database doesn't list
+     anyone's email and the key has none of the characters Realtime Database keys can't hold */
+    static string EmailId(string email)
+    {
+        using (SHA256 sha = SHA256.Create())
+        {
+            byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(email.Trim().ToLowerInvariant()));
+            var hex = new StringBuilder(hash.Length * 2);
+            foreach (byte b in hash) hex.Append(b.ToString("x2"));
+            return hex.ToString();
+        }
+    }
+
+    static string EmailPath(string email) => Emails + "/" + EmailId(email);
+
+    // Runs an RtdbRest coroutine on this object and waits for its result
+    Task<RtdbRest.Result> Rtdb(Func<Action<RtdbRest.Result>, IEnumerator> call)
+    {
+        var done = new TaskCompletionSource<RtdbRest.Result>();
+        StartCoroutine(call(r => done.TrySetResult(r)));
+        return done.Task;
+    }
+
+    // Copy of the username box, one row above it
+    TMP_InputField MakeEmailInput()
+    {
+        TMP_InputField input = Instantiate(usernameInput, usernameInput.transform.parent);
+        input.name = "Email";
+        input.text = "";
+        input.contentType = TMP_InputField.ContentType.EmailAddress;
+        SetPlaceholder(input, "Email");
+
+        var username = (RectTransform)usernameInput.transform;
+        var password = (RectTransform)passwordInput.transform;
+        ((RectTransform)input.transform).anchoredPosition =
+            username.anchoredPosition + (username.anchoredPosition - password.anchoredPosition);
+        return input;
+    }
+
+    static void SetPlaceholder(TMP_InputField input, string text)
+    {
+        if (input.placeholder is TMP_Text placeholder) placeholder.text = text;
     }
 
     bool ReadInputs(out string username, out string password)
     {
         username = usernameInput.text.Trim();
         password = passwordInput.text;
-        if (username.Length > 0 && password.Length > 0) return true;
+        if (username.Length > 0 && password.Length > 0 && (!mSignUpPage || emailInput.text.Trim().Length > 0)) return true;
 
-        SetBusy(false, "Enter your username and password.");
+        SetBusy(false, mSignUpPage ? "Enter your email, username and password." : "Enter your username or email and your password.");
         return false;
     }
 
@@ -138,6 +369,10 @@ public class LoginController : MonoBehaviour
             SetBusy(false, problem);
             return;
         }
+
+        SetBusy(true, $"Connected!\nWelcome, {PlayerSession.Name}");
+        await Awaitable.WaitForSecondsAsync(welcomeSeconds);
+        if (this == null) return; // scene left while waiting
         SceneManager.LoadScene(menuSceneName);
     }
 

@@ -7,8 +7,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /* In-game Settings: opened by the Settings button or Esc, closed by its X or Esc. Resume, Calibrate
- Board (BoardCalibrator), text size (GameSettings), camera brightness, and Leave Match back to the
- menu, which needs a second tap so it isn't hit by accident. Online, leaving tells the opponent
+ Board (BoardCalibrator), full screen or windowed (WindowMode), text size (GameSettings), camera
+ brightness, and Leave Match back to the menu, which needs a second tap so it isn't hit by accident. Online, leaving tells the opponent
  (OnlineMatch marks the room closed). Built by UISetup. */
 public class SettingsMenu : MonoBehaviour
 {
@@ -23,6 +23,7 @@ public class SettingsMenu : MonoBehaviour
     public Slider brightnessSlider;
     public TextMeshProUGUI brightnessLabel;
     public TextMeshProUGUI infoText; // room, voice status and the shortcut keys
+    public TextMeshProUGUI windowLabel;
 
     const float ConfirmSeconds = 3f;
     static readonly Color LeaveColor = new Color(0.55f, 0.15f, 0.15f, 0.95f);
@@ -70,15 +71,19 @@ public class SettingsMenu : MonoBehaviour
             else Open();
         }
 
-        // Every frame while open, so muting with M shows straight away
-        if (overlay.activeSelf) infoText.text = InfoText();
+        // Every frame while open, so muting with M or F11 shows straight away
+        if (overlay.activeSelf)
+        {
+            infoText.text = InfoText();
+            windowLabel.text = WindowMode.Label;
+        }
     }
 
     static string InfoText()
     {
         string voice = VoiceCommands.Instance != null ? VoiceCommands.Instance.Status : "Voice: off";
         string mode = MatchSession.IsOnline ? "Room " + MatchSession.RoomCode + "   •   " : MatchSession.IsSolo ? "Solo test   •   " : "";
-        return mode + voice + "   •   C: calibrate   •   L: log";
+        return mode + voice + "   •   C: calibrate   •   L: log   •   F11: display";
     }
 
     public void Open()

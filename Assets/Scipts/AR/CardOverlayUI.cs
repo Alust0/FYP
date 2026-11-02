@@ -13,7 +13,16 @@ public class CardOverlayUI : MonoBehaviour
     public TextMeshProUGUI cardNameText;
     public TextMeshProUGUI powerText;
     public TextMeshProUGUI criticalText;
+    public TextMeshProUGUI shieldText;
     public TextMeshProUGUI gradeText;
+    public GameObject statBand, shieldBand; // the bands behind power/critical and shield, hidden when the card has none
+
+    // Bright on the overlay's dark bands: raised green, lowered red
+    public static readonly Color PowerColor = Color.white;
+    public static readonly Color CriticalColor = new Color(1f, 0.85f, 0.2f);
+    public static readonly Color ShieldColor = new Color(0.45f, 0.85f, 1f);
+    static readonly Color Raised = new Color(0.35f, 1f, 0.35f);
+    static readonly Color Lowered = new Color(1f, 0.4f, 0.4f);
 
     [Header("Icons")]
     public Image orientationIcon; // stand or rest sprite
@@ -56,6 +65,8 @@ public class CardOverlayUI : MonoBehaviour
 
     bool mDetailOpen;
     CardData mData;
+    CardInstance mInstance; // the card on the board, for its bonuses
+    int mShownPower = int.MinValue, mShownCritical = int.MinValue;
 
     void Awake()
     {
@@ -71,6 +82,7 @@ public class CardOverlayUI : MonoBehaviour
      turned a quarter anticlockwise (RotatedView), it's laid a quarter clockwise to read upright. */
     void LateUpdate()
     {
+        ShowStats();
         if (!mDetailOpen || detailPanel == null) return;
 
         Camera cam = Camera.main;
@@ -117,10 +129,16 @@ public class CardOverlayUI : MonoBehaviour
             cardNameText.text = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
         if (gradeText != null) 
             gradeText.text = "G" + data.grade;
-        if (powerText != null) 
-            powerText.text = data.power.ToString();
-        if (criticalText != null) 
-            criticalText.text = "C:" + data.critical;
+        // Orders have no power, critical or shield; G3s usually have no shield
+        bool unit = !data.isOrderCard;
+        if (statBand != null) statBand.SetActive(unit);
+        if (shieldBand != null) shieldBand.SetActive(unit && data.shield > 0);
+        if (powerText != null)
+            SetPower(data.power, 0);
+        if (criticalText != null)
+            SetCritical(data.critical, 0);
+        if (shieldText != null)
+            shieldText.text = "<size=50%>SHIELD</size> " + data.shield;
 
         SetTriggerIcon(data.triggerIcon);
         SetGiftIcon(data.imaginaryGift);
@@ -194,27 +212,62 @@ public class CardOverlayUI : MonoBehaviour
         .Replace('【', '[').Replace('】', ']').Replace('「', '"').Replace('」', '"')
         .Replace('『', '"').Replace('』', '"').Replace('、', ',').Replace('。', '.').Replace('　', ' ');
 
-    // Updates the power display with color coding for modifiers
+    // The card this overlay is on: its power and critical then follow its bonuses every frame
+    public void Bind(CardInstance instance) => mInstance = instance;
+
+    /* Power as the battle has it (a boosted attacker's includes its booster's). A change rolls the
+     number up or down to the new value over RollSeconds, the number swelling as it goes. */
+    void ShowStats()
+    {
+        if (mInstance == null) return;
+        if (sRules == null) sRules = FindFirstObjectByType<RulesEngine>();
+
+        int power = sRules != null ? sRules.ShownPower(mInstance) : mInstance.TotalPower;
+        if (power != mPowerTo)
+        {
+            mPowerFrom = mPowerTo == int.MinValue ? power : mShownPower; // from what's showing, even mid-roll
+            mPowerTo = power;
+            mRollStart = Time.time;
+        }
+        float t = Mathf.Clamp01((Time.time - mRollStart) / RollSeconds);
+        if (t < 1f || mShownPower != power)
+        {
+            float eased = 1f - (1f - t) * (1f - t) * (1f - t); // fast, then settling
+            SetPower(mInstance.data.power, Mathf.RoundToInt(Mathf.Lerp(mPowerFrom, mPowerTo, eased)) - mInstance.data.power);
+            if (powerText != null) powerText.rectTransform.localScale = Vector3.one * (1f + 0.3f * Mathf.Sin(t * Mathf.PI));
+        }
+
+        if (mInstance.TotalCritical != mShownCritical) UpdateCritical(mInstance.data.critical, mInstance.criticalModifier);
+    }
+
+    static RulesEngine sRules;
+    const float RollSeconds = 0.9f;
+    int mPowerFrom, mPowerTo = int.MinValue;
+    float mRollStart;
+
+    // Updates the power display with color coding for modifiers (once bound, ShowStats does)
     public void UpdatePower(int basePower, int modifier)
     {
-        if (powerText == null) return;
-
-        int total = basePower + modifier;
-        powerText.text = total.ToString();
-
-        if (modifier > 0) 
-            powerText.color = Color.green; // boosted green
-        else if (modifier < 0) 
-            powerText.color = Color.red;
-        else 
-            powerText.color = Color.black;
+        if (mInstance == null) SetPower(basePower, modifier);
     }
 
     // Updates the critical display
-    public void UpdateCritical(int baseCrit, int modifier)
+    public void UpdateCritical(int baseCrit, int modifier) => SetCritical(baseCrit, modifier);
+
+    void SetPower(int basePower, int modifier)
     {
-        if (criticalText != null)
-            criticalText.text = "C:" + (baseCrit + modifier);
+        if (powerText == null) return;
+        mShownPower = basePower + modifier;
+        powerText.text = "<size=45%>POWER</size>\n" + mShownPower;
+        powerText.color = modifier > 0 ? Raised : modifier < 0 ? Lowered : PowerColor;
+    }
+
+    void SetCritical(int baseCrit, int modifier)
+    {
+        if (criticalText == null) return;
+        mShownCritical = baseCrit + modifier;
+        criticalText.text = "<size=45%>CRIT</size>\n" + mShownCritical;
+        criticalText.color = modifier > 0 ? Raised : modifier < 0 ? Lowered : CriticalColor;
     }
 
     // Swaps the orientation icon between stand and rest

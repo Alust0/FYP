@@ -6,25 +6,35 @@ using UnityEngine.UI;
 /* The battle's voice keywords as buttons, for when voice isn't working: only the ones the
  situation calls for, in a sidebar row (UISetup). First an [AUTO] skill's Activate / Skip / Later
  (SkillRules), or the step a used skill waits on (Done / Skip step, or which cost to pay), then picking an attack target, the defender's guard or no guard, the attacker's
- drive check, the defender's damage check; in the Main Phase, ready [ACT] skills and the
+ drive check, the defender's damage check, and for a check card the camera didn't scan, whether it
+ was a trigger and which (RulesEngine.UnscannedCheck); in the Main Phase, ready [ACT] skills and the
  Energy Blast draw (RulesEngine.EnergyDraw). A keyword button press goes
  through VoiceCommands like the spoken keyword, so it shows and reaches the other PC the same way.
  Online only this PC's player gets buttons; on one PC both players' do. */
 public class ActionButtons : MonoBehaviour
 {
-    const int MaxButtons = 3;
+    const int MaxButtons = 7; // up to 3 in one line, more in two
     // Not voice keywords: answers to RulesEngine's question after a heal
     const string HealedFaceUp = "healed face up", HealedFaceDown = "healed face down";
     const string KeepTrigger = "keep trigger"; // and to leave a trigger's bonuses where they are
     const string EnergyDraw = "energy draw";
     const string LaterSkill = "later skill"; // ask about the next [AUTO] first
     const string YourPartDone = "your part done"; // online: this PC's player did their part of the opponent's skill
+    const string WhichTrigger = "which trigger", TriggerBack = "trigger back"; // the unscanned check card's trigger list, and back
+
+    static readonly (string label, TriggerIcon icon)[] Triggers =
+    {
+        ("Critical", TriggerIcon.Critical), ("Draw", TriggerIcon.Draw), ("Front", TriggerIcon.Front),
+        ("Heal", TriggerIcon.Heal), ("Over", TriggerIcon.Over), ("Stand", TriggerIcon.Stand),
+    };
 
     readonly Button[] mButtons = new Button[MaxButtons];
     readonly TextMeshProUGUI[] mLabels = new TextMeshProUGUI[MaxButtons];
     readonly string[] mPhrases = new string[MaxButtons];
     TextMeshProUGUI mHint;
     RulesEngine mRules;
+    bool mTriggerList; // "Trigger" pressed: the trigger types show
+    int mLaidOut = -1;  // how many buttons the row is laid out for
 
     // Called by UISetup once the row is in place
     public void Build(RectTransform row, TextMeshProUGUI hint)
@@ -34,11 +44,6 @@ public class ActionButtons : MonoBehaviour
         {
             GameObject obj = new GameObject("ActionButton" + i, typeof(RectTransform));
             obj.transform.SetParent(row, false);
-            RectTransform rt = (RectTransform)obj.transform;
-            rt.anchorMin = new Vector2(i / (float)MaxButtons, 0f);
-            rt.anchorMax = new Vector2((i + 1) / (float)MaxButtons, 1f);
-            rt.offsetMin = new Vector2(4f, 8f);
-            rt.offsetMax = new Vector2(-4f, -8f);
             obj.AddComponent<Image>().color = new Color(0.85f, 0.35f, 0.2f, 0.95f);
 
             int index = i;
@@ -71,6 +76,7 @@ public class ActionButtons : MonoBehaviour
         if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
 
         List<(string label, string phrase)> actions = Actions();
+        if (actions.Count != mLaidOut) LayOut(actions.Count);
         for (int i = 0; i < MaxButtons; i++)
         {
             bool shown = i < actions.Count;
@@ -82,9 +88,33 @@ public class ActionButtons : MonoBehaviour
         mHint.gameObject.SetActive(actions.Count == 0);
     }
 
+    // 3 to a line as before; more go in two lines
+    void LayOut(int count)
+    {
+        mLaidOut = count;
+        int rows = count > 3 ? 2 : 1;
+        int columns = count > 3 ? (count + 1) / 2 : 3;
+        float pad = rows > 1 ? 3f : 8f;
+        for (int i = 0; i < MaxButtons; i++)
+        {
+            int row = i / columns, column = i % columns;
+            RectTransform rt = (RectTransform)mButtons[i].transform;
+            rt.anchorMin = new Vector2(column / (float)columns, 1f - (row + 1) / (float)rows);
+            rt.anchorMax = new Vector2((column + 1) / (float)columns, 1f - row / (float)rows);
+            rt.offsetMin = new Vector2(4f, pad);
+            rt.offsetMax = new Vector2(-4f, -pad);
+        }
+    }
+
     void Press(int index)
     {
         string phrase = mPhrases[index];
+        if (phrase == WhichTrigger || phrase == TriggerBack)
+        {
+            mTriggerList = phrase == WhichTrigger;
+            return;
+        }
+        if (phrase != null && phrase.EndsWith(" trigger")) mTriggerList = false; // answered
         if (phrase == HealedFaceUp) mRules?.SetHealedFacing(false);
         else if (phrase == HealedFaceDown) mRules?.SetHealedFacing(true);
         else if (phrase == KeepTrigger) mRules?.KeepPicks();
@@ -185,6 +215,23 @@ public class ActionButtons : MonoBehaviour
         bool defenderHere = MatchSession.IsLocal(defender);
 
         if (attacker == null || mRules.Step == RulesEngine.BattleStep.Close) return actions; // no battle going
+
+        // A drive or damage check card due: if the camera didn't scan it, was it a trigger, and which
+        PlayerState checker = mRules.CheckingPlayer;
+        if (checker == null) mTriggerList = false;
+        else
+        {
+            if (!MatchSession.IsLocal(checker)) return actions;
+            if (!mTriggerList)
+            {
+                actions.Add(("Not scanned:\nNo trigger", VoiceCommands.TriggerPhrase(TriggerIcon.None)));
+                actions.Add(("Not scanned:\nTrigger", WhichTrigger));
+                return actions;
+            }
+            foreach ((string label, TriggerIcon icon) in Triggers) actions.Add((label, VoiceCommands.TriggerPhrase(icon)));
+            actions.Add(("Back", TriggerBack));
+            return actions;
+        }
 
         if (mRules.IsChoosingTarget)
         {

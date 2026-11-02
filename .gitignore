@@ -81,3 +81,9 @@ crashlytics-build.properties
 /[Aa]ssets/StreamingAssets/cards/
 /[Aa]ssets/StreamingAssets/cards.meta
 *.zip
+
+# Login secrets: EmailJS keys for sign-up email codes (format in EmailOtp.cs)
+/[Aa]ssets/StreamingAssets/emailjs.json
+/[Aa]ssets/StreamingAssets/emailjs.json.meta
+/[Aa]ssets/StreamingAssets/google-oauth.json
+/[Aa]ssets/StreamingAssets/google-oauth.json.meta

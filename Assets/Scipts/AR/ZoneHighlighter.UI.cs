@@ -7,6 +7,16 @@ public partial class ZoneHighlighter
 {
     const float ArrowThickness = 10f;
     const float ArrowHead = 34f;
+    const int BoostChevrons = 3;
+    const float BoostRunSeconds = 0.9f; // for a chevron to run the whole way
+
+    class BoostArrow
+    {
+        public RectTransform root;
+        public Image track;
+        public RectTransform[] chevrons;
+        public Image[][] parts; // each chevron's two sides
+    }
 
     void BuildCanvas()
     {
@@ -65,6 +75,46 @@ public partial class ZoneHighlighter
             parts[side + 1] = AddImage(head);
         }
         return new Arrow { root = root, parts = parts };
+    }
+
+    // Laid along +x from the booster's centre: a track, and chevrons (two sides meeting at a point) that ShowBoost runs along it
+    BoostArrow BuildBoostArrow()
+    {
+        RectTransform root = AddRect(mCanvas, "BoostArrow");
+        root.anchorMin = root.anchorMax = Vector2.zero;
+        root.pivot = new Vector2(0f, 0.5f);
+
+        RectTransform track = AddRect(root, "Track");
+        track.anchorMin = Vector2.zero;
+        track.anchorMax = Vector2.one;
+        track.offsetMin = track.offsetMax = Vector2.zero;
+
+        var boost = new BoostArrow
+        {
+            root = root,
+            track = AddImage(track),
+            chevrons = new RectTransform[BoostChevrons],
+            parts = new Image[BoostChevrons][],
+        };
+        for (int i = 0; i < BoostChevrons; i++)
+        {
+            RectTransform chevron = AddRect(root, "Chevron");
+            chevron.anchorMin = chevron.anchorMax = new Vector2(0f, 0.5f);
+            chevron.sizeDelta = Vector2.zero;
+            boost.chevrons[i] = chevron;
+            boost.parts[i] = new Image[2];
+            for (int side = 0; side < 2; side++)
+            {
+                RectTransform half = AddRect(chevron, "Side");
+                half.anchorMin = half.anchorMax = new Vector2(0.5f, 0.5f);
+                half.pivot = new Vector2(1f, 0.5f); // turns about the point
+                half.sizeDelta = new Vector2(ArrowHead * 1.4f, ArrowThickness * 1.4f);
+                half.localEulerAngles = new Vector3(0f, 0f, side == 0 ? 40f : -40f);
+                boost.parts[i][side] = AddImage(half);
+            }
+        }
+        root.gameObject.SetActive(false);
+        return boost;
     }
 
     static RectTransform AddRect(Transform parent, string name)

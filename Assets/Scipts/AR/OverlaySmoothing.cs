@@ -4,7 +4,7 @@ using UnityEngine;
  fixed to it shakes with it. This keeps the overlay where its card target puts it, but filtered:
  small wobbles are smoothed out, while a real move (a card picked up, slid or rested) snaps
  straight there. Filtered relative to the camera, since Vuforia moves the camera as well as the
- cards. Added to each overlay by VuforiaCardOverlayManager; before CardOverlayUI's LateUpdate,
+ cards. It's laid flat on the mat (VuforiaCardOverlayManager.FlatOnMat). Added to each overlay by VuforiaCardOverlayManager; before CardOverlayUI's LateUpdate,
  which turns the detail panel after it. */
 [DefaultExecutionOrder(-50)]
 public class OverlaySmoothing : MonoBehaviour
@@ -39,7 +39,8 @@ public class OverlaySmoothing : MonoBehaviour
 
         Transform view = cam.transform;
         Vector3 position = view.InverseTransformPoint(mTarget.TransformPoint(mLocalPosition));
-        Quaternion rotation = Quaternion.Inverse(view.rotation) * (mTarget.rotation * mLocalRotation);
+        // Laid flat on the mat: a wrong tilt from Vuforia skewed the overlay off its card
+        Quaternion rotation = Quaternion.Inverse(view.rotation) * (VuforiaCardOverlayManager.FlatOnMat(mTarget, cam) * mLocalRotation);
 
         if (!mHasPose || Vector3.Distance(position, mPosition) > snapDistance || Quaternion.Angle(rotation, mRotation) > snapAngle)
         {

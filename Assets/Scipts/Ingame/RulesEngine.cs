@@ -26,6 +26,8 @@ public class RulesEngine : MonoBehaviour
     public float autoAdvanceSeconds = 1.5f;
     [Tooltip("The same once the Draw Phase's card is drawn.")]
     public float drawAdvanceSeconds = 0.5f;
+    [Tooltip("Strict: Next Phase is refused until the Stand Phase's units are standing, the Draw Phase's card is drawn and the Ride Phase's ride is done. Off: Next Phase goes on anyway (the camera may have it wrong).")]
+    public bool strictPhases;
 
     const int TriggerPower = 10000;
 
@@ -81,6 +83,8 @@ public class RulesEngine : MonoBehaviour
     Coroutine mAutoAdvance;
     CardInstance mAttacker; // unit attacking in the current battle, null outside one
     CardInstance mBooster;
+    float mBoostedAt = -100f; // when the boost started, for its arrow (BoostArrow)
+    const float BoostArrowSeconds = 3f;
     CardInstance mPendingBooster; // a back-row unit rested before the unit in front of it attacked
     /* Who attacked, from which circle, and whether with the vanguard, as the attack started: the
      camera can lose or swap the attacking card mid-battle, and the battle mustn't lose track */
@@ -192,6 +196,16 @@ public class RulesEngine : MonoBehaviour
     public int DamageLeft => mDamageLeft;
     public PlayerState AttackingPlayer => mAttacker != null ? mAttackerOwner : null;
     public bool VanguardAttacking => mAttacker != null && mAttackByVanguard;
+    public CardInstance Attacker => mAttacker;
+    public CardInstance Booster => mAttacker != null ? mBooster : null;
+
+    // A unit's power as the battle has it: the attacker's includes its booster's (CardOverlayUI)
+    public int ShownPower(CardInstance card) => card.TotalPower + (card == mAttacker && mBooster != null ? mBooster.TotalPower : 0);
+
+    // For a few seconds after a boost, from the booster's circle to the unit it boosts (ZoneHighlighter)
+    public (PlayerState owner, string from, string to)? BoostArrow =>
+        mAttacker != null && mBooster != null && mBooster.zone != null && Time.time - mBoostedAt < BoostArrowSeconds
+            ? (mAttackerOwner, mBooster.zone, mAttackerZone) : ((PlayerState, string, string)?)null;
 
     // The attack's power meets the target's power plus the guardians' shields, as things stand
     public bool AttackHits
@@ -230,8 +244,8 @@ public class RulesEngine : MonoBehaviour
                     return mEnergyDrawDue ? "Energy Blast: draw 1 card from your deck" : null;
                 case TurnPhase.RidePhase:
                     if (mRideCostDue) return "Discard 1 card to the drop zone (or Drop +; rode from hand? Ride +)";
-                    if (!mRodeThisTurn) return "Ride, or Next Phase to skip";
-                    return mRideLegal ? null : "Ride a grade " + RideFixGrade() + " unit instead (or Next Phase)";
+                    if (!mRodeThisTurn) return strictPhases ? "Ride a unit on your vanguard" : "Ride, or Next Phase to skip";
+                    return mRideLegal ? null : "Ride a grade " + RideFixGrade() + " unit instead" + (strictPhases ? "" : " (or Next Phase)");
                 case TurnPhase.BattlePhase:
                     if (HealFacingAsked != null) return HealFacingAsked.playerName + ": was the healed damage face up or face down?";
                     if (PickNow != TriggerPick.None) return mPick.owner.playerName + ": hold a finger on the circle to give the " + mPick.icon + " trigger's " + PickName(PickNow) + " to";
@@ -357,6 +371,11 @@ public class RulesEngine : MonoBehaviour
         if (gs.currentPhase == TurnPhase.StandPhase)
         {
             int rested = RestedUnits(gs.CurrentPlayer);
+            if (rested > 0 && strictPhases)
+            {
+                ToDo("Stand Phase", gs.CurrentPlayer.playerName + ": stand your " + rested + " rested unit(s) before moving on.", () => gs.currentPhase == TurnPhase.StandPhase && !AllStanding());
+                return;
+            }
             if (rested > 0 && !mStandWarned)
             {
                 mStandWarned = true;
@@ -369,6 +388,18 @@ public class RulesEngine : MonoBehaviour
         if (gs.currentPhase == TurnPhase.RidePhase && mRideCostDue)
         {
             ToDo("Ride Deck cost", gs.CurrentPlayer.playerName + ": discard 1 card from your hand to the drop zone before moving on. Rode from your hand instead? Press + on Ride.", () => mRideCostDue);
+            return;
+        }
+
+        if (strictPhases && gs.currentPhase == TurnPhase.DrawPhase && !mDrewThisTurn)
+        {
+            ToDo("Draw Phase", gs.CurrentPlayer.playerName + ": draw 1 card before moving on (the camera missed it? the Draw button).", () => gs.currentPhase == TurnPhase.DrawPhase && !mDrewThisTurn);
+            return;
+        }
+        if (strictPhases && gs.currentPhase == TurnPhase.RidePhase && !RideDone())
+        {
+            ToDo("Ride Phase", gs.CurrentPlayer.playerName + ": " + (mRodeThisTurn ? "ride a grade " + RideFixGrade() + " unit instead" : "ride a unit on your vanguard") + " before moving on.",
+                () => gs.currentPhase == TurnPhase.RidePhase && !RideDone());
             return;
         }
 
@@ -959,9 +990,13 @@ public class RulesEngine : MonoBehaviour
     /* A card in a trigger zone is a drive check (turn player) or a damage check (the other
      player). The power/critical goes to the attacker or the checking player's vanguard,
      the usual choice; a different target has to be applied by hand for now. */
-    void ResolveTrigger(CardInstance card, PlayerState owner)
+    void ResolveTrigger(CardInstance card, PlayerState owner) =>
+        ResolveTrigger(card, owner, card.data.triggerIcon, mCountedDamage.Contains(card));
+
+    /* card is null for a check card the camera didn't scan (UnscannedCheck). damageCounted: it's a
+     damage check card already counted as damage. */
+    void ResolveTrigger(CardInstance card, PlayerState owner, TriggerIcon icon, bool damageCounted)
     {
-        TriggerIcon icon = card.data.triggerIcon;
         if (icon == TriggerIcon.None) return;
 
         bool isDrive = owner == gs.CurrentPlayer;
@@ -992,9 +1027,12 @@ public class RulesEngine : MonoBehaviour
                 ApplyPower(target, TriggerPower);
                 PlayerState other = gs.players[1 - owner.playerIndex];
                 // A damage check card is already counted (CheckTriggerCard), but heals before it lands
-                int ownDamage = owner.CountInZone("Damage") - (mCountedDamage.Contains(card) ? 1 : 0);
+                int ownDamage = owner.CountInZone("Damage") - (damageCounted ? 1 : 0);
                 if (ownDamage < other.CountInZone("Damage"))
-                    Warn(card, "No heal: your damage is lower than your opponent's.");
+                {
+                    if (card != null) Warn(card, "No heal: your damage is lower than your opponent's.");
+                    else Notice("Heal", "No heal: " + owner.playerName + "'s damage is lower than their opponent's.");
+                }
                 else if (ownDamage == 0)
                     Notice("Heal", "No damage to heal.");
                 else
@@ -1004,7 +1042,8 @@ public class RulesEngine : MonoBehaviour
             case TriggerIcon.Over:
                 ApplyPower(target, 100000000);
                 if (KeepsCountFor(owner)) owner.AdjustCount("Deck", -1); // its draw comes off the deck
-                if (isDrive) Skills.OverTriggerEffect(card, owner); // the card's "追加効果", only from a drive check
+                if (isDrive && card != null) Skills.OverTriggerEffect(card, owner); // the card's "追加効果", only from a drive check
+                else if (isDrive) Notice("Over trigger", "Its extra effect can't be read from an unscanned card: do it by hand.");
                 break;
 
             case TriggerIcon.Draw:
@@ -1172,6 +1211,52 @@ public class RulesEngine : MonoBehaviour
         TookDamage(card.data.DisplayName + " counts as 1 damage: put it in your Damage zone.");
         gs.CheckWinCondition();
         return false;
+    }
+
+    // Whose check card is due now, drive or damage (the "not scanned" buttons); null when none is
+    public PlayerState CheckingPlayer => mStarted && !gs.gameOver ? (DriveDue() ? mAttackerOwner : DamageDue() ? gs.Opponent : null) : null;
+
+    /* A check card the camera didn't scan: its player says whether it was a trigger, and which
+     (ActionButtons or the voice keyword, e.g. "critical trigger"). It's ruled on like a scanned
+     one, just without its name. */
+    public void UnscannedCheck(PlayerState who, TriggerIcon icon)
+    {
+        if (!mStarted || gs.gameOver || who == null) return;
+        if (who != CheckingPlayer)
+        {
+            Notice("Check card", "No drive or damage check card is due from " + who.playerName + ".");
+            return;
+        }
+
+        mCheckTrigger = TriggerIcon.None;
+        if (mPick != null) FinishPicks("The next check card came, so the last trigger stays where it is.");
+        if (KeepsCountFor(who)) who.AdjustCount("Deck", -1); // off the face-down deck, as a scanned one
+
+        string what = icon == TriggerIcon.None ? "no trigger" : "a " + icon + " trigger";
+        bool lastDrive = false, damage = who != mAttackerOwner;
+        if (!damage)
+        {
+            mDriveLeft--;
+            Notice("Drive check", who.playerName + "'s drive check card (not scanned): " + what + ".");
+            if (mDriveLeft > 0) ToDo("Drive check", mDriveLeft + " more drive check card(s) to reveal into your Trigger zone.", DriveDue);
+            lastDrive = mDriveLeft == 0;
+        }
+        else
+        {
+            DamageSlots.Name(who, null);
+            if (KeepsCountFor(who)) who.AdjustCount("Damage", 1);
+            TookDamage("Damage check card (not scanned): " + what + ". It counts as 1 damage: put it in your Damage zone.");
+            gs.CheckWinCondition();
+        }
+
+        ResolveTrigger(null, who, icon, damage);
+        if (lastDrive)
+        {
+            if (mPick != null) mDecideAfterPick = "Drive check done. ";
+            else DecideHit("Drive check done. ");
+        }
+        RefreshBattle();
+        gs.BroadcastState();
     }
 
     void TookDamage(string what)
@@ -1634,7 +1719,10 @@ public class RulesEngine : MonoBehaviour
         // The booster may have been rested first
         if (mPendingBooster != null && mPendingBooster.orientation == CardOrientation.Rest &&
             mPendingBooster.zoneOwner == attacker.zoneOwner && FrontOf(mPendingBooster.zone) == attacker.zone)
+        {
             mBooster = mPendingBooster;
+            mBoostedAt = Time.time;
+        }
         mPendingBooster = null;
 
         // Only the vanguard to attack: no need to ask
@@ -1666,6 +1754,7 @@ public class RulesEngine : MonoBehaviour
         if (mAttacker != null && mAttackerZone == FrontOf(booster.zone) && mAttackerOwner == booster.zoneOwner)
         {
             mBooster = booster;
+            mBoostedAt = Time.time;
             Notice("Boost", booster.data.DisplayName + " boosts " + mAttacker.data.DisplayName + ".");
             RefreshBattle();
             Skills.Happened(SkillTiming.Boosts, booster);

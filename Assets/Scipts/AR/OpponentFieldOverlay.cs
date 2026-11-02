@@ -19,6 +19,7 @@ public class OpponentFieldOverlay : MonoBehaviour
         GameState.OnGameStateUpdated += Refresh;
         GameState.OnCardPowerChanged += OnPowerChanged;
         GameState.OnCardOrientationChanged += OnCardChanged;
+        GameState.OnBattleStarted += OnBattle;
     }
 
     void OnDisable()
@@ -26,10 +27,12 @@ public class OpponentFieldOverlay : MonoBehaviour
         GameState.OnGameStateUpdated -= Refresh;
         GameState.OnCardPowerChanged -= OnPowerChanged;
         GameState.OnCardOrientationChanged -= OnCardChanged;
+        GameState.OnBattleStarted -= OnBattle;
     }
 
     void OnPowerChanged(string cardName, int basePower, int modifier) => Refresh(GameState.Instance);
     void OnCardChanged(CardInstance card) => Refresh(GameState.Instance);
+    void OnBattle(int attack, int defence) => Refresh(GameState.Instance); // e.g. a boost
 
     void Refresh(GameState gs)
     {
@@ -56,7 +59,15 @@ public class OpponentFieldOverlay : MonoBehaviour
         fieldText.text = text.ToString();
     }
 
-    static string Describe(CardInstance card) =>
-        card.data.DisplayName + " <color=#ff8>" + card.TotalPower + "</color>" +
-        (card.orientation == CardOrientation.Rest ? " <color=#f88>[Rest]</color>" : "");
+    RulesEngine mRules;
+
+    // A boosted attacker also shows the attack's power, e.g. "10000 (boosted 18000)"
+    string Describe(CardInstance card)
+    {
+        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        CardInstance booster = mRules != null && mRules.Attacker == card ? mRules.Booster : null;
+        return card.data.DisplayName + " <color=#ff8>" + card.TotalPower +
+            (booster != null ? " (boosted " + (card.TotalPower + booster.TotalPower) + ")" : "") + "</color>" +
+            (card.orientation == CardOrientation.Rest ? " <color=#f88>[Rest]</color>" : "");
+    }
 }

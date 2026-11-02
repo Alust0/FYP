@@ -537,7 +537,7 @@ public class UISetup : MonoBehaviour
         overlay.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
 
         GameObject box = CreatePanel("SettingsBox", overlay.transform,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 540f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 616f));
         ((RectTransform)box.transform).pivot = new Vector2(0.5f, 0.5f);
         box.GetComponent<Image>().color = new Color(0.1f, 0.11f, 0.16f, 0.97f);
 
@@ -556,13 +556,15 @@ public class UISetup : MonoBehaviour
 
         CreateMenuButton(box.transform, "Resume", -84f, MenuButtonColor, menu.Close);
         CreateMenuButton(box.transform, "Calibrate Board", -160f, MenuButtonColor, menu.Calibrate);
-        menu.fontSlider = CreateMenuSlider(box.transform, -240f, out menu.fontLabel);
-        menu.brightnessSlider = CreateMenuSlider(box.transform, -316f, out menu.brightnessLabel);
-        Button leave = CreateMenuButton(box.transform, "Leave Match", -396f, Color.red, menu.Leave);
+        menu.windowLabel = CreateMenuButton(box.transform, WindowMode.Label, -236f, MenuButtonColor, WindowMode.Toggle)
+            .GetComponentInChildren<TextMeshProUGUI>();
+        menu.fontSlider = CreateMenuSlider(box.transform, -316f, out menu.fontLabel);
+        menu.brightnessSlider = CreateMenuSlider(box.transform, -392f, out menu.brightnessLabel);
+        Button leave = CreateMenuButton(box.transform, "Leave Match", -472f, Color.red, menu.Leave);
         menu.leaveBackground = leave.GetComponent<Image>();
         menu.leaveLabel = leave.GetComponentInChildren<TextMeshProUGUI>();
 
-        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -480f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
+        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -556f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
         menu.infoText.color = new Color(0.7f, 0.72f, 0.78f);
     }
 

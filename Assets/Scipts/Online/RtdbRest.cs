@@ -323,7 +323,7 @@ public static class RtdbRest
         map != null && map.TryGetValue(key, out object v) ? v as string : null;
 
     public static long GetLong(this Dictionary<string, object> map, string key) =>
-        map != null && map.TryGetValue(key, out object v) ? (v is long l ? l : v is double d ? (long)d : 0) : 0;
+        map != null && map.TryGetValue(key, out object v) ? (v is long l ? l : v is int i ? i : v is double d ? (long)d : 0) : 0; // int: Firestore card fields (CardFirestoreDatabase.ToFields)
 
     public static bool GetBool(this Dictionary<string, object> map, string key) =>
         map != null && map.TryGetValue(key, out object v) && v is bool b && b;

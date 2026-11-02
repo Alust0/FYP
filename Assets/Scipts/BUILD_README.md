@@ -13,6 +13,7 @@ You make an **app package** (`.msix`), copy that, and **install** it.
 1. Go to **File → Build Profiles** and choose **Universal Windows Platform**. Set the architecture to **x64**.
 2. Under **Project Settings → Player → UWP tab → Publishing Settings → Capabilities**, check these are ticked:
    - **InternetClient** and **InternetClientServer** (Firestore, online rooms, Cloud Save)
+   - **PrivateNetworkClientServer** (the opponent's camera video between two PCs on one network; without it the video drops to the slow database link)
    - **WebCam** (card tracking)
    - **Microphone** (voice commands; without it, voice works in the Editor but not in a build)
 3. In **Player → Resolution and Presentation**, check that **Run In Background** is on. Without it, the game freezes when the window loses focus.
@@ -38,7 +39,7 @@ build/AppPackages/AR Cardgame Sim/AR Cardgame Sim_<version>_x64_Test/
 ```
 
 Before packaging, check that `build/AR Cardgame Sim/Package.appxmanifest` lists
-`<DeviceCapability Name="webcam" />` and `<DeviceCapability Name="microphone" />`.
+`<Capability Name="privateNetworkClientServer" />`, `<DeviceCapability Name="webcam" />` and `<DeviceCapability Name="microphone" />`.
 If you build into a folder that already has a build in it, Unity may keep an old manifest, so add a missing line by hand.
 
 ## 3. Install on the other computer

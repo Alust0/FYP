@@ -8,6 +8,7 @@ public static class GameSettings
     const string FontScaleKey = "Settings.FontScale";
     const string RotateViewKey = "Settings.RotateView";
     const string CameraBrightnessKey = "Settings.CameraBrightness";
+    const string FullScreenKey = "Settings.FullScreen";
 
     public const float MinFontScale = 0.8f;
     public const float MaxFontScale = 1.3f;
@@ -52,6 +53,20 @@ public static class GameSettings
         set
         {
             PlayerPrefs.SetFloat(CameraBrightnessWindowKey, Mathf.Clamp01(value));
+            Changed?.Invoke();
+        }
+    }
+
+    /* Builds fill the screen (borderless) or run in a window, applied by WindowMode. Not per window:
+     the editor's Play Mode windows ignore it */
+    public static bool HasFullScreen => PlayerPrefs.HasKey(FullScreenKey);
+    public static bool FullScreen
+    {
+        get => PlayerPrefs.GetInt(FullScreenKey, 1) == 1;
+        set
+        {
+            PlayerPrefs.SetInt(FullScreenKey, value ? 1 : 0);
+            PlayerPrefs.Save();
             Changed?.Invoke();
         }
     }

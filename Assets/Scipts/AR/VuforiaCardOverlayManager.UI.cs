@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Vuforia;
 
-/* The overlay shown on each tracked card: name, power, critical and the skill panel.
+/* The overlay shown on each tracked card: name, power, critical, shield and the skill panel.
  The rest of VuforiaCardOverlayManager is in VuforiaCardOverlayManager.cs. */
 public partial class VuforiaCardOverlayManager
 {
@@ -32,9 +32,25 @@ public partial class VuforiaCardOverlayManager
         canvasRT.sizeDelta = new Vector2(630f, 880f);
         canvasObj.transform.localScale = Vector3.one * OverlayScale(parent, canvasRT.sizeDelta.x);
 
-        TextMeshProUGUI nameText = CreateText(canvasObj.transform, "CardName", new Vector2(0f, 0.85f), new Vector2(1f, 1f), 60, Color.black);
-        TextMeshProUGUI powerText = CreateText(canvasObj.transform, "Power", new Vector2(0f, 0.4f), new Vector2(1f, 0.7f), 80, Color.black);
-        TextMeshProUGUI critText = CreateText(canvasObj.transform, "Critical", new Vector2(0f, 0.25f), new Vector2(1f, 0.4f), 50, Color.black);
+        /* Bold, bright text with a black outline on dark bands, so it reads over any card art: the name
+         across the top, power and critical over the card's bottom strip, shield sideways on its left edge
+         (where the card prints it) */
+        RectTransform nameBand = CreateBand(canvasObj.transform, "NameBand", new Vector2(0f, 0.85f), new Vector2(1f, 1f));
+        TextMeshProUGUI nameText = Bright(CreateText(nameBand, "CardName", new Vector2(0.03f, 0f), new Vector2(0.77f, 1f), 84, Color.white), 44);
+
+        // Each a small label over a big number (CardOverlayUI.SetPower/SetCritical)
+        RectTransform statBand = CreateBand(canvasObj.transform, "StatBand", new Vector2(0f, 0f), new Vector2(1f, 0.23f));
+        TextMeshProUGUI powerText = Bright(CreateText(statBand, "Power", new Vector2(0.03f, 0f), new Vector2(0.72f, 1f), 130, Color.white), 70);
+        powerText.alignment = TextAlignmentOptions.Left;
+        powerText.lineSpacing = -25f;
+        TextMeshProUGUI critText = Bright(CreateText(statBand, "Critical", new Vector2(0.72f, 0f), new Vector2(0.97f, 1f), 130, CardOverlayUI.CriticalColor), 70);
+        critText.alignment = TextAlignmentOptions.Right;
+        critText.lineSpacing = -25f;
+
+        RectTransform shieldBand = CreateBand(canvasObj.transform, "ShieldBand", new Vector2(0.115f, 0.53f), new Vector2(0.115f, 0.53f));
+        shieldBand.sizeDelta = new Vector2(520f, 140f); // between the name and stat bands
+        shieldBand.localRotation = Quaternion.Euler(0f, 0f, 90f); // reads bottom to top, as printed
+        TextMeshProUGUI shieldText = Bright(CreateText(shieldBand, "Shield", Vector2.zero, Vector2.one, 100, CardOverlayUI.ShieldColor), 56);
 
         // Small tap target in the corner opens the detail panel built below
         GameObject toggleBtnObj = new GameObject("DetailToggleButton");
@@ -45,7 +61,7 @@ public partial class VuforiaCardOverlayManager
         toggleRT.offsetMin = Vector2.zero;
         toggleRT.offsetMax = Vector2.zero;
         UnityEngine.UI.Image toggleBg = toggleBtnObj.AddComponent<UnityEngine.UI.Image>();
-        toggleBg.color = new Color(1f, 1f, 1f, 0.25f);
+        toggleBg.color = new Color(1f, 1f, 1f, 0.85f);
         Button toggleBtn = toggleBtnObj.AddComponent<Button>();
         CreateText(toggleBtnObj.transform, "Label", Vector2.zero, Vector2.one, 50, Color.black).text = "i";
 
@@ -89,6 +105,9 @@ public partial class VuforiaCardOverlayManager
         ui.cardNameText = nameText;
         ui.powerText = powerText;
         ui.criticalText = critText;
+        ui.shieldText = shieldText;
+        ui.statBand = statBand.gameObject;
+        ui.shieldBand = shieldBand.gameObject;
         ui.detailPanel = detailObj;
         ui.skillTitleText = skillTitle;
         ui.skillInfoText = skillInfo;
@@ -114,6 +133,34 @@ public partial class VuforiaCardOverlayManager
         float targetScale = target.lossyScale.x;
         if (cardWidth <= 0f || targetScale <= 0f) return 0.001f;
         return cardWidth / (canvasWidth * targetScale);
+    }
+
+    // A dark see-through strip behind overlay text; clicks go through it
+    static RectTransform CreateBand(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
+    {
+        var obj = new GameObject(name, typeof(RectTransform));
+        obj.transform.SetParent(parent, false);
+        RectTransform rt = (RectTransform)obj.transform;
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        UnityEngine.UI.Image image = obj.AddComponent<UnityEngine.UI.Image>();
+        image.color = new Color(0f, 0f, 0f, 0.62f);
+        image.raycastTarget = false;
+        return rt;
+    }
+
+    // Bold with a black outline, shrinking (down to minSize) to fit
+    static TextMeshProUGUI Bright(TextMeshProUGUI text, float minSize)
+    {
+        text.fontStyle = FontStyles.Bold;
+        text.enableAutoSizing = true;
+        text.fontSizeMin = minSize;
+        text.fontSizeMax = text.fontSize;
+        text.outlineWidth = 0.22f;
+        text.outlineColor = Color.black;
+        text.raycastTarget = false;
+        return text;
     }
 
     TextMeshProUGUI CreateText(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, int fontSize, Color color)
