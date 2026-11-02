@@ -87,3 +87,9 @@ crashlytics-build.properties
 /[Aa]ssets/StreamingAssets/emailjs.json.meta
 /[Aa]ssets/StreamingAssets/google-oauth.json
 /[Aa]ssets/StreamingAssets/google-oauth.json.meta
+
+# Firebase config (API key, project IDs); kept locally, not in the repo
+/[Aa]ssets/StreamingAssets/google-services.json
+/[Aa]ssets/StreamingAssets/google-services.json.meta
+/[Aa]ssets/StreamingAssets/google-services-desktop.json
+/[Aa]ssets/StreamingAssets/google-services-desktop.json.meta
