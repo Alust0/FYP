@@ -390,11 +390,11 @@ public class UISetup : MonoBehaviour
         Image iconImg = iconObj.AddComponent<Image>();
         RectTransform iconRT = iconObj.GetComponent<RectTransform>();
         iconRT.anchorMin = iconRT.anchorMax = iconRT.pivot = new Vector2(1f, 1f);
-        iconRT.anchoredPosition = new Vector2(-10f, -10f);
+        iconRT.anchoredPosition = new Vector2(-96f, -10f); // left of the Hide button
         iconRT.sizeDelta = new Vector2(56f, 56f);
         iconImg.enabled = false;
 
-        TextMeshProUGUI titleText = CreateStretchText("NotifTitle", section, 10f, 36f, 12f, 74f, "Notices", 24, TextAlignmentOptions.Left);
+        TextMeshProUGUI titleText = CreateStretchText("NotifTitle", section, 10f, 36f, 12f, 160f, "Notices", 24, TextAlignmentOptions.Left);
         titleText.color = new Color(1f, 0.85f, 0f); // gold title
         titleText.enableAutoSizing = true;
         titleText.fontSizeMin = 16;
@@ -416,6 +416,30 @@ public class UISetup : MonoBehaviour
 
         // Clicks go through to what's under it, e.g. a card's "i"
         foreach (Graphic graphic in sectionObj.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+
+        // Hide, top-right: tucks a to-do away (or ends a notice early); the only part that takes clicks
+        GameObject hideObj = CreatePanel("HideButton", section, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        RectTransform hideRT = (RectTransform)hideObj.transform;
+        hideRT.pivot = new Vector2(1f, 1f);
+        hideRT.anchoredPosition = new Vector2(-10f, -10f);
+        hideRT.sizeDelta = new Vector2(78f, 36f);
+        hideObj.GetComponent<Image>().color = ButtonColor;
+        notificationOverlay.hideButton = hideObj.AddComponent<Button>();
+        CreateFillText("Label", hideObj.transform, "Hide", 18, TextAlignmentOptions.Center).raycastTarget = false;
+
+        // The To-do tab, bottom-left of the camera area while to-dos are tucked away; brings them back
+        GameObject tab = CreatePanel("ToDoTab", canvas.transform, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+        RectTransform tabRT = (RectTransform)tab.transform;
+        tabRT.pivot = Vector2.zero;
+        tabRT.anchoredPosition = new Vector2(16f, 16f);
+        tabRT.sizeDelta = new Vector2(190f, 52f);
+        tab.GetComponent<Image>().color = new Color(0.96f, 0.76f, 0.26f, 0.95f); // gold, to be noticed
+        tab.AddComponent<Button>();
+        TextMeshProUGUI tabLabel = CreateFillText("Label", tab.transform, "To-do", 22, TextAlignmentOptions.Center);
+        tabLabel.color = new Color(0.1f, 0.1f, 0.12f);
+        tabLabel.raycastTarget = false;
+        notificationOverlay.todoTab = tab;
+        notificationOverlay.todoTabLabel = tabLabel;
     }
 
     // The notifications so far, scrollable, at the top of the camera area; the sidebar's log button or L
@@ -537,7 +561,7 @@ public class UISetup : MonoBehaviour
         overlay.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
 
         GameObject box = CreatePanel("SettingsBox", overlay.transform,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 616f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 768f));
         ((RectTransform)box.transform).pivot = new Vector2(0.5f, 0.5f);
         box.GetComponent<Image>().color = new Color(0.1f, 0.11f, 0.16f, 0.97f);
 
@@ -556,15 +580,19 @@ public class UISetup : MonoBehaviour
 
         CreateMenuButton(box.transform, "Resume", -84f, MenuButtonColor, menu.Close);
         CreateMenuButton(box.transform, "Calibrate Board", -160f, MenuButtonColor, menu.Calibrate);
-        menu.windowLabel = CreateMenuButton(box.transform, WindowMode.Label, -236f, MenuButtonColor, WindowMode.Toggle)
+        menu.refreshLabel = CreateMenuButton(box.transform, "Refresh Camera", -236f, MenuButtonColor, menu.RefreshCamera)
             .GetComponentInChildren<TextMeshProUGUI>();
-        menu.fontSlider = CreateMenuSlider(box.transform, -316f, out menu.fontLabel);
-        menu.brightnessSlider = CreateMenuSlider(box.transform, -392f, out menu.brightnessLabel);
-        Button leave = CreateMenuButton(box.transform, "Leave Match", -472f, Color.red, menu.Leave);
+        menu.flipButton = CreateMenuButton(box.transform, "Flip Camera: Off", -312f, MenuButtonColor, menu.ToggleFlip);
+        menu.flipLabel = menu.flipButton.GetComponentInChildren<TextMeshProUGUI>();
+        menu.windowLabel = CreateMenuButton(box.transform, WindowMode.Label, -388f, MenuButtonColor, WindowMode.Toggle)
+            .GetComponentInChildren<TextMeshProUGUI>();
+        menu.fontSlider = CreateMenuSlider(box.transform, -468f, out menu.fontLabel);
+        menu.brightnessSlider = CreateMenuSlider(box.transform, -544f, out menu.brightnessLabel);
+        Button leave = CreateMenuButton(box.transform, "Leave Match", -624f, Color.red, menu.Leave);
         menu.leaveBackground = leave.GetComponent<Image>();
         menu.leaveLabel = leave.GetComponentInChildren<TextMeshProUGUI>();
 
-        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -556f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
+        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -708f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
         menu.infoText.color = new Color(0.7f, 0.72f, 0.78f);
     }
 

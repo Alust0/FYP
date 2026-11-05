@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /* In-game Settings: opened by the Settings button or Esc, closed by its X or Esc. Resume, Calibrate
- Board (BoardCalibrator), full screen or windowed (WindowMode), text size (GameSettings), camera
+ Board (BoardCalibrator), Refresh Camera (CameraChoice.Refresh), Flip Camera (upside-down webcams), full screen or windowed (WindowMode), text size (GameSettings), camera
  brightness, and Leave Match back to the menu, which needs a second tap so it isn't hit by accident. Online, leaving tells the opponent
  (OnlineMatch marks the room closed). Built by UISetup. */
 public class SettingsMenu : MonoBehaviour
@@ -24,6 +24,9 @@ public class SettingsMenu : MonoBehaviour
     public TextMeshProUGUI brightnessLabel;
     public TextMeshProUGUI infoText; // room, voice status and the shortcut keys
     public TextMeshProUGUI windowLabel;
+    public TextMeshProUGUI refreshLabel;
+    public TextMeshProUGUI flipLabel;
+    public Button flipButton;
 
     const float ConfirmSeconds = 3f;
     static readonly Color LeaveColor = new Color(0.55f, 0.15f, 0.15f, 0.95f);
@@ -76,6 +79,10 @@ public class SettingsMenu : MonoBehaviour
         {
             infoText.text = InfoText();
             windowLabel.text = WindowMode.Label;
+            refreshLabel.text = CameraChoice.Refreshing ? "Refreshing camera..." : "Refresh Camera";
+            flipButton.interactable = BuildWebcamDriver.CanFlip;
+            flipLabel.text = !BuildWebcamDriver.CanFlip ? "Flip Camera: builds only"
+                : GameSettings.CameraUpsideDown ? "Flip Camera: On (180°)" : "Flip Camera: Off";
         }
     }
 
@@ -141,6 +148,19 @@ public class SettingsMenu : MonoBehaviour
         BoardCalibrator calibrator = FindFirstObjectByType<BoardCalibrator>();
         if (calibrator != null) calibrator.ToggleCalibration();
         else Debug.LogWarning("[SettingsMenu] No BoardCalibrator in the scene.");
+    }
+
+    // Off and on again, so camera settings take effect; runs on the Settings button, which stays active when the menu closes
+    public void RefreshCamera()
+    {
+        if (!CameraChoice.Refreshing) StartCoroutine(CameraChoice.Refresh());
+    }
+
+    /* For a webcam mounted upside down: its picture is turned 180° before Vuforia sees it, straight
+     away. Builds only: in the editor Vuforia reads the webcam itself (Windows' camera settings can turn it there) */
+    public void ToggleFlip()
+    {
+        if (BuildWebcamDriver.CanFlip) GameSettings.CameraUpsideDown = !GameSettings.CameraUpsideDown;
     }
 
     public void Leave()

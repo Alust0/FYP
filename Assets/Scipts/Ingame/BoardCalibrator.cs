@@ -38,7 +38,15 @@ public class BoardCalibrator : MonoBehaviour
     }
 
     static readonly Color SelectedColor = new Color(1f, 0.85f, 0f, 0.35f);
-    static readonly Rect PanelRect = new Rect(10f, 10f, 380f, 330f); // IMGUI space (y down)
+    const float PanelWidth = 380f, PanelHeight = 352f; // IMGUI space (y down), before GuiScale
+    const float PanelScale = 1.7f; // at 1080p; IMGUI ignores canvas scaling, so it's sized by hand
+    static float GuiScale => PanelScale * Screen.height / 1080f;
+
+    // Top-left of the camera area, or top-right (left of the sidebar) so it doesn't cover zones there
+    static bool sPanelRight;
+    static Rect PanelRect => new Rect(
+        sPanelRight ? Screen.width * (1f - SplitScreenView.SidebarWidth) / GuiScale - PanelWidth - 10f : 10f,
+        10f, PanelWidth, PanelHeight);
 
     bool mCalibrating;
     Vector3 mSpawnScale;
@@ -188,7 +196,7 @@ public class BoardCalibrator : MonoBehaviour
     }
 
     // Input System's y runs bottom-up, IMGUI's top-down
-    static bool OverPanel(Vector2 mouse) => PanelRect.Contains(new Vector2(mouse.x, Screen.height - mouse.y));
+    static bool OverPanel(Vector2 mouse) => PanelRect.Contains(new Vector2(mouse.x, Screen.height - mouse.y) / GuiScale);
 
     void Save()
     {
@@ -251,6 +259,8 @@ public class BoardCalibrator : MonoBehaviour
     {
         if (!mCalibrating) return;
 
+        Matrix4x4 matrix = GUI.matrix;
+        GUI.matrix = Matrix4x4.Scale(new Vector3(GuiScale, GuiScale, 1f));
         GUILayout.BeginArea(PanelRect, GUI.skin.box);
         GUILayout.Label("<b>Board calibration</b> (" + board.boardMode + ")", new GUIStyle(GUI.skin.label) { richText = true });
         GUILayout.Label("Drag empty space: move board\nDrag a zone: move that zone\nScroll: resize board\n" +
@@ -259,11 +269,13 @@ public class BoardCalibrator : MonoBehaviour
                         "  Shift+[ / ]: narrower/wider   Ctrl+[ / ]: shorter/taller");
         GUILayout.Label("Selected: " + (mSelectedZone ?? "none"));
 
+        if (GUILayout.Button(sPanelRight ? "Move this panel left" : "Move this panel right")) sPanelRight = !sPanelRight;
         if (GUILayout.Button("Save and close")) { Save(); ToggleCalibration(); }
         if (GUILayout.Button("Cancel (back to last save)")) { ToggleCalibration(); RestoreDefaults(); LoadSaved(); }
         if (GUILayout.Button("Show all hidden zones"))
             foreach (string key in new List<string>(board.circles.Keys)) board.SetZoneHidden(key, false);
         if (GUILayout.Button("Reset to default (deletes save)")) { PlayerPrefs.DeleteKey(PrefsKey); RestoreDefaults(); LoadSaved(); }
         GUILayout.EndArea();
+        GUI.matrix = matrix;
     }
 }

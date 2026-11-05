@@ -7,12 +7,28 @@ using UnityEngine;
 
 /* The match's log: every action (cards placed, moved, rested and flipped, counts changed, keywords
  and buttons), every notification, and where every card is at the end of each Ride, Main and Battle
- Phase. Goes to the Console and to a text file per match in persistentDataPath/MatchLogs; the
+ Phase. Goes to the Console and to a text file per match in the account's folder (Folder); the
  notifications are also kept for the in-match log (MatchLogPanel). Once the result is known, the
  summary and the whole log are saved to Firestore too (MatchArchive). Created by UISetup. */
 public class MatchLogger : MonoBehaviour
 {
     public static string FilePath { get; private set; }
+
+    // Every account's logs, each in its own folder; older logs from before that sit here loose
+    public static string RootFolder => Path.Combine(Application.persistentDataPath, "MatchLogs");
+
+    /* This account's logs, MatchLogs/<Unity player ID> ("Guest" when the match was opened without
+     logging in), so the Logs scene shows each account only its own */
+    public static string Folder
+    {
+        get
+        {
+            string id = null;
+            try { id = PlayerSession.Id; }
+            catch (Exception) { } // Unity services not started: opened straight from the editor
+            return Path.Combine(RootFolder, string.IsNullOrEmpty(id) ? "Guest" : id);
+        }
+    }
 
     // "[T3 Ride] Title: body" lines, oldest first, for MatchLogPanel
     public static readonly List<string> Notifications = new List<string>();
@@ -51,7 +67,7 @@ public class MatchLogger : MonoBehaviour
         string seat = MatchSession.IsOnline ? " P" + (MatchSession.LocalSeat + 1) : ""; // two editors on one PC get a file each
         try
         {
-            string folder = Path.Combine(Application.persistentDataPath, "MatchLogs");
+            string folder = Folder;
             Directory.CreateDirectory(folder);
             FilePath = Path.Combine(folder, "Match " + DateTime.Now.ToString("yyyy-MM-dd HHmmss") + seat + ".txt");
             mWriter = new StreamWriter(FilePath, false, Encoding.UTF8) { AutoFlush = true };
@@ -112,16 +128,13 @@ public class MatchLogger : MonoBehaviour
     public static void CardMoved(CardInstance card, PlayerState fromOwner, string fromZone)
     {
         string text = CardName(card) + ": " + Where(fromOwner, fromZone) + " -> " + Where(card.zoneOwner, card.zone);
-        if (card.zone == "Vanguard" && card.zoneOwner.previousVanguard != null)
-            text += " (over " + CardName(card.zoneOwner.previousVanguard) + ")";
+        if (card.zone == "Vanguard" && card.zoneOwner.previousVanguard != null) text += " (over " + CardName(card.zoneOwner.previousVanguard) + ")";
         Action(text);
     }
 
-    public static void CardTurned(CardInstance card) =>
-        Action(CardName(card) + (card.orientation == CardOrientation.Rest ? " rested" : " stood") + " on " + Where(card.zoneOwner, card.zone));
+    public static void CardTurned(CardInstance card) => Action(CardName(card) + (card.orientation == CardOrientation.Rest ? " rested" : " stood") + " on " + Where(card.zoneOwner, card.zone));
 
-    public static void CardFlipped(CardInstance card) =>
-        Action(CardName(card) + " turned " + (card.facing == CardFacing.FaceDown ? "face down" : "face up") + " in " + Where(card.zoneOwner, card.zone));
+    public static void CardFlipped(CardInstance card) => Action(CardName(card) + " turned " + (card.facing == CardFacing.FaceDown ? "face down" : "face up") + " in " + Where(card.zoneOwner, card.zone));
 
     // Phases
 
@@ -144,7 +157,7 @@ public class MatchLogger : MonoBehaviour
 
     void HandleNotice(string title, string body) => AddNotification(title, body);
 
-    void HandlePersonaRide(string cardName) => AddNotification("Persona Ride!", cardName + ": draw 1, vanguard Power +10000.");
+    void HandlePersonaRide(string cardName) => AddNotification("Persona Ride!", cardName + ": draw 1, front row units Power +10000 this turn.");
 
     void HandleTrigger(TriggerIcon icon, string context) => AddNotification(icon + " trigger", "Revealed in a " + context + " check.");
 

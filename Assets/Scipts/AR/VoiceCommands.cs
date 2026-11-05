@@ -15,7 +15,7 @@ public partial class VoiceCommands : MonoBehaviour
 {
     public enum Command
     {
-        NextPhase, TurnEnd, Draw, SoulCharge, CounterBlast,
+        NextPhase, TurnEnd, Draw, SoulCharge, CounterBlast, PersonaRide,
         AttackLeft, AttackVanguard, AttackRight,
         Guard, NoGuard, DriveCheck, DamageCheck, PerfectGuard,
         NoTrigger, CriticalTrigger, DrawTrigger, FrontTrigger, HealTrigger, OverTrigger, StandTrigger, // a check card the camera didn't scan
@@ -39,6 +39,7 @@ public partial class VoiceCommands : MonoBehaviour
         ["draw card"] = Command.Draw,
         ["soul charge"] = Command.SoulCharge,
         ["counter blast"] = Command.CounterBlast,
+        ["persona ride"] = Command.PersonaRide, // another copy of the vanguard laid on it, which the camera can't tell
         ["attack left"] = Command.AttackLeft,
         ["attack vanguard"] = Command.AttackVanguard,
         ["attack right"] = Command.AttackRight,
@@ -195,6 +196,7 @@ public partial class VoiceCommands : MonoBehaviour
         if (TryDeclaration(command, out RulesEngine.Declaration declaration)) mRules?.Declare(declaration, who);
         else if (TryTrigger(command, out TriggerIcon icon)) mRules?.UnscannedCheck(who, icon);
         else if (command == Command.SkillDone) mRules?.Skills?.OpponentDone(); // their part of this PC's skill (OpponentStep)
+        else if (command == Command.PersonaRide) mRules?.DeclarePersonaRide(who, true); // its power, for this PC's battle maths
     }
 
     /* Online it's always this PC's player. On one PC, the defender's keywords are the player not
@@ -231,6 +233,7 @@ public partial class VoiceCommands : MonoBehaviour
             case Command.NextPhase: mRules.AdvancePhase(); break;
             case Command.TurnEnd: mRules.RequestTurnEnd(); break;
             case Command.Draw: UISetup.Draw(who); break;
+            case Command.PersonaRide: mRules.DeclarePersonaRide(who); break;
 
             case Command.SoulCharge:
                 UISetup.AdjustZoneCount(who.playerIndex, "Deck", -1);

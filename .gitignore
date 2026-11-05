@@ -93,3 +93,8 @@ crashlytics-build.properties
 /[Aa]ssets/StreamingAssets/google-services.json.meta
 /[Aa]ssets/StreamingAssets/google-services-desktop.json
 /[Aa]ssets/StreamingAssets/google-services-desktop.json.meta
+
+# Kept locally, not in the repo
+/CLAUDE.md
+/[Aa]ssets/Scipts/Online/
+/[Aa]ssets/Scipts/Online.meta

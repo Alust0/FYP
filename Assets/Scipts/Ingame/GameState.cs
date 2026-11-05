@@ -107,8 +107,11 @@ public class CardInstance
         data = cardData;
     }
 
-    // Returns total power including modifiers
-    public int TotalPower => data.power + powerModifier;
+    // Returns total power including modifiers and any bonus from where it stands (AreaBonus)
+    public int TotalPower => data.power + powerModifier + (AreaBonus?.Invoke(this) ?? 0);
+
+    // Power a unit gets for the circle it's on, e.g. Persona Ride's front row +10000 (RulesEngine)
+    public static System.Func<CardInstance, int> AreaBonus;
 
     // Returns total critical including modifiers
     public int TotalCritical => data.critical + criticalModifier;
@@ -366,6 +369,30 @@ public class GameState : MonoBehaviour
         MatchLogger.CardMoved(card, fromOwner, fromZone);
         OnCardMoved?.Invoke(card, fromOwner, fromZone);
         BroadcastState();
+    }
+
+    /* Undo (RulesEngine): a card the undone move put somewhere goes back where the rules had it, with no
+     move announced. Trackers hear of it (OnCardPutBack) and report the card again once it's lifted or
+     moved, so putting it down again counts as a new move. Take every such card off before putting any
+     back, so a ride's new vanguard is off the circle before the old one returns to it */
+    public static System.Action<CardInstance> OnCardPutBack;
+
+    public void TakeOffQuietly(CardInstance card)
+    {
+        card.zoneOwner?.RemoveCardFromAllZones(card);
+        card.zoneOwner = null;
+        card.zone = null;
+    }
+
+    public void PutBackQuietly(CardInstance card, PlayerState owner, string zone)
+    {
+        TakeOffQuietly(card);
+        if (owner != null && zone != null && owner.PlaceCardInZone(card, zone))
+        {
+            card.zoneOwner = owner;
+            card.zone = zone;
+        }
+        OnCardPutBack?.Invoke(card);
     }
 
     public void SetOrientation(CardInstance card, CardOrientation orientation)

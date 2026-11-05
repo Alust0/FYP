@@ -1,0 +1,349 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="1068" viewBox="0 0 1300 1068">
+<defs>
+<filter id="sh" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1f2a44" flood-opacity="0.14"/></filter>
+<style>
+text { font-family: "Segoe UI", Arial, sans-serif; dominant-baseline: central; }
+.th { font-size: 15.5px; font-weight: 600; fill: #fff; letter-spacing: .2px; }
+.sub { font-family: Consolas, "Courier New", monospace; font-size: 11.5px; fill: #fff; opacity: .85; }
+.fn { font-size: 14px; fill: #1f2937; }
+.pk { font-weight: 700; }
+.ty { font-family: Consolas, "Courier New", monospace; font-size: 12.5px; fill: #6b7280; text-anchor: end; }
+.badge { font-size: 9px; font-weight: 700; text-anchor: middle; }
+.lg { font-size: 13px; fill: #374151; }
+.note { fill: #6b7280; font-style: italic; }
+</style>
+</defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<path d="M360,65.0 L413.0,65.0 Q420,65.0 420.0,72.0 L420.0,97.0 Q420,104.0 427.0,104.0 L490,104.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M360,267.0 L413.0,267.0 Q420,267.0 420.0,260.0 L420.0,111.0 Q420,104.0 427.0,104.0 L490,104.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M360,441.0 L413.0,441.0 Q420,441.0 420.0,434.0 L420.0,111.0 Q420,104.0 427.0,104.0 L490,104.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M360,738.0 L413.0,738.0 Q420,738.0 420.0,731.0 L420.0,111.0 Q420,104.0 427.0,104.0 L490,104.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M490,501.0 L427.0,501.0 Q420,501.0 420.0,494.0 L420.0,111.0 Q420,104.0 427.0,104.0 L490,104.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M920,445.0 L862.0,445.0 Q855,445.0 855.0,452.0 L855.0,561.0 Q855,568.0 848.0,568.0 L790,568.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M920,705.0 L862.0,705.0 Q855,705.0 855.0,698.0 L855.0,603.0 Q855,596.0 848.0,596.0 L790,596.0" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M790,272.0 L848.0,272.0 Q855,272.0 855.0,265.0 L855.0,139.0 Q855,132.0 862.0,132.0 L920,132.0" fill="none" stroke="#ffffff" stroke-width="8"/>
+<path d="M1220,512.0 L1253.0,512.0 Q1260,512.0 1260.0,505.0 L1260.0,139.0 Q1260,132.0 1253.0,132.0 L1220,132.0" fill="none" stroke="#ffffff" stroke-width="8"/>
+<path d="M790,272.0 L848.0,272.0 Q855,272.0 855.0,265.0 L855.0,139.0 Q855,132.0 862.0,132.0 L920,132.0" fill="none" stroke="#2f4f7f" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M1220,512.0 L1253.0,512.0 Q1260,512.0 1260.0,505.0 L1260.0,139.0 Q1260,132.0 1253.0,132.0 L1220,132.0" fill="none" stroke="#2f4f7f" stroke-width="1.6" stroke-linejoin="round"/>
+<g filter="url(#sh)"><rect x="60" y="40" width="300" height="162" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418116100944"><rect x="60" y="40" width="300" height="162" rx="7"/></clipPath>
+<g clip-path="url(#c_2418116100944)">
+<rect x="60" y="40" width="300" height="50" fill="#b3541e" opacity="0.82"/>
+<rect x="60" y="118" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="118" x2="360" y2="118" stroke="#e6eaf0"/>
+<line x1="60" y1="146" x2="360" y2="146" stroke="#e6eaf0"/>
+<rect x="60" y="174" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="174" x2="360" y2="174" stroke="#e6eaf0"/>
+</g>
+<rect x="60" y="40" width="300" height="162" rx="7" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="74" y="59" class="th">room_member</text>
+<text x="74" y="78" class="sub">rooms/{code}/host | guest</text>
+<rect x="70" y="96.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="80.5" y="104.0" class="badge" fill="#5a4300">PK</text>
+<text x="118" y="104.0" class="fn pk">role</text>
+<text x="348" y="104.0" class="ty">string</text>
+<rect x="70" y="124.0" width="21" height="16" rx="3" fill="#dce7f7"/><text x="80.5" y="132.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="118" y="132.0" class="fn">id</text>
+<text x="348" y="132.0" class="ty">string</text>
+<text x="118" y="160.0" class="fn">name</text>
+<text x="348" y="160.0" class="ty">string</text>
+<text x="118" y="188.0" class="fn">beatMs</text>
+<text x="348" y="188.0" class="ty">timestamp</text><g filter="url(#sh)"><rect x="60" y="242" width="300" height="134" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418116102224"><rect x="60" y="242" width="300" height="134" rx="7"/></clipPath>
+<g clip-path="url(#c_2418116102224)">
+<rect x="60" y="242" width="300" height="50" fill="#b3541e" opacity="0.82"/>
+<rect x="60" y="320" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="320" x2="360" y2="320" stroke="#e6eaf0"/>
+<line x1="60" y1="348" x2="360" y2="348" stroke="#e6eaf0"/>
+</g>
+<rect x="60" y="242" width="300" height="134" rx="7" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="74" y="261" class="th">turn</text>
+<text x="74" y="280" class="sub">rooms/{code}/turn</text>
+<text x="118" y="306.0" class="fn">player</text>
+<text x="348" y="306.0" class="ty">integer</text>
+<text x="118" y="334.0" class="fn">number</text>
+<text x="348" y="334.0" class="ty">integer</text>
+<text x="118" y="362.0" class="fn">phase</text>
+<text x="348" y="362.0" class="ty">integer</text><g filter="url(#sh)"><rect x="60" y="416" width="300" height="218" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418115538976"><rect x="60" y="416" width="300" height="218" rx="7"/></clipPath>
+<g clip-path="url(#c_2418115538976)">
+<rect x="60" y="416" width="300" height="50" fill="#b3541e" opacity="0.82"/>
+<rect x="60" y="494" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="494" x2="360" y2="494" stroke="#e6eaf0"/>
+<line x1="60" y1="522" x2="360" y2="522" stroke="#e6eaf0"/>
+<rect x="60" y="550" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="550" x2="360" y2="550" stroke="#e6eaf0"/>
+<line x1="60" y1="578" x2="360" y2="578" stroke="#e6eaf0"/>
+<rect x="60" y="606" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="606" x2="360" y2="606" stroke="#e6eaf0"/>
+</g>
+<rect x="60" y="416" width="300" height="218" rx="7" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="74" y="435" class="th">undo</text>
+<text x="74" y="454" class="sub">rooms/{code}/undo</text>
+<text x="118" y="480.0" class="fn">at</text>
+<text x="348" y="480.0" class="ty">timestamp</text>
+<text x="118" y="508.0" class="fn">seat</text>
+<text x="348" y="508.0" class="ty">integer</text>
+<text x="118" y="536.0" class="fn">sinceMs</text>
+<text x="348" y="536.0" class="ty">timestamp</text>
+<text x="118" y="564.0" class="fn">player</text>
+<text x="348" y="564.0" class="ty">integer</text>
+<text x="118" y="592.0" class="fn">number</text>
+<text x="348" y="592.0" class="ty">integer</text>
+<text x="118" y="620.0" class="fn">phase</text>
+<text x="348" y="620.0" class="ty">integer</text><g filter="url(#sh)"><rect x="60" y="674" width="300" height="162" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418115540176"><rect x="60" y="674" width="300" height="162" rx="7"/></clipPath>
+<g clip-path="url(#c_2418115540176)">
+<rect x="60" y="674" width="300" height="50" fill="#b3541e" opacity="1"/>
+<rect x="60" y="752" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="752" x2="360" y2="752" stroke="#e6eaf0"/>
+<line x1="60" y1="780" x2="360" y2="780" stroke="#e6eaf0"/>
+<rect x="60" y="808" width="300" height="28" fill="#f5f7fb"/>
+<line x1="60" y1="808" x2="360" y2="808" stroke="#e6eaf0"/>
+</g>
+<rect x="60" y="674" width="300" height="162" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="74" y="693" class="th">video_frame</text>
+<text x="74" y="712" class="sub">RTDB · rooms/{code}_video{seat}</text>
+<rect x="68" y="730.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="78.5" y="738.0" class="badge" fill="#5a4300">PK</text><rect x="91" y="730.0" width="21" height="16" rx="3" fill="#dce7f7"/><text x="101.5" y="738.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="118" y="738.0" class="fn pk">code</text>
+<text x="348" y="738.0" class="ty">string</text>
+<rect x="70" y="758.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="80.5" y="766.0" class="badge" fill="#5a4300">PK</text>
+<text x="118" y="766.0" class="fn pk">seat</text>
+<text x="348" y="766.0" class="ty">integer</text>
+<text x="118" y="794.0" class="fn">jpg</text>
+<text x="348" y="794.0" class="ty">string</text>
+<text x="118" y="822.0" class="fn">ms</text>
+<text x="348" y="822.0" class="ty">timestamp</text><g filter="url(#sh)"><rect x="490" y="40" width="300" height="386" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418121077744"><rect x="490" y="40" width="300" height="386" rx="7"/></clipPath>
+<g clip-path="url(#c_2418121077744)">
+<rect x="490" y="40" width="300" height="50" fill="#b3541e" opacity="1"/>
+<rect x="490" y="118" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="118" x2="790" y2="118" stroke="#e6eaf0"/>
+<line x1="490" y1="146" x2="790" y2="146" stroke="#e6eaf0"/>
+<rect x="490" y="174" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="174" x2="790" y2="174" stroke="#e6eaf0"/>
+<line x1="490" y1="202" x2="790" y2="202" stroke="#e6eaf0"/>
+<rect x="490" y="230" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="230" x2="790" y2="230" stroke="#e6eaf0"/>
+<line x1="490" y1="258" x2="790" y2="258" stroke="#e6eaf0"/>
+<rect x="490" y="286" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="286" x2="790" y2="286" stroke="#e6eaf0"/>
+<line x1="490" y1="314" x2="790" y2="314" stroke="#e6eaf0"/>
+<rect x="490" y="342" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="342" x2="790" y2="342" stroke="#e6eaf0"/>
+<line x1="490" y1="370" x2="790" y2="370" stroke="#e6eaf0"/>
+<rect x="490" y="398" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="398" x2="790" y2="398" stroke="#e6eaf0"/>
+</g>
+<rect x="490" y="40" width="300" height="386" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="504" y="59" class="th">room</text>
+<text x="504" y="78" class="sub">RTDB · rooms/{code}</text>
+<rect x="500" y="96.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="510.5" y="104.0" class="badge" fill="#5a4300">PK</text>
+<text x="548" y="104.0" class="fn pk">code</text>
+<text x="778" y="104.0" class="ty">string</text>
+<text x="548" y="132.0" class="fn">status</text>
+<text x="778" y="132.0" class="ty">string</text>
+<text x="548" y="160.0" class="fn">isPublic</text>
+<text x="778" y="160.0" class="ty">boolean</text>
+<text x="548" y="188.0" class="fn">passwordHash</text>
+<text x="778" y="188.0" class="ty">string</text>
+<text x="548" y="216.0" class="fn">createdMs</text>
+<text x="778" y="216.0" class="ty">timestamp</text>
+<text x="548" y="244.0" class="fn">deck</text>
+<text x="778" y="244.0" class="ty">string</text>
+<rect x="500" y="264.0" width="21" height="16" rx="3" fill="#dce7f7"/><text x="510.5" y="272.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="548" y="272.0" class="fn">cover</text>
+<text x="778" y="272.0" class="ty">string</text>
+<text x="548" y="300.0" class="fn">gameVersion</text>
+<text x="778" y="300.0" class="ty">string</text>
+<text x="548" y="328.0" class="fn">cardsVersion</text>
+<text x="778" y="328.0" class="ty">integer</text>
+<text x="548" y="356.0" class="fn">timerMinutes</text>
+<text x="778" y="356.0" class="ty">integer</text>
+<text x="548" y="384.0" class="fn">noSkills</text>
+<text x="778" y="384.0" class="ty">boolean</text>
+<text x="548" y="412.0" class="fn">video</text>
+<text x="778" y="412.0" class="ty">map</text><g filter="url(#sh)"><rect x="490" y="476" width="300" height="358" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418121644240"><rect x="490" y="476" width="300" height="358" rx="7"/></clipPath>
+<g clip-path="url(#c_2418121644240)">
+<rect x="490" y="476" width="300" height="50" fill="#b3541e" opacity="0.82"/>
+<rect x="490" y="554" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="554" x2="790" y2="554" stroke="#e6eaf0"/>
+<line x1="490" y1="582" x2="790" y2="582" stroke="#e6eaf0"/>
+<rect x="490" y="610" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="610" x2="790" y2="610" stroke="#e6eaf0"/>
+<line x1="490" y1="638" x2="790" y2="638" stroke="#e6eaf0"/>
+<rect x="490" y="666" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="666" x2="790" y2="666" stroke="#e6eaf0"/>
+<line x1="490" y1="694" x2="790" y2="694" stroke="#e6eaf0"/>
+<rect x="490" y="722" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="722" x2="790" y2="722" stroke="#e6eaf0"/>
+<line x1="490" y1="750" x2="790" y2="750" stroke="#e6eaf0"/>
+<rect x="490" y="778" width="300" height="28" fill="#f5f7fb"/>
+<line x1="490" y1="778" x2="790" y2="778" stroke="#e6eaf0"/>
+<line x1="490" y1="806" x2="790" y2="806" stroke="#e6eaf0"/>
+</g>
+<rect x="490" y="476" width="300" height="358" rx="7" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="504" y="495" class="th">seat</text>
+<text x="504" y="514" class="sub">rooms/{code}/seat0 | seat1</text>
+<rect x="500" y="532.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="510.5" y="540.0" class="badge" fill="#5a4300">PK</text>
+<text x="548" y="540.0" class="fn pk">seatIndex</text>
+<text x="778" y="540.0" class="ty">integer</text>
+<text x="548" y="568.0" class="fn">cards</text>
+<text x="778" y="568.0" class="ty">list</text>
+<text x="548" y="596.0" class="fn">counts</text>
+<text x="778" y="596.0" class="ty">map</text>
+<text x="548" y="624.0" class="fn">attackTarget</text>
+<text x="778" y="624.0" class="ty">string</text>
+<text x="548" y="652.0" class="fn">pick / pickN</text>
+<text x="778" y="652.0" class="ty">string</text>
+<text x="548" y="680.0" class="fn">said / saidN</text>
+<text x="778" y="680.0" class="ty">string</text>
+<text x="548" y="708.0" class="fn">skill / skillText</text>
+<text x="778" y="708.0" class="ty">string</text>
+<text x="548" y="736.0" class="fn">skillN</text>
+<text x="778" y="736.0" class="ty">integer</text>
+<text x="548" y="764.0" class="fn">oppStep</text>
+<text x="778" y="764.0" class="ty">string</text>
+<text x="548" y="792.0" class="fn">moves</text>
+<text x="778" y="792.0" class="ty">string</text>
+<text x="548" y="820.0" class="fn">turned</text>
+<text x="778" y="820.0" class="ty">boolean</text><g filter="url(#sh)"><rect x="920" y="40" width="300" height="302" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418115127744"><rect x="920" y="40" width="300" height="302" rx="7"/></clipPath>
+<g clip-path="url(#c_2418115127744)">
+<rect x="920" y="40" width="300" height="50" fill="#2f4f7f" opacity="1"/>
+<rect x="920" y="118" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="118" x2="1220" y2="118" stroke="#e6eaf0"/>
+<line x1="920" y1="146" x2="1220" y2="146" stroke="#e6eaf0"/>
+<rect x="920" y="174" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="174" x2="1220" y2="174" stroke="#e6eaf0"/>
+<line x1="920" y1="202" x2="1220" y2="202" stroke="#e6eaf0"/>
+<rect x="920" y="230" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="230" x2="1220" y2="230" stroke="#e6eaf0"/>
+<line x1="920" y1="258" x2="1220" y2="258" stroke="#e6eaf0"/>
+<rect x="920" y="286" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="286" x2="1220" y2="286" stroke="#e6eaf0"/>
+<line x1="920" y1="314" x2="1220" y2="314" stroke="#e6eaf0"/>
+</g>
+<rect x="920" y="40" width="300" height="302" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="934" y="59" class="th">card</text>
+<text x="934" y="78" class="sub">Firestore · via CardCache.json</text>
+<rect x="930" y="96.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="940.5" y="104.0" class="badge" fill="#5a4300">PK</text>
+<text x="978" y="104.0" class="fn pk">cardDocId</text>
+<text x="1208" y="104.0" class="ty">string</text>
+<text x="978" y="132.0" class="fn">number</text>
+<text x="1208" y="132.0" class="ty">string</text>
+<text x="978" y="160.0" class="fn">name / nameEn</text>
+<text x="1208" y="160.0" class="ty">string</text>
+<text x="978" y="188.0" class="fn">grade</text>
+<text x="1208" y="188.0" class="ty">integer</text>
+<text x="978" y="216.0" class="fn">power</text>
+<text x="1208" y="216.0" class="ty">integer</text>
+<text x="978" y="244.0" class="fn">shield</text>
+<text x="1208" y="244.0" class="ty">integer</text>
+<text x="978" y="272.0" class="fn">critical</text>
+<text x="1208" y="272.0" class="ty">integer</text>
+<text x="978" y="300.0" class="fn">triggerType</text>
+<text x="1208" y="300.0" class="ty">string</text>
+<text x="978" y="328.0" class="fn">effect / effectEn</text>
+<text x="1208" y="328.0" class="ty">string</text><g filter="url(#sh)"><rect x="920" y="420" width="300" height="190" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418114457680"><rect x="920" y="420" width="300" height="190" rx="7"/></clipPath>
+<g clip-path="url(#c_2418114457680)">
+<rect x="920" y="420" width="300" height="50" fill="#b3541e" opacity="0.82"/>
+<rect x="920" y="498" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="498" x2="1220" y2="498" stroke="#e6eaf0"/>
+<line x1="920" y1="526" x2="1220" y2="526" stroke="#e6eaf0"/>
+<rect x="920" y="554" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="554" x2="1220" y2="554" stroke="#e6eaf0"/>
+<line x1="920" y1="582" x2="1220" y2="582" stroke="#e6eaf0"/>
+</g>
+<rect x="920" y="420" width="300" height="190" rx="7" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="934" y="439" class="th">seat_card</text>
+<text x="934" y="458" class="sub">inside seat.cards[]</text>
+<rect x="930" y="476.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="940.5" y="484.0" class="badge" fill="#5a4300">PK</text>
+<text x="978" y="484.0" class="fn pk">id</text>
+<text x="1208" y="484.0" class="ty">string</text>
+<rect x="930" y="504.0" width="21" height="16" rx="3" fill="#dce7f7"/><text x="940.5" y="512.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="978" y="512.0" class="fn">number</text>
+<text x="1208" y="512.0" class="ty">string</text>
+<text x="978" y="540.0" class="fn">zone</text>
+<text x="1208" y="540.0" class="ty">string</text>
+<text x="978" y="568.0" class="fn">rest</text>
+<text x="1208" y="568.0" class="ty">boolean</text>
+<text x="978" y="596.0" class="fn">faceDown</text>
+<text x="1208" y="596.0" class="ty">boolean</text><g filter="url(#sh)"><rect x="920" y="680" width="300" height="106" rx="7" fill="#fff"/></g>
+<clipPath id="c_2418153654608"><rect x="920" y="680" width="300" height="106" rx="7"/></clipPath>
+<g clip-path="url(#c_2418153654608)">
+<rect x="920" y="680" width="300" height="50" fill="#b3541e" opacity="0.82"/>
+<rect x="920" y="758" width="300" height="28" fill="#f5f7fb"/>
+<line x1="920" y1="758" x2="1220" y2="758" stroke="#e6eaf0"/>
+</g>
+<rect x="920" y="680" width="300" height="106" rx="7" fill="none" stroke="#b3541e" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="934" y="699" class="th">zone_count</text>
+<text x="934" y="718" class="sub">inside seat.counts{}</text>
+<rect x="930" y="736.0" width="21" height="16" rx="3" fill="#f3c64b"/><text x="940.5" y="744.0" class="badge" fill="#5a4300">PK</text>
+<text x="978" y="744.0" class="fn pk">zone</text>
+<text x="1208" y="744.0" class="ty">string</text>
+<text x="978" y="772.0" class="fn">count</text>
+<text x="1208" y="772.0" class="ty">integer</text>
+<line x1="360" y1="57.0" x2="374" y2="65.0" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="360" y1="73.0" x2="374" y2="65.0" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="379" y1="58.0" x2="379" y2="72.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="481" y1="97.0" x2="481" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="475" y1="97.0" x2="475" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="369" y1="260.0" x2="369" y2="274.0" stroke="#b3541e" stroke-width="1.8"/>
+<circle cx="379" cy="267.0" r="5" fill="#fff" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="481" y1="97.0" x2="481" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="475" y1="97.0" x2="475" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="369" y1="434.0" x2="369" y2="448.0" stroke="#b3541e" stroke-width="1.8"/>
+<circle cx="379" cy="441.0" r="5" fill="#fff" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="481" y1="97.0" x2="481" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="475" y1="97.0" x2="475" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="360" y1="730.0" x2="374" y2="738.0" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="360" y1="746.0" x2="374" y2="738.0" stroke="#b3541e" stroke-width="1.6"/>
+<circle cx="381" cy="738.0" r="5" fill="#fff" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="481" y1="97.0" x2="481" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="475" y1="97.0" x2="475" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="490" y1="493.0" x2="476" y2="501.0" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="490" y1="509.0" x2="476" y2="501.0" stroke="#b3541e" stroke-width="1.6"/>
+<circle cx="469" cy="501.0" r="5" fill="#fff" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="481" y1="97.0" x2="481" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="475" y1="97.0" x2="475" y2="111.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="920" y1="437.0" x2="906" y2="445.0" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="920" y1="453.0" x2="906" y2="445.0" stroke="#b3541e" stroke-width="1.6"/>
+<circle cx="899" cy="445.0" r="5" fill="#fff" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="799" y1="561.0" x2="799" y2="575.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="805" y1="561.0" x2="805" y2="575.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="920" y1="697.0" x2="906" y2="705.0" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="920" y1="713.0" x2="906" y2="705.0" stroke="#b3541e" stroke-width="1.6"/>
+<circle cx="899" cy="705.0" r="5" fill="#fff" stroke="#b3541e" stroke-width="1.6"/>
+<line x1="799" y1="589.0" x2="799" y2="603.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="805" y1="589.0" x2="805" y2="603.0" stroke="#b3541e" stroke-width="1.8"/>
+<line x1="790" y1="264.0" x2="804" y2="272.0" stroke="#2f4f7f" stroke-width="1.6"/>
+<line x1="790" y1="280.0" x2="804" y2="272.0" stroke="#2f4f7f" stroke-width="1.6"/>
+<circle cx="811" cy="272.0" r="5" fill="#fff" stroke="#2f4f7f" stroke-width="1.6"/>
+<line x1="911" y1="125.0" x2="911" y2="139.0" stroke="#2f4f7f" stroke-width="1.8"/>
+<circle cx="901" cy="132.0" r="5" fill="#fff" stroke="#2f4f7f" stroke-width="1.6"/>
+<line x1="1220" y1="504.0" x2="1234" y2="512.0" stroke="#2f4f7f" stroke-width="1.6"/>
+<line x1="1220" y1="520.0" x2="1234" y2="512.0" stroke="#2f4f7f" stroke-width="1.6"/>
+<circle cx="1241" cy="512.0" r="5" fill="#fff" stroke="#2f4f7f" stroke-width="1.6"/>
+<line x1="1229" y1="125.0" x2="1229" y2="139.0" stroke="#2f4f7f" stroke-width="1.8"/>
+<line x1="1235" y1="125.0" x2="1235" y2="139.0" stroke="#2f4f7f" stroke-width="1.8"/>
+<rect x="60" y="900" width="1160" height="132" rx="8" fill="#fafbfc" stroke="#e2e6ec"/>
+<rect x="78" y="918" width="20" height="16" rx="3" fill="#b3541e"/><text x="106" y="926" class="lg">Realtime Database</text>
+<rect x="257.8" y="918" width="20" height="16" rx="3" fill="#2f4f7f"/><text x="285.8" y="926" class="lg">Firestore</text>
+<rect x="378.40000000000003" y="918" width="20" height="16" rx="3" fill="#fff" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="4 3"/><text x="406.40000000000003" y="926" class="lg">Nested in its parent's data</text>
+<rect x="78" y="948" width="21" height="16" rx="3" fill="#f3c64b"/><text x="88.5" y="956" class="badge" fill="#5a4300">PK</text><text x="107" y="956" class="lg">Key / path id</text>
+<rect x="228.89999999999998" y="948" width="21" height="16" rx="3" fill="#dce7f7"/><text x="239.39999999999998" y="956" class="badge" fill="#1e4a8a">FK</text><text x="257.9" y="956" class="lg">Refers to another entity</text>
+<line x1="460.09999999999997" y1="956" x2="500.09999999999997" y2="956" stroke="#4b5563" stroke-width="1.6"/><line x1="491.09999999999997" y1="949" x2="491.09999999999997" y2="963" stroke="#4b5563" stroke-width="1.8"/>
+<line x1="485.09999999999997" y1="949" x2="485.09999999999997" y2="963" stroke="#4b5563" stroke-width="1.8"/><text x="510.09999999999997" y="956" class="lg">Exactly one</text>
+<line x1="621.5" y1="956" x2="661.5" y2="956" stroke="#4b5563" stroke-width="1.6"/><line x1="652.5" y1="949" x2="652.5" y2="963" stroke="#4b5563" stroke-width="1.8"/>
+<circle cx="642.5" cy="956" r="5" fill="#fff" stroke="#4b5563" stroke-width="1.6"/><text x="671.5" y="956" class="lg">Zero or one</text>
+<line x1="782.9" y1="956" x2="822.9" y2="956" stroke="#4b5563" stroke-width="1.6"/><line x1="822.9" y1="948" x2="808.9" y2="956" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="822.9" y1="964" x2="808.9" y2="956" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="803.9" y1="949" x2="803.9" y2="963" stroke="#4b5563" stroke-width="1.8"/><text x="832.9" y="956" class="lg">One or many</text>
+<line x1="944.3" y1="956" x2="984.3" y2="956" stroke="#4b5563" stroke-width="1.6"/><line x1="984.3" y1="948" x2="970.3" y2="956" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="984.3" y1="964" x2="970.3" y2="956" stroke="#4b5563" stroke-width="1.6"/>
+<circle cx="963.3" cy="956" r="5" fill="#fff" stroke="#4b5563" stroke-width="1.6"/><text x="994.3" y="956" class="lg">Zero or many</text>
+<text x="78" y="982" class="lg note">room_member.id is the PC's client id, the same as sessions.clientId (Figure 16); a finished match is saved to matches (Figure 16).</text>
+<text x="78" y="1008" class="lg note">seat_card holds only cards the camera sees; zone_count holds the untracked ones (duplicates, soul, deck, damage).</text>
+</svg>

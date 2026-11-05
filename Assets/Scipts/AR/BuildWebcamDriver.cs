@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using AOT;
@@ -66,6 +67,7 @@ public class BuildWebcamDriver : MonoBehaviour
     static IntPtr sUserData;
     static BuildWebcamDriver sInstance;
     static readonly int GainId = Shader.PropertyToID("_Gain");
+    static readonly int UpsideDownId = Shader.PropertyToID("_UpsideDown");
 
     WebCamTexture mWebcam;
     RenderTexture mFlipped;
@@ -84,6 +86,9 @@ public class BuildWebcamDriver : MonoBehaviour
     /* True while this feeds Vuforia and can brighten its frames (GameSettings.CameraBrightness).
      UWP can't reach the webcam's own brightness: there's no DirectShow, and the webcam is in use */
     public static bool AdjustsBrightness => sInstance != null && sInstance.mBrightness != null;
+
+    // True while this feeds Vuforia, so it can turn the picture upright (GameSettings.CameraUpsideDown)
+    public static bool CanFlip => sInstance != null;
 
     [MonoPInvokeCallback(typeof(DriverCreatedFn))]
     static void OnDriverCreated(IntPtr driver) => sDriver = driver;
@@ -110,12 +115,20 @@ public class BuildWebcamDriver : MonoBehaviour
         var host = new GameObject("BuildWebcamDriver");
         DontDestroyOnLoad(host);
         sInstance = host.AddComponent<BuildWebcamDriver>();
-        sInstance.Use(camera);
 
-        // The size of the driver's frames is fixed at start, so wait for the webcam's real size
-        float giveUp = Time.realtimeSinceStartup + 10f;
-        while (sInstance.mWebcam.width <= 16 && Time.realtimeSinceStartup < giveUp)
-            yield return null;
+        /* The size of the driver's frames is fixed at start, so wait for the webcam's real size. A webcam
+         Windows won't start at one size (0x80028019) is tried smaller */
+        for (int i = 0; i < Widths.Length; i++)
+        {
+            sInstance.mWidthIndex = i;
+            sInstance.NewWebcam(camera);
+            sInstance.PlayWebcam();
+            float giveUp = Time.realtimeSinceStartup + (i == 0 ? 10f : 5f);
+            while (sInstance.mWebcam.width <= 16 && Time.realtimeSinceStartup < giveUp)
+                yield return null;
+            if (sInstance.mWebcam.width > 16) break;
+            Debug.LogWarning("[BuildWebcamDriver] '" + camera + "' gave no picture at " + Widths[i] + " wide" + (i + 1 < Widths.Length ? "; trying smaller." : "."));
+        }
 
         if (sInstance.mWebcam.width <= 16)
         {
@@ -123,6 +136,7 @@ public class BuildWebcamDriver : MonoBehaviour
             FallBack();
             yield break;
         }
+        sInstance.mHasPicture = true;
 
         sInstance.SetUp();
         VuforiaApplication.Instance.OnVuforiaInitialized += OnInitialized;
@@ -159,19 +173,60 @@ public class BuildWebcamDriver : MonoBehaviour
         VuforiaApplication.Instance.Initialize();
     }
 
+    // Another camera picked in the lobby
     void Use(string camera)
     {
         if (camera == null || (mWebcam != null && mWebcam.deviceName == camera)) return;
 
         bool playing = mWebcam == null || mWebcam.isPlaying;
+        mWidthIndex = 0;
+        NewWebcam(camera);
+        if (playing) PlayWebcam();
+    }
+
+    static readonly int[] Widths = { MaxWidth, 1280, 640 }; // tried in turn while Windows won't start the webcam
+    int mWidthIndex;
+    bool mPlayed; // Play called on this webcam
+    bool mHasPicture; // it has sent a picture since its last Play
+
+    /* Webcams Windows refused to start: never stopped or destroyed, as Unity's UWP player crashes doing
+     that (StopPreviewAsync on a capture that never started). Kept here so they're never unloaded either */
+    static readonly List<WebCamTexture> sAbandoned = new List<WebCamTexture>();
+
+    // A new webcam object for camera at the current size, in place of the old one
+    void NewWebcam(string camera)
+    {
         if (mWebcam != null)
         {
-            mWebcam.Stop();
-            Destroy(mWebcam);
+            if (mHasPicture)
+            {
+                mWebcam.Stop();
+                Destroy(mWebcam);
+            }
+            else if (mPlayed)
+            {
+                mWebcam.hideFlags |= HideFlags.DontUnloadUnusedAsset;
+                sAbandoned.Add(mWebcam);
+            }
+            else Destroy(mWebcam);
         }
-        mWebcam = new WebCamTexture(camera, MaxWidth, MaxWidth * 9 / 16, RequestedFps);
-        if (playing) mWebcam.Play();
-        Debug.Log("[BuildWebcamDriver] Using camera '" + camera + "'.");
+        int width = Widths[mWidthIndex];
+        mWebcam = new WebCamTexture(camera, width, width * 9 / 16, RequestedFps);
+        mPlayed = mHasPicture = false;
+        Debug.Log("[BuildWebcamDriver] Using camera '" + camera + "' (" + width + " wide).");
+    }
+
+    void PlayWebcam()
+    {
+        mPlayed = true;
+        mHasPicture = false;
+        mWebcam.Play();
+    }
+
+    // Only a webcam that has sent a picture since it was started is stopped (see sAbandoned)
+    void StopWebcam()
+    {
+        if (mWebcam != null && mHasPicture) mWebcam.Stop();
     }
 
     // Frame size and buffers, from the webcam's size capped at MaxWidth
@@ -196,34 +251,77 @@ public class BuildWebcamDriver : MonoBehaviour
         sUserData = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(DriverData)));
         Marshal.StructureToPtr(data, sUserData, false); // must stay valid while Vuforia runs, so never freed
 
-        // The webcam only needs to run while Vuforia does
+        /* The webcam only needs to run while Vuforia does. It's left running until Vuforia starts, though:
+         stopping it here and starting it again a moment later, when Vuforia started, was refused by
+         Windows (0x80028019), as it hadn't let go of the camera yet */
         VuforiaApplication.Instance.OnVuforiaStarted += OnStarted;
         VuforiaApplication.Instance.OnVuforiaStopped += OnStopped;
-        mWebcam.Stop();
     }
 
     void OnStarted()
     {
         mVuforiaRunning = true;
-        if (!mWebcam.isPlaying) mWebcam.Play();
+        mLastFrame = Time.realtimeSinceStartup;
+        if (!mWebcam.isPlaying) PlayWebcam();
+    }
+
+    const float StallSeconds = 3f;
+    const int MaxRestarts = 5;
+    float mLastFrame;
+    int mRestarts; // in a row, without a picture in between
+    bool mRestarting;
+
+    /* Windows can refuse to start the webcam (error 0x80028019) when it's asked while the camera is
+     still being released, e.g. right after a stop, or while another app has it. The webcam then
+     never sends a picture: one that had been working is stopped and started again after a pause;
+     one that never started is replaced by a new one, a size smaller (see sAbandoned) */
+    IEnumerator RestartWebcam()
+    {
+        mRestarting = true;
+        mRestarts++;
+        Debug.LogWarning("[BuildWebcamDriver] '" + mWebcam.deviceName + "' sent no picture; starting it again (" + mRestarts + "/" + MaxRestarts + ").");
+        bool replace = !mHasPicture;
+        if (!replace) mWebcam.Stop();
+        yield return new WaitForSecondsRealtime(1.5f);
+        if (replace)
+        {
+            mWidthIndex = Mathf.Min(mWidthIndex + 1, Widths.Length - 1);
+            NewWebcam(mWebcam.deviceName);
+        }
+        if (mVuforiaRunning) PlayWebcam();
+        mLastFrame = Time.realtimeSinceStartup;
+        mRestarting = false;
     }
 
     void OnStopped()
     {
         mVuforiaRunning = false;
-        mWebcam.Stop();
+        StopWebcam();
     }
 
     void Update()
     {
+        if (mWebcam == null) return;
+        if (mWebcam.didUpdateThisFrame) mHasPicture = true;
+        if (mVuforiaRunning && !mRestarting && !CameraChoice.Refreshing)
+        {
+            if (mWebcam.didUpdateThisFrame) mRestarts = 0;
+            else if (Time.realtimeSinceStartup - mLastFrame > StallSeconds && mRestarts < MaxRestarts) StartCoroutine(RestartWebcam());
+        }
+        if (mWebcam.didUpdateThisFrame) mLastFrame = Time.realtimeSinceStartup;
+
         if (!mVuforiaRunning || sDriver == IntPtr.Zero || mReadback == null || !mWebcam.didUpdateThisFrame) return;
 
-        // Unity textures are stored bottom row first; Vuforia wants the top row first
+        /* Unity textures are stored bottom row first; Vuforia wants the top row first. A webcam
+         upside down is turned 180° too, which together just mirrors it left to right */
+        bool upsideDown = GameSettings.CameraUpsideDown;
         if (mBrightness != null)
         {
             mBrightness.SetFloat(GainId, Mathf.Pow(2f, (GameSettings.CameraBrightness - 0.5f) * 2f)); // ×0.5 to ×2
+            mBrightness.SetFloat(UpsideDownId, upsideDown ? 1f : 0f);
             Graphics.Blit(mWebcam, mFlipped, mBrightness);
         }
+        else if (upsideDown) Graphics.Blit(mWebcam, mFlipped, new Vector2(-1f, 1f), new Vector2(1f, 0f));
         else Graphics.Blit(mWebcam, mFlipped, new Vector2(1f, -1f), new Vector2(0f, 1f));
         RenderTexture previous = RenderTexture.active;
         RenderTexture.active = mFlipped;
@@ -249,7 +347,7 @@ public class BuildWebcamDriver : MonoBehaviour
     {
         VuforiaApplication.Instance.OnVuforiaStarted -= OnStarted;
         VuforiaApplication.Instance.OnVuforiaStopped -= OnStopped;
-        if (mWebcam != null) mWebcam.Stop();
+        StopWebcam();
         if (mPixelsHandle.IsAllocated) mPixelsHandle.Free();
         if (mImagePtr != IntPtr.Zero) Marshal.FreeHGlobal(mImagePtr);
         if (mBrightness != null) Destroy(mBrightness);

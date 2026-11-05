@@ -11,8 +11,8 @@ using UnityEngine.UI;
  the overlays drawn on top) is checked; an area that moves away from how it usually looks has a
  hand over it. Holding a hand on one button for holdSeconds runs it. In the Draw
  Phase, or after an Energy Blast, a hand going onto the deck and away again counts as the draw: the camera can't see one card
- leave a face-down deck, but it can see the hand. CardBackTracker losing and finding the deck's
- card back counts the same. In the Ride Phase a hand going onto the ride deck and away is a card
+ leave a face-down deck, but it can see the hand (fingers on part of it are enough, and taking the
+ top card may leave it looking a little different). In the Ride Phase a hand going onto the ride deck and away is a card
  taken from it, so the ride counts as from the ride deck (RulesEngine.RideDeckTouched). H shows what the check sees. Added by UISetup. Its UI is built in HandZones.UI.cs. */
 public partial class HandZones : MonoBehaviour
 {
@@ -30,7 +30,11 @@ public partial class HandZones : MonoBehaviour
     [Tooltip("Seconds a hand must stay on a button before it runs.")]
     public float holdSeconds = 0.8f;
     [Tooltip("Shortest hand-on-deck that counts as a draw, so a hand passing over it doesn't.")]
-    public float minDeckTouchSeconds = 0.4f;
+    public float minDeckTouchSeconds = 0.25f;
+    [Tooltip("Of the deck's (or ride deck's) cells, to count as a hand on it: fingers taking the top card cover less than a hand on a button.")]
+    [Range(0.1f, 1f)] public float deckCoveredFraction = 0.3f;
+    [Tooltip("The deck clears when its change drops to this share of the most it changed while covered: the card taken leaves it looking a little different.")]
+    [Range(0.1f, 0.9f)] public float deckClearShare = 0.45f;
     [Tooltip("How far apart in seconds the hand on the deck and its card back going out of view may be and still be one draw.")]
     public float deckTouchTolerance = 0.5f;
     [Tooltip("Covered longer than this isn't a gesture (e.g. something left on it); it does nothing until it clears.")]
@@ -73,6 +77,7 @@ public partial class HandZones : MonoBehaviour
         public bool fired; // ran during this cover; it has to clear before running again
         public bool shown;
         public float changed; // last fraction of cells away from the normal look, for the preview
+        public float peak; // the most it changed during this cover
         public Color[] lastCells; // the previous sample, to tell a still card from a moving hand
         public Color[] previousBaseline; // the normal look before the last settle, in case what settled leaves again
         public float shownSince; // Time.time it last lit up
@@ -179,22 +184,18 @@ public partial class HandZones : MonoBehaviour
         TryCountDraw();
     }
 
-    /* The draw counts only for a touch that starts after the Draw Phase does. When the deck's card
-     back is being followed, it needs both the hand over the deck and the card back going out of view
-     at about the same time: either alone is also what glare or Vuforia losing the card looks like.
-     Without the card back (not tracked), the hand alone counts. */
+    /* The draw counts for a hand on the deck and off again, after the Draw Phase (or the draw that's
+     due) starts. It used to need the deck's card back going out of view as well, when that's
+     followed, but the next card has the same back, so Vuforia often kept seeing one and the draw was
+     missed. The card back is now only noted in the log; this is only watched while a draw is due. */
     void TryCountDraw()
     {
-        bool hand = mHandTouch is Vector2 h && h.x >= mDrawWatchStart;
-        bool back = mBackTouch is Vector2 b && b.x >= mDrawWatchStart;
+        if (!(mHandTouch is Vector2 h) || h.x < mDrawWatchStart) return;
 
         CardBackTracker backs = CardBackTracker.Instance;
-        bool backFollowed = backs != null && Time.time - backs.DeckLastSeen(mDeckKey) < 10f;
-
-        bool backHidden = hand && backs != null &&
-            backs.DeckHiddenDuring(mDeckKey, mHandTouch.Value.x - deckTouchTolerance, mHandTouch.Value.y + deckTouchTolerance);
-        if (backFollowed ? hand && (backHidden || (back && Overlap(mHandTouch.Value, mBackTouch.Value))) : hand)
-            DrawFromDeck(backFollowed ? "hand over the deck and its card back hidden" : "hand over the deck");
+        bool backHidden = backs != null && backs.DeckHiddenDuring(mDeckKey, h.x - deckTouchTolerance, h.y + deckTouchTolerance);
+        bool back = mBackTouch is Vector2 b && b.x >= mDrawWatchStart && Overlap(h, b);
+        DrawFromDeck(backHidden || back ? "hand over the deck and its card back hidden" : "hand over the deck");
     }
 
     bool Overlap(Vector2 a, Vector2 b) => a.x <= b.y + deckTouchTolerance && b.x <= a.y + deckTouchTolerance;
@@ -468,7 +469,8 @@ public partial class HandZones : MonoBehaviour
 
         if (!area.covered)
         {
-            if (armed && changed >= (area.pickZone != null ? pickCoveredFraction : coveredFraction))
+            float cover = area.pickZone != null ? pickCoveredFraction : area.isDeck || area.isRideDeck ? deckCoveredFraction : coveredFraction;
+            if (armed && changed >= cover)
             {
                 // Back to the look before the last settle (an arm that stayed still has gone): normal again, not covered
                 if (area.previousBaseline != null && ChangedFraction(cells, area.previousBaseline, shift) <= clearFraction)
@@ -480,18 +482,31 @@ public partial class HandZones : MonoBehaviour
                 area.covered = true;
                 area.coveredSince = now;
                 area.fired = false;
+                area.peak = changed;
             }
             else area.baseline = Blend(area.baseline, cells, Adapt);
             return;
         }
 
-        // A circle clears lower than it covers, or a fingertip near the line flickers and its hold keeps starting over
-        if (changed <= (area.pickZone != null ? Mathf.Min(clearFraction, pickCoveredFraction * 0.5f) : clearFraction))
+        area.peak = Mathf.Max(area.peak, changed);
+
+        /* A circle clears lower than it covers, or a fingertip near the line flickers and its hold keeps
+         starting over. A deck clears once most of the change has gone: taking its top card shifts the
+         stack, so it never quite looks as before, and that look becomes its normal one */
+        bool pile = area.isDeck || area.isRideDeck;
+        float clear = area.pickZone != null ? Mathf.Min(clearFraction, pickCoveredFraction * 0.5f)
+            : pile ? Mathf.Max(clearFraction, area.peak * deckClearShare) : clearFraction;
+        if (changed <= clear)
         {
             area.covered = false;
-            // Deck: on and off again, one half of the draw (TryCountDraw)
+            if (pile && changed > clearFraction)
+            {
+                area.baseline = (Color[])cells.Clone();
+                area.baselineSince = now - ArmSeconds; // armed straight away, for the next touch
+            }
+            // Deck: on and off again, if it wasn't counted while the hand was still on it
             float held = now - area.coveredSince;
-            if (area.isDeck && area.shown && held >= minDeckTouchSeconds && held < maxCoverSeconds)
+            if (area.isDeck && area.shown && !area.fired && held >= minDeckTouchSeconds && held < maxCoverSeconds)
             {
                 mHandTouch = new Vector2(area.coveredSince, now);
                 TryCountDraw();
@@ -502,6 +517,17 @@ public partial class HandZones : MonoBehaviour
         }
 
         if (now - area.coveredSince >= maxCoverSeconds) area.fired = true;
+
+        /* Deck: a hand on it for minDeckTouchSeconds is the draw, straight away. Waiting for it to leave
+         felt slow, as a hand often lingers over the deck holding the card. Only watched while a draw is
+         due, so it's what the hand is there for; a hand already on it as the draw came due must lift first */
+        if (area.isDeck && area.shown && !area.fired && now - area.coveredSince >= minDeckTouchSeconds)
+        {
+            area.fired = true;
+            mHandTouch = new Vector2(area.coveredSince, now);
+            TryCountDraw();
+            return;
+        }
 
         // A finger on a lit circle: the arm reaching it covers circles on the way, so the one furthest out is the fingertip
         if (area.pickZone != null)
@@ -562,8 +588,8 @@ public partial class HandZones : MonoBehaviour
         mBackTouch = null;
     }
 
-    // A draw outside the Draw Phase: the Energy Blast's, or a skill's
-    bool ExtraDrawDue => mRules != null && (mRules.EnergyDrawDue || mRules.SkillDrawDue);
+    // A draw outside the Draw Phase: Persona Ride's, the Energy Blast's, or a skill's
+    bool ExtraDrawDue => mRules != null && (mRules.PersonaDrawDue || mRules.EnergyDrawDue || mRules.SkillDrawDue);
 
     // Once per Draw Phase; an Energy Blast or skill draw clears ExtraDrawDue as it's counted
     void DrawFromDeck(string seen)

@@ -1,10 +1,11 @@
-// BuildWebcamDriver's copy of a webcam frame: flipped top row first, brightness scaled by _Gain
+// BuildWebcamDriver's copy of a webcam frame: flipped top row first (or turned 180° with _UpsideDown), brightness scaled by _Gain
 Shader "Hidden/CameraBrightness"
 {
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Gain ("Gain", Float) = 1
+        _UpsideDown ("Upside down", Float) = 0
     }
     SubShader
     {
@@ -19,6 +20,7 @@ Shader "Hidden/CameraBrightness"
 
             sampler2D _MainTex;
             float _Gain;
+            float _UpsideDown; // 1 for a webcam mounted upside down
 
             struct v2f
             {
@@ -30,7 +32,8 @@ Shader "Hidden/CameraBrightness"
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.uv = float2(v.texcoord.x, 1 - v.texcoord.y);
+                // Top row first; a camera upside down is turned 180°, which mirrors it left to right instead
+                o.uv = lerp(float2(v.texcoord.x, 1 - v.texcoord.y), float2(1 - v.texcoord.x, v.texcoord.y), _UpsideDown);
                 return o;
             }
 

@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/* Switches builds between full screen and a window (GameSettings.FullScreen): the in-game Settings
- menu's button, or F11 in any scene. The saved choice is applied at start-up; before one is saved
+/* Switches builds between full screen and a window (GameSettings.FullScreen): the Display button in
+ the Settings menus (SettingsMenu in a match, SceneSettings elsewhere), or F11 in any scene. The saved choice is applied at start-up; before one is saved
  the Player Settings' mode stands. */
 public class WindowMode : MonoBehaviour
 {

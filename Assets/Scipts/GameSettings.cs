@@ -8,6 +8,7 @@ public static class GameSettings
     const string FontScaleKey = "Settings.FontScale";
     const string RotateViewKey = "Settings.RotateView";
     const string CameraBrightnessKey = "Settings.CameraBrightness";
+    const string CameraUpsideDownKey = "Settings.CameraUpsideDown";
     const string FullScreenKey = "Settings.FullScreen";
 
     public const float MinFontScale = 0.8f;
@@ -53,6 +54,21 @@ public static class GameSettings
         set
         {
             PlayerPrefs.SetFloat(CameraBrightnessWindowKey, Mathf.Clamp01(value));
+            Changed?.Invoke();
+        }
+    }
+
+    /* Builds' webcam picture turned 180° before Vuforia sees it (BuildWebcamDriver), for a webcam
+     mounted upside down. Per window like RotateView */
+    static string sCameraUpsideDownWindowKey; // read every frame, so worked out once
+    static string CameraUpsideDownWindowKey => sCameraUpsideDownWindowKey ??=
+        CameraUpsideDownKey + (CameraChoice.WindowId == "Main" ? "" : "." + CameraChoice.WindowId);
+    public static bool CameraUpsideDown
+    {
+        get => PlayerPrefs.GetInt(CameraUpsideDownWindowKey, 0) == 1;
+        set
+        {
+            PlayerPrefs.SetInt(CameraUpsideDownWindowKey, value ? 1 : 0);
             Changed?.Invoke();
         }
     }

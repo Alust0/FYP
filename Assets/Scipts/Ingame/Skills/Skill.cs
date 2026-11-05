@@ -20,7 +20,7 @@ public enum PlayerOrder { Any, First, Second }
  steps; the ones it can't do or see are left to the player (ManualStep). */
 public abstract class Skill
 {
-    // Shown to players, so English when the card has it, even when parsed from the Japanese
+    // Shown to players,English even when parsed from the Japanese cards
     public string Text { get; internal set; } // everything after the marker, as the card database has it
     public string Effect { get; internal set; } // the text without its costs: what the player does once they're paid
     public string Circle { get; } // "VC", "RC", "GC", or a zone ("Soul", "Drop", "Hand"...) from its header; null for any

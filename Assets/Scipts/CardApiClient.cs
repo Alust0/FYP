@@ -135,8 +135,9 @@ namespace Vanguard.Api
                 card.hasSentinel = true;
             }
 
-            // Check for Persona Ride icon mention
-            if (card.abilityText.Contains("Persona Ride") || card.abilityText.Contains("ペルソナライド"))
+            // Persona Ride icon: the scraped data lists it with Twin Drive in the skill field, not the effect
+            string icons = (skill ?? "") + " " + (skill_en ?? "") + " " + card.abilityText;
+            if (icons.Contains("Persona Ride") || icons.Contains("ペルソナライド"))
             {
                 card.hasPersonaRideIcon = true;
             }

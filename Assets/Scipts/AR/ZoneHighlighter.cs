@@ -9,13 +9,15 @@ using UnityEngine.UI;
  arrow from where they are, and the drop zone lights up in the arrow's colour; a ride from the ride
  deck, which the camera doesn't read, lights it in the arrow's colour with an arrow to the vanguard
  circle, lit yellow; a Soul Blast paid, an arrow from the vanguard to the drop zone. A boost: green
- chevrons running from the booster up to the unit it boosts (RulesEngine.BoostArrow). Online only this PC's
+ chevrons running from the booster up to the unit it boosts (RulesEngine.BoostArrow); a guardian, yellow
+ ones from the Guardian circle to the unit it guards (RulesEngine.GuardArrow). Online only this PC's
  own side; Over The Board, both. Added by UISetup. Its UI is built in ZoneHighlighter.UI.cs. */
 public partial class ZoneHighlighter : MonoBehaviour
 {
     public Color zoneColor = new Color(1f, 0.82f, 0.2f);
     public Color arrowColor = new Color(1f, 0.42f, 0.3f);
     public Color boostColor = new Color(0.35f, 1f, 0.45f);
+    public Color guardColor = new Color(1f, 0.9f, 0.2f);
 
     class Highlight
     {
@@ -34,6 +36,7 @@ public partial class ZoneHighlighter : MonoBehaviour
     readonly List<Highlight> mHighlights = new List<Highlight>();
     readonly List<Arrow> mArrows = new List<Arrow>();
     BoostArrow mBoost;
+    BoostArrow mGuard; // the same chevrons in yellow, from the Guardian circle to the guarded unit
     readonly Dictionary<string, Color> mZones = new Dictionary<string, Color>();
     RectTransform mCanvas;
     RulesEngine mRules;
@@ -48,7 +51,7 @@ public partial class ZoneHighlighter : MonoBehaviour
         Camera cam = Camera.main;
         mZones.Clear();
         int arrows = 0;
-        bool boosting = false;
+        bool boosting = false, guarding = false;
 
         if (mRules != null && mBoard != null && cam != null)
         {
@@ -80,8 +83,18 @@ public partial class ZoneHighlighter : MonoBehaviour
                 mBoard.TryGetZoneViewRect(Key(boost.Value.owner, boost.Value.to), cam, out Rect boostedView))
             {
                 if (mBoost == null) mBoost = BuildBoostArrow();
-                ShowBoost(mBoost, ToPixels(px, boosterView), ToPixels(px, boostedView));
+                ShowBoost(mBoost, ToPixels(px, boosterView), ToPixels(px, boostedView), boostColor);
                 boosting = true;
+            }
+
+            var guard = mRules.GuardArrow;
+            if (guard != null && Shown(guard.Value.owner) &&
+                mBoard.TryGetZoneViewRect(Key(guard.Value.owner, guard.Value.from), cam, out Rect guardianView) &&
+                mBoard.TryGetZoneViewRect(Key(guard.Value.owner, guard.Value.to), cam, out Rect guardedView))
+            {
+                if (mGuard == null) mGuard = BuildBoostArrow();
+                ShowBoost(mGuard, ToPixels(px, guardianView), ToPixels(px, guardedView), guardColor);
+                guarding = true;
             }
 
             int used = 0;
@@ -98,6 +111,7 @@ public partial class ZoneHighlighter : MonoBehaviour
         for (int i = arrows; i < mArrows.Count; i++)
             if (mArrows[i].root.gameObject.activeSelf) mArrows[i].root.gameObject.SetActive(false);
         if (!boosting && mBoost != null && mBoost.root.gameObject.activeSelf) mBoost.root.gameObject.SetActive(false);
+        if (!guarding && mGuard != null && mGuard.root.gameObject.activeSelf) mGuard.root.gameObject.SetActive(false);
     }
 
     static bool Shown(PlayerState owner) => owner != null && (!MatchSession.IsOnline || MatchSession.IsLocal(owner));
@@ -128,8 +142,8 @@ public partial class ZoneHighlighter : MonoBehaviour
         h.ripple.color = color;
     }
 
-    // Centre to centre: a faint track with chevrons running along it to the boosted unit, fading in and out at the ends
-    void ShowBoost(BoostArrow boost, Rect from, Rect to)
+    // Centre to centre: a faint track with chevrons running along it to the boosted (or guarded) unit, fading in and out at the ends
+    void ShowBoost(BoostArrow boost, Rect from, Rect to, Color color)
     {
         if (!boost.root.gameObject.activeSelf) boost.root.gameObject.SetActive(true);
         Vector2 direction = (to.center - from.center).normalized;
@@ -137,14 +151,14 @@ public partial class ZoneHighlighter : MonoBehaviour
         boost.root.anchoredPosition = from.center;
         boost.root.sizeDelta = new Vector2(length, ArrowThickness);
         boost.root.localEulerAngles = new Vector3(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
-        boost.track.color = new Color(boostColor.r, boostColor.g, boostColor.b, 0.3f);
+        boost.track.color = new Color(color.r, color.g, color.b, 0.3f);
 
         for (int i = 0; i < boost.chevrons.Length; i++)
         {
             float along = Mathf.Repeat(Time.unscaledTime / BoostRunSeconds + i / (float)boost.chevrons.Length, 1f);
             boost.chevrons[i].anchoredPosition = new Vector2(along * length, 0f);
-            Color color = new Color(boostColor.r, boostColor.g, boostColor.b, Mathf.Sin(along * Mathf.PI));
-            foreach (Image part in boost.parts[i]) part.color = color;
+            Color shade = new Color(color.r, color.g, color.b, Mathf.Sin(along * Mathf.PI));
+            foreach (Image part in boost.parts[i]) part.color = shade;
         }
     }
 

@@ -80,7 +80,13 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         public bool isDeckCopy; // one of several deck targets with the same picture, for identical cards
         public float lastSeenTime = float.NegativeInfinity; // Time.time of its last tracked frame
         public bool reportedOutside; // logged once as seen but outside every zone
+        public bool waitForLift; // put back by Undo: not reported again until lifted or moved
+        public string liftZoneKey; // the zone it sat in then
     }
+
+    // Matches no zone, so wherever a card put back by Undo is seen next counts as a move
+    const string PutBackKey = "(put back)";
+    const float LiftSeconds = 0.5f; // out of view this long after an Undo: picked up
 
     // Keyed by Cloud Reco's UniqueTargetId, or "Deck_" + card number + "#" + copy for deck targets
     readonly Dictionary<string, TrackedCard> mTrackedCards = new Dictionary<string, TrackedCard>();
@@ -104,6 +110,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     void OnEnable()
     {
         sAll.Add(this);
+        GameState.OnCardPutBack += OnCardPutBack;
         if (!useCloudReco) return;
 
         foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
@@ -132,6 +139,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     void OnDisable()
     {
         sAll.Remove(this);
+        GameState.OnCardPutBack -= OnCardPutBack;
         foreach (Action unregister in mUnregisterHandlers) unregister();
         mUnregisterHandlers.Clear();
     }
@@ -334,11 +342,17 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
             UpdateFacing(tracked, cam);
             if (!tracked.hasPose)
             {
+                if (tracked.waitForLift && Time.time - tracked.lastSeenTime >= LiftSeconds) tracked.waitForLift = false;
                 LeaveIfGone(tracked);
                 continue;
             }
 
             if (tracked.insideBorder) UpdateOrientation(tracked, cam); // a card in hand isn't standing or resting
+            if (tracked.waitForLift)
+            {
+                if (ZoneUnder(tracked, cam) == tracked.liftZoneKey) continue; // still lying where it was
+                tracked.waitForLift = false;
+            }
             UpdateZone(tracked, cam); // also takes it off the board once it has left
         }
     }
@@ -545,6 +559,27 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     {
         float step = 0.05f * Vector3.Distance(cam.transform.position, origin);
         return (Vector2)(cam.WorldToScreenPoint(origin + direction * step) - cam.WorldToScreenPoint(origin));
+    }
+
+    /* Undo put this card back where the rules had it (GameState.PutBackQuietly). It still lies where it
+     was on the mat, so nothing's reported until it's picked up or moved; then wherever it's seen is a move */
+    void OnCardPutBack(CardInstance card)
+    {
+        foreach (TrackedCard tracked in mTrackedCards.Values)
+        {
+            if (tracked.instance != card) continue;
+            if (!tracked.waitForLift) tracked.liftZoneKey = tracked.currentZoneKey; // a second Undo keeps the zone it lies in
+            tracked.waitForLift = true;
+            tracked.currentZoneKey = PutBackKey;
+            tracked.pendingZoneKey = PutBackKey;
+        }
+    }
+
+    // The board zone under the card's on-screen center, or null
+    string ZoneUnder(TrackedCard tracked, Camera cam)
+    {
+        Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
+        return screen.z > 0f ? board.ZoneAtScreenPoint(screen, cam, tracked.liftZoneKey) : null;
     }
 
     // Moves the card into whichever board zone its on-screen center falls in

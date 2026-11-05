@@ -1,0 +1,288 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="680" viewBox="0 0 1260 680">
+<defs>
+<filter id="sh" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1f2a44" flood-opacity="0.14"/></filter>
+<style>
+text { font-family: "Segoe UI", Arial, sans-serif; dominant-baseline: central; }
+.th { font-size: 15.5px; font-weight: 600; fill: #fff; letter-spacing: .2px; }
+.fn { font-size: 14px; fill: #1f2937; }
+.pk { font-weight: 700; }
+.ty { font-family: Consolas, "Courier New", monospace; font-size: 12.5px; fill: #6b7280; text-anchor: end; }
+.badge { font-size: 9.5px; font-weight: 700; text-anchor: middle; }
+.lg { font-size: 13px; fill: #374151; }
+.note { fill: #6b7280; font-style: italic; }
+</style>
+</defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<path d="M480,120.0 L432.0,120.0 Q425,120.0 425.0,127.0 L425.0,405.0 Q425,412.0 418.0,412.0 L370,412.0" fill="none" stroke="#3a6ea5" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M480,148.0 L432.0,148.0 Q425,148.0 425.0,155.0 L425.0,405.0 Q425,412.0 418.0,412.0 L370,412.0" fill="none" stroke="#3a6ea5" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M480,176.0 L432.0,176.0 Q425,176.0 425.0,183.0 L425.0,405.0 Q425,412.0 418.0,412.0 L370,412.0" fill="none" stroke="#3a6ea5" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M480,440.0 L432.0,440.0 Q425,440.0 425.0,433.0 L425.0,419.0 Q425,412.0 418.0,412.0 L370,412.0" fill="none" stroke="#3a6ea5" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M80,180.0 L47.0,180.0 Q40,180.0 40.0,187.0 L40.0,405.0 Q40,412.0 47.0,412.0 L80,412.0" fill="none" stroke="#3a6ea5" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M770,204.0 L818.0,204.0 Q825,204.0 825.0,211.0 L825.0,405.0 Q825,412.0 818.0,412.0 L770,412.0" fill="none" stroke="#ffffff" stroke-width="8"/>
+<path d="M770,232.0 L818.0,232.0 Q825,232.0 825.0,239.0 L825.0,405.0 Q825,412.0 818.0,412.0 L770,412.0" fill="none" stroke="#ffffff" stroke-width="8"/>
+<path d="M880,500.0 L832.0,500.0 Q825,500.0 825.0,493.0 L825.0,419.0 Q825,412.0 818.0,412.0 L770,412.0" fill="none" stroke="#ffffff" stroke-width="8"/>
+<path d="M770,204.0 L818.0,204.0 Q825,204.0 825.0,211.0 L825.0,405.0 Q825,412.0 818.0,412.0 L770,412.0" fill="none" stroke="#2c8c7c" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M770,232.0 L818.0,232.0 Q825,232.0 825.0,239.0 L825.0,405.0 Q825,412.0 818.0,412.0 L770,412.0" fill="none" stroke="#2c8c7c" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M880,500.0 L832.0,500.0 Q825,500.0 825.0,493.0 L825.0,419.0 Q825,412.0 818.0,412.0 L770,412.0" fill="none" stroke="#2c8c7c" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M1170,528.0 L1208.0,528.0 Q1215,528.0 1215.0,521.0 L1215.0,99.0 Q1215,92.0 1208.0,92.0 L1170,92.0" fill="none" stroke="#ffffff" stroke-width="8"/>
+<path d="M1170,528.0 L1208.0,528.0 Q1215,528.0 1215.0,521.0 L1215.0,99.0 Q1215,92.0 1208.0,92.0 L1170,92.0" fill="none" stroke="#b7791f" stroke-width="1.6" stroke-linejoin="round"/>
+<g filter="url(#sh)"><rect x="80" y="360" width="290" height="150" rx="7" fill="#fff"/></g>
+<clipPath id="c_users"><rect x="80" y="360" width="290" height="150" rx="7"/></clipPath>
+<g clip-path="url(#c_users)">
+<rect x="80" y="360" width="290" height="38" fill="#2f4f7f"/>
+<rect x="80" y="426" width="290" height="28" fill="#f5f7fb"/>
+<line x1="80" y1="426" x2="370" y2="426" stroke="#e6eaf0"/>
+<line x1="80" y1="454" x2="370" y2="454" stroke="#e6eaf0"/>
+<rect x="80" y="482" width="290" height="28" fill="#f5f7fb"/>
+<line x1="80" y1="482" x2="370" y2="482" stroke="#e6eaf0"/>
+</g>
+<rect x="80" y="360" width="290" height="150" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="94" y="379.0" class="th">users</text>
+<rect x="90" y="404.0" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="102.5" y="412.0" class="badge" fill="#5a4300">PK</text>
+<text x="124" y="412.0" class="fn pk">uid</text>
+<text x="358" y="412.0" class="ty">varchar</text>
+<text x="124" y="440.0" class="fn">email</text>
+<text x="358" y="440.0" class="ty">varchar</text>
+<text x="124" y="468.0" class="fn">passwordHash</text>
+<text x="358" y="468.0" class="ty">varchar</text>
+<text x="124" y="496.0" class="fn">createdAt</text>
+<text x="358" y="496.0" class="ty">timestamp</text><g filter="url(#sh)"><rect x="80" y="100" width="290" height="206" rx="7" fill="#fff"/></g>
+<clipPath id="c_profiles"><rect x="80" y="100" width="290" height="206" rx="7"/></clipPath>
+<g clip-path="url(#c_profiles)">
+<rect x="80" y="100" width="290" height="38" fill="#2f4f7f"/>
+<rect x="80" y="166" width="290" height="28" fill="#f5f7fb"/>
+<line x1="80" y1="166" x2="370" y2="166" stroke="#e6eaf0"/>
+<line x1="80" y1="194" x2="370" y2="194" stroke="#e6eaf0"/>
+<rect x="80" y="222" width="290" height="28" fill="#f5f7fb"/>
+<line x1="80" y1="222" x2="370" y2="222" stroke="#e6eaf0"/>
+<line x1="80" y1="250" x2="370" y2="250" stroke="#e6eaf0"/>
+<rect x="80" y="278" width="290" height="28" fill="#f5f7fb"/>
+<line x1="80" y1="278" x2="370" y2="278" stroke="#e6eaf0"/>
+</g>
+<rect x="80" y="100" width="290" height="206" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="94" y="119.0" class="th">profiles</text>
+<rect x="90" y="144.0" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="102.5" y="152.0" class="badge" fill="#5a4300">PK</text>
+<text x="124" y="152.0" class="fn pk">profileId</text>
+<text x="358" y="152.0" class="ty">varchar</text>
+<rect x="90" y="172.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="102.5" y="180.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="124" y="180.0" class="fn">uid</text>
+<text x="358" y="180.0" class="ty">varchar</text>
+<text x="124" y="208.0" class="fn">displayName</text>
+<text x="358" y="208.0" class="ty">varchar</text>
+<text x="124" y="236.0" class="fn">avatarUrl</text>
+<text x="358" y="236.0" class="ty">varchar</text>
+<text x="124" y="264.0" class="fn">wins</text>
+<text x="358" y="264.0" class="ty">integer</text>
+<text x="124" y="292.0" class="fn">losses</text>
+<text x="358" y="292.0" class="ty">integer</text><g filter="url(#sh)"><rect x="480" y="40" width="290" height="262" rx="7" fill="#fff"/></g>
+<clipPath id="c_match_history"><rect x="480" y="40" width="290" height="262" rx="7"/></clipPath>
+<g clip-path="url(#c_match_history)">
+<rect x="480" y="40" width="290" height="38" fill="#2f4f7f"/>
+<rect x="480" y="106" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="106" x2="770" y2="106" stroke="#e6eaf0"/>
+<line x1="480" y1="134" x2="770" y2="134" stroke="#e6eaf0"/>
+<rect x="480" y="162" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="162" x2="770" y2="162" stroke="#e6eaf0"/>
+<line x1="480" y1="190" x2="770" y2="190" stroke="#e6eaf0"/>
+<rect x="480" y="218" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="218" x2="770" y2="218" stroke="#e6eaf0"/>
+<line x1="480" y1="246" x2="770" y2="246" stroke="#e6eaf0"/>
+<rect x="480" y="274" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="274" x2="770" y2="274" stroke="#e6eaf0"/>
+</g>
+<rect x="480" y="40" width="290" height="262" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="494" y="59.0" class="th">match_history</text>
+<rect x="490" y="84.0" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="502.5" y="92.0" class="badge" fill="#5a4300">PK</text>
+<text x="524" y="92.0" class="fn pk">matchId</text>
+<text x="758" y="92.0" class="ty">varchar</text>
+<rect x="490" y="112.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="502.5" y="120.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="524" y="120.0" class="fn">player1Uid</text>
+<text x="758" y="120.0" class="ty">varchar</text>
+<rect x="490" y="140.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="502.5" y="148.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="524" y="148.0" class="fn">player2Uid</text>
+<text x="758" y="148.0" class="ty">varchar</text>
+<rect x="490" y="168.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="502.5" y="176.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="524" y="176.0" class="fn">winnerUid</text>
+<text x="758" y="176.0" class="ty">varchar</text>
+<rect x="490" y="196.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="502.5" y="204.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="524" y="204.0" class="fn">player1DeckId</text>
+<text x="758" y="204.0" class="ty">varchar</text>
+<rect x="490" y="224.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="502.5" y="232.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="524" y="232.0" class="fn">player2DeckId</text>
+<text x="758" y="232.0" class="ty">varchar</text>
+<text x="524" y="260.0" class="fn">durationSeconds</text>
+<text x="758" y="260.0" class="ty">integer</text>
+<text x="524" y="288.0" class="fn">playedAt</text>
+<text x="758" y="288.0" class="ty">timestamp</text><g filter="url(#sh)"><rect x="480" y="360" width="290" height="206" rx="7" fill="#fff"/></g>
+<clipPath id="c_decks"><rect x="480" y="360" width="290" height="206" rx="7"/></clipPath>
+<g clip-path="url(#c_decks)">
+<rect x="480" y="360" width="290" height="38" fill="#2f4f7f"/>
+<rect x="480" y="426" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="426" x2="770" y2="426" stroke="#e6eaf0"/>
+<line x1="480" y1="454" x2="770" y2="454" stroke="#e6eaf0"/>
+<rect x="480" y="482" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="482" x2="770" y2="482" stroke="#e6eaf0"/>
+<line x1="480" y1="510" x2="770" y2="510" stroke="#e6eaf0"/>
+<rect x="480" y="538" width="290" height="28" fill="#f5f7fb"/>
+<line x1="480" y1="538" x2="770" y2="538" stroke="#e6eaf0"/>
+</g>
+<rect x="480" y="360" width="290" height="206" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="494" y="379.0" class="th">decks</text>
+<rect x="490" y="404.0" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="502.5" y="412.0" class="badge" fill="#5a4300">PK</text>
+<text x="524" y="412.0" class="fn pk">deckId</text>
+<text x="758" y="412.0" class="ty">varchar</text>
+<rect x="490" y="432.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="502.5" y="440.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="524" y="440.0" class="fn">uid</text>
+<text x="758" y="440.0" class="ty">varchar</text>
+<text x="524" y="468.0" class="fn">deckName</text>
+<text x="758" y="468.0" class="ty">varchar</text>
+<text x="524" y="496.0" class="fn">isRideDeck</text>
+<text x="758" y="496.0" class="ty">boolean</text>
+<text x="524" y="524.0" class="fn">createdAt</text>
+<text x="758" y="524.0" class="ty">timestamp</text>
+<text x="524" y="552.0" class="fn">lastModified</text>
+<text x="758" y="552.0" class="ty">timestamp</text><g filter="url(#sh)"><rect x="880" y="40" width="290" height="318" rx="7" fill="#fff"/></g>
+<clipPath id="c_cards"><rect x="880" y="40" width="290" height="318" rx="7"/></clipPath>
+<g clip-path="url(#c_cards)">
+<rect x="880" y="40" width="290" height="38" fill="#2f4f7f"/>
+<rect x="880" y="106" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="106" x2="1170" y2="106" stroke="#e6eaf0"/>
+<line x1="880" y1="134" x2="1170" y2="134" stroke="#e6eaf0"/>
+<rect x="880" y="162" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="162" x2="1170" y2="162" stroke="#e6eaf0"/>
+<line x1="880" y1="190" x2="1170" y2="190" stroke="#e6eaf0"/>
+<rect x="880" y="218" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="218" x2="1170" y2="218" stroke="#e6eaf0"/>
+<line x1="880" y1="246" x2="1170" y2="246" stroke="#e6eaf0"/>
+<rect x="880" y="274" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="274" x2="1170" y2="274" stroke="#e6eaf0"/>
+<line x1="880" y1="302" x2="1170" y2="302" stroke="#e6eaf0"/>
+<rect x="880" y="330" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="330" x2="1170" y2="330" stroke="#e6eaf0"/>
+</g>
+<rect x="880" y="40" width="290" height="318" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="894" y="59.0" class="th">cards</text>
+<rect x="890" y="84.0" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="902.5" y="92.0" class="badge" fill="#5a4300">PK</text>
+<text x="924" y="92.0" class="fn pk">cardId</text>
+<text x="1158" y="92.0" class="ty">varchar</text>
+<text x="924" y="120.0" class="fn">name</text>
+<text x="1158" y="120.0" class="ty">varchar</text>
+<text x="924" y="148.0" class="fn">grade</text>
+<text x="1158" y="148.0" class="ty">integer</text>
+<text x="924" y="176.0" class="fn">power</text>
+<text x="1158" y="176.0" class="ty">integer</text>
+<text x="924" y="204.0" class="fn">critical</text>
+<text x="1158" y="204.0" class="ty">integer</text>
+<text x="924" y="232.0" class="fn">skillType</text>
+<text x="1158" y="232.0" class="ty">varchar</text>
+<text x="924" y="260.0" class="fn">triggerType</text>
+<text x="1158" y="260.0" class="ty">varchar</text>
+<text x="924" y="288.0" class="fn">nation</text>
+<text x="1158" y="288.0" class="ty">varchar</text>
+<text x="924" y="316.0" class="fn">clan</text>
+<text x="1158" y="316.0" class="ty">varchar</text>
+<text x="924" y="344.0" class="fn">imageUrl</text>
+<text x="1158" y="344.0" class="ty">varchar</text><g filter="url(#sh)"><rect x="880" y="420" width="290" height="150" rx="7" fill="#fff"/></g>
+<clipPath id="c_deck_cards"><rect x="880" y="420" width="290" height="150" rx="7"/></clipPath>
+<g clip-path="url(#c_deck_cards)">
+<rect x="880" y="420" width="290" height="38" fill="#2f4f7f"/>
+<rect x="880" y="486" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="486" x2="1170" y2="486" stroke="#e6eaf0"/>
+<line x1="880" y1="514" x2="1170" y2="514" stroke="#e6eaf0"/>
+<rect x="880" y="542" width="290" height="28" fill="#f5f7fb"/>
+<line x1="880" y1="542" x2="1170" y2="542" stroke="#e6eaf0"/>
+</g>
+<rect x="880" y="420" width="290" height="150" rx="7" fill="none" stroke="#b9c3d1" stroke-width="1.2"/>
+<text x="894" y="439.0" class="th">deck_cards</text>
+<rect x="890" y="464.0" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="902.5" y="472.0" class="badge" fill="#5a4300">PK</text>
+<text x="924" y="472.0" class="fn pk">deckCardId</text>
+<text x="1158" y="472.0" class="ty">varchar</text>
+<rect x="890" y="492.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="902.5" y="500.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="924" y="500.0" class="fn">deckId</text>
+<text x="1158" y="500.0" class="ty">varchar</text>
+<rect x="890" y="520.0" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="902.5" y="528.0" class="badge" fill="#1e4a8a">FK</text>
+<text x="924" y="528.0" class="fn">cardId</text>
+<text x="1158" y="528.0" class="ty">varchar</text>
+<text x="924" y="556.0" class="fn">quantity</text>
+<text x="1158" y="556.0" class="ty">integer</text>
+<line x1="480" y1="112.0" x2="466" y2="120.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="480" y1="128.0" x2="466" y2="120.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<circle cx="459" cy="120.0" r="5" fill="#fff" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="379" y1="405.0" x2="379" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="385" y1="405.0" x2="385" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="480" y1="140.0" x2="466" y2="148.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="480" y1="156.0" x2="466" y2="148.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<circle cx="459" cy="148.0" r="5" fill="#fff" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="379" y1="405.0" x2="379" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="385" y1="405.0" x2="385" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="480" y1="168.0" x2="466" y2="176.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="480" y1="184.0" x2="466" y2="176.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<circle cx="459" cy="176.0" r="5" fill="#fff" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="379" y1="405.0" x2="379" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="385" y1="405.0" x2="385" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="480" y1="432.0" x2="466" y2="440.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="480" y1="448.0" x2="466" y2="440.0" stroke="#3a6ea5" stroke-width="1.6"/>
+<circle cx="459" cy="440.0" r="5" fill="#fff" stroke="#3a6ea5" stroke-width="1.6"/>
+<line x1="379" y1="405.0" x2="379" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="385" y1="405.0" x2="385" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="71" y1="173.0" x2="71" y2="187.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="65" y1="173.0" x2="65" y2="187.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="71" y1="405.0" x2="71" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="65" y1="405.0" x2="65" y2="419.0" stroke="#3a6ea5" stroke-width="1.8"/>
+<line x1="770" y1="196.0" x2="784" y2="204.0" stroke="#2c8c7c" stroke-width="1.6"/>
+<line x1="770" y1="212.0" x2="784" y2="204.0" stroke="#2c8c7c" stroke-width="1.6"/>
+<circle cx="791" cy="204.0" r="5" fill="#fff" stroke="#2c8c7c" stroke-width="1.6"/>
+<line x1="779" y1="405.0" x2="779" y2="419.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="785" y1="405.0" x2="785" y2="419.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="770" y1="224.0" x2="784" y2="232.0" stroke="#2c8c7c" stroke-width="1.6"/>
+<line x1="770" y1="240.0" x2="784" y2="232.0" stroke="#2c8c7c" stroke-width="1.6"/>
+<circle cx="791" cy="232.0" r="5" fill="#fff" stroke="#2c8c7c" stroke-width="1.6"/>
+<line x1="779" y1="405.0" x2="779" y2="419.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="785" y1="405.0" x2="785" y2="419.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="880" y1="492.0" x2="866" y2="500.0" stroke="#2c8c7c" stroke-width="1.6"/>
+<line x1="880" y1="508.0" x2="866" y2="500.0" stroke="#2c8c7c" stroke-width="1.6"/>
+<line x1="861" y1="493.0" x2="861" y2="507.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="779" y1="405.0" x2="779" y2="419.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="785" y1="405.0" x2="785" y2="419.0" stroke="#2c8c7c" stroke-width="1.8"/>
+<line x1="1170" y1="520.0" x2="1184" y2="528.0" stroke="#b7791f" stroke-width="1.6"/>
+<line x1="1170" y1="536.0" x2="1184" y2="528.0" stroke="#b7791f" stroke-width="1.6"/>
+<circle cx="1191" cy="528.0" r="5" fill="#fff" stroke="#b7791f" stroke-width="1.6"/>
+<line x1="1179" y1="85.0" x2="1179" y2="99.0" stroke="#b7791f" stroke-width="1.8"/>
+<line x1="1185" y1="85.0" x2="1185" y2="99.0" stroke="#b7791f" stroke-width="1.8"/>
+<line x1="60" y1="614" x2="1190" y2="614" stroke="#e2e6ec"/>
+<rect x="80" y="632" width="25" height="16" rx="3" fill="#f3c64b"/>
+<text x="92.5" y="640" class="badge" fill="#5a4300">PK</text>
+<text x="113" y="640" class="lg">Primary key</text>
+<rect x="220" y="632" width="25" height="16" rx="3" fill="#dce7f7"/>
+<text x="232.5" y="640" class="badge" fill="#1e4a8a">FK</text>
+<text x="253" y="640" class="lg">Foreign key</text>
+<line x1="360" y1="640" x2="404" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="395" y1="633" x2="395" y2="647" stroke="#4b5563" stroke-width="1.8"/>
+<line x1="389" y1="633" x2="389" y2="647" stroke="#4b5563" stroke-width="1.8"/>
+<text x="414" y="640" class="lg">Exactly one</text>
+<line x1="525" y1="640" x2="569" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="569" y1="632" x2="555" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="569" y1="648" x2="555" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="550" y1="633" x2="550" y2="647" stroke="#4b5563" stroke-width="1.8"/>
+<text x="579" y="640" class="lg">One or many</text>
+<line x1="690" y1="640" x2="734" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="734" y1="632" x2="720" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<line x1="734" y1="648" x2="720" y2="640" stroke="#4b5563" stroke-width="1.6"/>
+<circle cx="713" cy="640" r="5" fill="#fff" stroke="#4b5563" stroke-width="1.6"/>
+<text x="744" y="640" class="lg">Zero or many</text>
+</svg>

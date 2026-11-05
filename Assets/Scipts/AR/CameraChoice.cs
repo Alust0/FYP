@@ -195,6 +195,42 @@ public static class CameraChoice
         }
     }
 
+    static bool sRefreshing; // the camera is off on purpose, so WatchForStall leaves it alone
+
+    public static bool Refreshing => sRefreshing;
+
+    /* The Settings menu's Refresh Camera: stops Vuforia's camera and starts it again, so webcam
+     settings changed meanwhile (the camera picked, focus, brightness, other programs' changes) take
+     effect, and OnVuforiaStarted listeners (UpgradeCameraQuality's focus and quality) run again.
+     In builds BuildWebcamDriver's webcam stops and starts with Vuforia. */
+    public static IEnumerator Refresh()
+    {
+        VuforiaBehaviour vuforia = VuforiaBehaviour.Instance;
+        if (sRefreshing || vuforia == null || !VuforiaApplication.Instance.IsInitialized) yield break;
+
+        sRefreshing = true;
+        if (Application.isEditor)
+        {
+            yield return WaitForCameraTurn();
+            Apply();
+        }
+        else yield return BuildWebcamDriver.Initialize(Current); // switches the driver's webcam if another was picked
+
+        // Builds wait longer: Windows can refuse a webcam started before it has let go of it (0x80028019)
+        vuforia.enabled = false;
+        yield return new WaitForSecondsRealtime(Application.isEditor ? 1f : 2f);
+        vuforia.enabled = true;
+
+        if (Application.isEditor)
+        {
+            yield return WaitForPictures(4f);
+            yield return SwitchIfWrong();
+            EndCameraTurn();
+        }
+        sRefreshing = false;
+        Debug.Log("[CameraChoice] " + WindowId + " window's camera refreshed.");
+    }
+
     const float StallSeconds = 2f;
     const int MaxRestarts = 3;
 
@@ -220,7 +256,7 @@ public static class CameraChoice
                 nextLookup = now + 1f;
             }
 
-            if (texture != null && texture.didUpdateThisFrame) lastFrame = now;
+            if ((texture != null && texture.didUpdateThisFrame) || sRefreshing) lastFrame = now;
 
             if (now - lastFrame > StallSeconds)
             {

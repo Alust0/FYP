@@ -61,13 +61,15 @@ public class OpponentFieldOverlay : MonoBehaviour
 
     RulesEngine mRules;
 
-    // A boosted attacker also shows the attack's power, e.g. "10000 (boosted 18000)"
+    // A boosted attacker or a guarded unit also shows the battle's power, e.g. "10000 (boosted 18000)"
     string Describe(CardInstance card)
     {
         if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
         CardInstance booster = mRules != null && mRules.Attacker == card ? mRules.Booster : null;
+        int shield = mRules != null ? mRules.GuardShield(card) : 0;
         return card.data.DisplayName + " <color=#ff8>" + card.TotalPower +
-            (booster != null ? " (boosted " + (card.TotalPower + booster.TotalPower) + ")" : "") + "</color>" +
+            (booster != null ? " (boosted " + (card.TotalPower + booster.TotalPower) + ")" : "") +
+            (shield > 0 ? " (guarded " + (card.TotalPower + shield) + ")" : "") + "</color>" +
             (card.orientation == CardOrientation.Rest ? " <color=#f88>[Rest]</color>" : "");
     }
 }

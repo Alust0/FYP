@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* Logs scene: the match logs MatchLogger saved (persistentDataPath/MatchLogs) on the left, newest
+/* Logs scene: the match logs MatchLogger saved for the logged-in account (MatchLogger.Folder) on the left, newest
  first, and the picked one on the right: its result (Win, Lose or Draw, the damage each player
  dealt and the time) over the log, coloured by kind of line. A filter and a search narrow the log
  down; Copy puts the whole file on the clipboard. Builds its own UI (MatchLog.UI.cs). */
@@ -71,11 +71,49 @@ public partial class MatchLog : MonoBehaviour
 
     void Start()
     {
-        mFolder = Path.Combine(Application.persistentDataPath, "MatchLogs");
+        mFolder = MatchLogger.Folder;
+        ClaimOldLogs();
         BuildUI();
         LoadFileList();
         if (mFiles.Count > 0) Open(mFiles[0]);
         else ShowLog();
+    }
+
+    /* Logs from before each account had its own folder lie loose in MatchLogs. One whose player on
+     this PC (the solo player, the seat in its name online, the first player for one PC) has this
+     account's name moves into this account's folder; the rest stay put, shown to no one */
+    void ClaimOldLogs()
+    {
+        string me = PlayerSession.Name;
+        if (me == "Player") return; // not logged in
+        try
+        {
+            if (!Directory.Exists(MatchLogger.RootFolder)) return;
+            foreach (string file in Directory.GetFiles(MatchLogger.RootFolder, "*.txt"))
+            {
+                string first;
+                using (StreamReader reader = OpenReader(file)) first = reader.ReadLine() ?? "";
+                if (!string.Equals(LocalPlayer(file, first), me, StringComparison.OrdinalIgnoreCase)) continue;
+
+                Directory.CreateDirectory(mFolder);
+                string to = Path.Combine(mFolder, Path.GetFileName(file));
+                if (!File.Exists(to)) File.Move(file, to);
+            }
+        }
+        catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+        {
+            Debug.LogWarning("[MatchLog] Couldn't sort the older logs: " + e.Message);
+        }
+    }
+
+    // Example: "Match started 2026-10-30 04:37, online room AB12C: Ali Vs Abu" and the file's "P2"
+    static string LocalPlayer(string file, string firstLine)
+    {
+        int at = firstLine.IndexOf(": ", StringComparison.Ordinal);
+        if (at < 0) return null;
+        string[] names = firstLine.Substring(at + 2).Split(new[] { " vs " }, StringSplitOptions.None);
+        int seat = Path.GetFileNameWithoutExtension(file).EndsWith(" P2") ? 1 : 0;
+        return names[Mathf.Min(seat, names.Length - 1)].Trim();
     }
 
     // The file list

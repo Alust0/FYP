@@ -57,6 +57,11 @@ public class RulesEngine : MonoBehaviour
     bool mRideDeckTouched; // a hand was seen taking a card off the ride deck this turn (HandZones)
     bool mRideDiscardNoted; // the discard for riding from the ride deck was seen before the ride, and said so
     string mRodeNumber; // card number of this turn's ride
+    bool mPersonaDrawDue; // Persona Ride's draw, its card not yet seen drawn
+    int mDeckAtPersonaDraw; // the deck count going down after the Persona Ride means its draw happened
+    float mGuardedAt = -100f; // when the latest guardian was placed, for its arrow (GuardArrow)
+    PlayerState mPersonaFrontRow; // Persona Rode this turn: their front row units get +10000 (PersonaBonus)
+    const int PersonaRidePower = 10000;
     CardInstance mDamageCheckCard; // the latest damage check card, highlighted on its way to the Damage zone
     readonly List<(CardInstance card, int power, int critical)> mBattleBonuses = new List<(CardInstance, int, int)>(); // skills' bonuses for this battle only
     readonly HashSet<(PlayerState, string)> mSetOrders = new HashSet<(PlayerState, string)>(); // set orders played this game, by card number
@@ -199,13 +204,33 @@ public class RulesEngine : MonoBehaviour
     public CardInstance Attacker => mAttacker;
     public CardInstance Booster => mAttacker != null ? mBooster : null;
 
-    // A unit's power as the battle has it: the attacker's includes its booster's (CardOverlayUI)
-    public int ShownPower(CardInstance card) => card.TotalPower + (card == mAttacker && mBooster != null ? mBooster.TotalPower : 0);
+    /* A unit's power as the battle has it: the attacker's includes its booster's, the attacked unit's
+     its guardians' shields (CardOverlayUI) */
+    public int ShownPower(CardInstance card) =>
+        card.TotalPower + (card == mAttacker && mBooster != null ? mBooster.TotalPower : 0) + GuardShield(card);
+
+    // Persona Ride's +10000 on a front-row unit of the player who did it this turn (CardInstance.AreaBonus)
+    int PersonaBonus(CardInstance card) =>
+        mPersonaFrontRow != null && card.zoneOwner == mPersonaFrontRow && System.Array.IndexOf(FrontRow, card.zone) >= 0 ? PersonaRidePower : 0;
+
+    // The guardians' shields if this unit is the one the current attack targets, else 0
+    public int GuardShield(CardInstance card)
+    {
+        if (mAttacker == null || card == null || gs.attackTarget == null) return 0;
+        PlayerState defender = gs.Opponent;
+        if (card != defender.CardOnCircle(gs.attackTarget)) return 0;
+        return defender.guardianCircle.Where(g => g != null).Sum(g => g.data.shield);
+    }
 
     // For a few seconds after a boost, from the booster's circle to the unit it boosts (ZoneHighlighter)
     public (PlayerState owner, string from, string to)? BoostArrow =>
         mAttacker != null && mBooster != null && mBooster.zone != null && Time.time - mBoostedAt < BoostArrowSeconds
             ? (mAttackerOwner, mBooster.zone, mAttackerZone) : ((PlayerState, string, string)?)null;
+
+    // The same after a guardian is placed, from the Guardian circle to the unit it guards
+    public (PlayerState owner, string from, string to)? GuardArrow =>
+        mAttacker != null && gs.attackTarget != null && Time.time - mGuardedAt < BoostArrowSeconds && gs.Opponent.guardianCircle.Any(g => g != null)
+            ? (gs.Opponent, "Guardian", gs.attackTarget) : ((PlayerState, string, string)?)null;
 
     // The attack's power meets the target's power plus the guardians' shields, as things stand
     public bool AttackHits
@@ -233,6 +258,8 @@ public class RulesEngine : MonoBehaviour
             if (Skills.Busy) return Skills.PromptWaiting;
             if (Skills.Stepping) return Skills.StepWaiting;
             PlayerState cp = gs.CurrentPlayer;
+            List<CardInstance> overGrade = OverGradeUnits(cp);
+            if (overGrade.Count > 0) return "Put " + overGrade[0].data.DisplayName + " back in your hand";
             switch (gs.currentPhase)
             {
                 case TurnPhase.StandPhase:
@@ -241,8 +268,10 @@ public class RulesEngine : MonoBehaviour
                 case TurnPhase.DrawPhase:
                     return mDrewThisTurn ? null : "Draw 1 card from your deck";
                 case TurnPhase.MainPhase:
+                    if (mPersonaDrawDue) return "Persona Ride: draw 1 card from your deck";
                     return mEnergyDrawDue ? "Energy Blast: draw 1 card from your deck" : null;
                 case TurnPhase.RidePhase:
+                    if (mPersonaDrawDue) return "Persona Ride: draw 1 card from your deck";
                     if (mRideCostDue) return "Discard 1 card to the drop zone (or Drop +; rode from hand? Ride +)";
                     if (!mRodeThisTurn) return strictPhases ? "Ride a unit on your vanguard" : "Ride, or Next Phase to skip";
                     return mRideLegal ? null : "Ride a grade " + RideFixGrade() + " unit instead" + (strictPhases ? "" : " (or Next Phase)");
@@ -279,6 +308,7 @@ public class RulesEngine : MonoBehaviour
         GameState.OnCardOrientationChanged += HandleOrientationChanged;
         GameState.OnCardFacingChanged += HandleFacingChanged;
         GameState.OnGameStateUpdated += HandleStateUpdated;
+        CardInstance.AreaBonus = PersonaBonus;
     }
 
     void OnDisable()
@@ -287,6 +317,7 @@ public class RulesEngine : MonoBehaviour
         GameState.OnCardOrientationChanged -= HandleOrientationChanged;
         GameState.OnCardFacingChanged -= HandleFacingChanged;
         GameState.OnGameStateUpdated -= HandleStateUpdated;
+        if (CardInstance.AreaBonus == (System.Func<CardInstance, int>)PersonaBonus) CardInstance.AreaBonus = null;
     }
 
     IEnumerator Start()
@@ -366,6 +397,15 @@ public class RulesEngine : MonoBehaviour
             Notice("Skill", Skills.PromptWaiting + " first.");
             return;
         }
+        // A unit called over the vanguard's grade by mistake goes back to the hand first
+        PlayerState turnPlayer = gs.CurrentPlayer;
+        List<CardInstance> overGrade = OverGradeUnits(turnPlayer);
+        if (overGrade.Count > 0)
+        {
+            ToDo("Rule check", turnPlayer.playerName + ": put " + string.Join(", ", overGrade.Select(c => c.data.DisplayName)) +
+                " back in your hand before moving on: a unit can't be called over your vanguard's grade.", () => OverGradeUnits(turnPlayer).Count > 0);
+            return;
+        }
         MatchLogger.Action(gs.CurrentPlayer.playerName + ": Next Phase in the " + PhaseName(gs.currentPhase));
 
         if (gs.currentPhase == TurnPhase.StandPhase)
@@ -398,7 +438,7 @@ public class RulesEngine : MonoBehaviour
         }
         if (strictPhases && gs.currentPhase == TurnPhase.RidePhase && !RideDone())
         {
-            ToDo("Ride Phase", gs.CurrentPlayer.playerName + ": " + (mRodeThisTurn ? "ride a grade " + RideFixGrade() + " unit instead" : "ride a unit on your vanguard") + " before moving on.",
+            ToDo("Ride Phase", gs.CurrentPlayer.playerName + ": " + (mPersonaDrawDue ? "draw 1 card for the Persona Ride" : mRodeThisTurn ? "ride a grade " + RideFixGrade() + " unit instead" : "ride a unit on your vanguard") + " before moving on.",
                 () => gs.currentPhase == TurnPhase.RidePhase && !RideDone());
             return;
         }
@@ -509,6 +549,8 @@ public class RulesEngine : MonoBehaviour
         mDecideAfterPick = null;
         mEnergyDrawn = false;
         mEnergyDrawDue = false;
+        mPersonaDrawDue = false;
+        mPersonaFrontRow = null;
         mEnergyChargeDue = true;
         Skills.NewTurn();
         EnterPhase(phase);
@@ -600,11 +642,15 @@ public class RulesEngine : MonoBehaviour
                 ChargeEnergy();
                 string energy = mEnergyCharged > 0 ? "+" + mEnergyCharged + " energy (now " + cp.CountInZone("Energy") + "). " : "";
                 string grades = "grade " + (rideTo > vgGrade ? vgGrade + " or " + rideTo : vgGrade.ToString());
+                // The camera sees one copy of a card, so another copy laid on the vanguard needs saying
+                string persona = PersonaRideVanguard(cp) != null
+                    ? " Persona Ride: put another " + cp.vanguardCircle.data.DisplayName + " on it and press Persona Ride (or say \"persona ride\")."
+                    : "";
                 // An unseen vanguard is still there, e.g. the starting one put down before the camera saw it
                 if (RideDiscardDue)
                     ToDo("Ride Phase", energy + cp.playerName + ": to ride from your ride deck, first discard 1 card from your hand to the drop zone. " +
                         "Or ride a " + grades + " unit from your hand.", () => RideDiscardDue);
-                else Notice("Ride Phase", energy + cp.playerName + ": you may ride 1 " + grades + " unit.");
+                else Notice("Ride Phase", energy + cp.playerName + ": you may ride 1 " + grades + " unit." + persona);
                 break;
 
             case TurnPhase.MainPhase:
@@ -796,9 +842,10 @@ public class RulesEngine : MonoBehaviour
     // This turn's Draw Phase draw is counted (HandZones); Undo puts it back
     public bool DrewThisTurn => mDrewThisTurn;
 
-    // This turn's ride is still to come and the ride deck has cards
+    /* This turn's ride is still to come and the ride deck has cards. Its last card is a grade 3, so
+     from a grade 3 vanguard on, rides are from hand and cost nothing, whatever the count says */
     public bool RideDeckRideDue => mStarted && !gs.gameOver && gs.currentPhase == TurnPhase.RidePhase && !mRodeThisTurn &&
-        gs.CurrentPlayer.CountInZone("RideDeck") > 0;
+        mGradeBeforeRide < 3 && gs.CurrentPlayer.CountInZone("RideDeck") > 0;
 
     // Riding from the ride deck costs a card from hand, discarded first: until it's in the drop zone, that's lit, not the ride deck
     public bool RideDiscardDue => RideDeckRideDue && gs.CurrentPlayer.CountInZone("Drop") <= mDropBeforeRide;
@@ -820,7 +867,7 @@ public class RulesEngine : MonoBehaviour
     void ChargeRideDeck(CardInstance card, PlayerState owner, int overGrade)
     {
         if (gs.currentPhase != TurnPhase.RidePhase || !KeepsCountFor(owner) || mRideDeckCharged) return;
-        if (card.data.grade != overGrade + 1 || owner.CountInZone("RideDeck") <= 0) return;
+        if (card.data.grade != overGrade + 1 || overGrade >= 3 || owner.CountInZone("RideDeck") <= 0) return;
         HashSet<string> rideDeck = mRideDecks[owner.playerIndex];
         if (!mRideDeckTouched && rideDeck.Count > 0 && !rideDeck.Contains(CardFirestoreDatabase.CardKey(card.data.cardNumber ?? ""))) return;
 
@@ -836,23 +883,85 @@ public class RulesEngine : MonoBehaviour
     void CheckPersonaRide(CardInstance card, CardInstance over)
     {
         if (card.data.cardName != over.data.cardName || !card.data.hasPersonaRideIcon || !over.data.hasPersonaRideIcon) return;
-        ApplyPower(card, 10000);
-        Skills.PersonaRode(card.zoneOwner);
+        PersonaRide(card);
+    }
+
+    /* Front row +10000 for the turn, its draw to come, and skills that ask "if you Persona Rode this
+     turn". The bonus goes with the circles, so units called or moved to the front row later get it too */
+    void PersonaRide(CardInstance card)
+    {
+        PlayerState owner = card.zoneOwner;
+        mPersonaFrontRow = owner;
+        Skills.PersonaRode(owner);
         GameState.OnPersonaRide?.Invoke(card.data.DisplayName);
+        if (!KeepsCountFor(owner)) return;
+        mPersonaDrawDue = true;
+        mDeckAtPersonaDraw = owner.CountInZone("Deck");
+        ToDo("Persona Ride", owner.playerName + ": draw 1 card from your deck.", () => mPersonaDrawDue);
+    }
+
+    // The vanguard a Persona Ride could go on: a grade 3 or higher with the icon
+    CardInstance PersonaRideVanguard(PlayerState player)
+    {
+        CardInstance vanguard = player?.vanguardCircle;
+        return vanguard != null && vanguard.data.grade >= 3 && vanguard.data.hasPersonaRideIcon ? vanguard : null;
+    }
+
+    // The Persona Ride button is worth showing: Ride Phase, not ridden yet, a vanguard that can be
+    public bool CanPersonaRide => mStarted && !gs.gameOver && gs.currentPhase == TurnPhase.RidePhase && !mRodeThisTurn &&
+        PersonaRideVanguard(gs.CurrentPlayer) != null;
+
+    public bool PersonaDrawDue => mPersonaDrawDue;
+
+    /* "persona ride" (voice or ActionButtons). Vuforia tracks one copy of a card, so another copy laid
+     on the vanguard is the same target in the same place: no move is seen. remote: the opponent's,
+     relayed online, whose phase sync may lag, so the phase isn't checked. */
+    public void DeclarePersonaRide(PlayerState who, bool remote = false)
+    {
+        if (!mStarted || gs.gameOver || who == null) return;
+        CardInstance vanguard = PersonaRideVanguard(who);
+        string wrong = who != gs.CurrentPlayer ? "Only the turn player rides."
+            : !remote && gs.currentPhase != TurnPhase.RidePhase ? "Persona Ride happens in the Ride Phase."
+            : mRodeThisTurn ? who.playerName + " has already ridden this turn."
+            : vanguard == null ? "The vanguard has to be a grade 3 or higher with the Persona Ride icon."
+            : null;
+        if (wrong != null)
+        {
+            Notice("Persona Ride", wrong);
+            return;
+        }
+
+        mRodeThisTurn = true;
+        mRideLegal = true;
+        mRideNeedsFix = false;
+        mRodeNumber = vanguard.data.cardNumber;
+        MatchLogger.Action(who.playerName + ": Persona Ride with " + vanguard.data.DisplayName);
+        PersonaRide(vanguard);
+        if (RideDone()) ScheduleAdvance(RideDone);
+        Skills.Happened(SkillTiming.RiddenUpon, vanguard, vanguard);
+        Skills.Happened(SkillTiming.PlacedOnVC, vanguard, vanguard);
     }
 
     void HandleStateUpdated(GameState state)
     {
         if (!mStarted || gs.gameOver) return;
-        bool energyDrawDue = mEnergyDrawDue; // one card drawn is one draw: the Energy Blast's first
+        bool extraDrawDue = mPersonaDrawDue || mEnergyDrawDue; // one card drawn is one draw: Persona Ride's, then the Energy Blast's, first
         CheckDrawn();
-        if (!energyDrawDue) Skills.Recheck();
+        if (!extraDrawDue) Skills.Recheck();
         CheckRideCostPaid();
     }
 
     // Draw Phase or Energy Blast: the deck count going down (HandZones seeing the draw, the Draw button or pad, Deck -)
     void CheckDrawn()
     {
+        if (mPersonaDrawDue && KeepsCountFor(gs.CurrentPlayer) && gs.CurrentPlayer.CountInZone("Deck") < mDeckAtPersonaDraw)
+        {
+            mPersonaDrawDue = false;
+            Notice("Persona Ride", gs.CurrentPlayer.playerName + " drew 1 card.");
+            if (gs.currentPhase == TurnPhase.RidePhase && RideDone()) ScheduleAdvance(RideDone);
+            return;
+        }
+
         if (mEnergyDrawDue && KeepsCountFor(gs.CurrentPlayer) && gs.CurrentPlayer.CountInZone("Deck") < mDeckAtEnergyDraw)
         {
             mEnergyDrawDue = false;
@@ -869,7 +978,7 @@ public class RulesEngine : MonoBehaviour
 
     bool AllStanding() => RestedUnits(gs.CurrentPlayer) == 0;
 
-    bool RideDone() => mRideLegal && !mRideCostDue;
+    bool RideDone() => mRideLegal && !mRideCostDue && !mPersonaDrawDue;
 
     /* After every board or count change while the ride deck cost is owed: a new card in the drop
      zone (seen, or Drop +) pays it, and Ride Deck + means the ride was from hand after all */
@@ -907,9 +1016,26 @@ public class RulesEngine : MonoBehaviour
         if (!isTurnPlayer) call = Breaks(card, SkillRules.Move.Call, "Only the turn player calls rear-guards.");
         else if (gs.currentPhase != TurnPhase.MainPhase) call = Breaks(card, SkillRules.Move.Call, "Rear-guards are normally called in the Main Phase.");
 
-        int vgGrade = VanguardGrade(card.zoneOwner);
+        mAllowedOverGrade.Remove(card);
+        PlayerState owner = card.zoneOwner;
+        int vgGrade = VanguardGrade(owner);
         if (card.data.grade > vgGrade)
-            call &= Breaks(card, SkillRules.Move.Call, "Can't call a grade " + card.data.grade + " unit over a grade " + vgGrade + " vanguard.");
+        {
+            string rule = "Can't call a grade " + card.data.grade + " unit over a grade " + vgGrade + " vanguard.";
+            if (owner.vanguardCircle == null) call &= Breaks(card, SkillRules.Move.Call, rule); // vanguard not seen yet: its grade is a guess, so only a warning
+            else if (Skills.Allowing(owner, SkillRules.Move.Call) != null)
+            {
+                Breaks(card, SkillRules.Move.Call, rule); // notes the skill allowing it
+                mAllowedOverGrade.Add(card);
+            }
+            else
+            {
+                call = false;
+                GameState.OnRulePrompt?.Invoke(card.data.cardName, rule);
+                ToDo("Rule check", owner.playerName + ": " + card.data.DisplayName + ": " + rule + " Put it back in your hand.",
+                    () => OverGradeUnits(owner).Contains(card));
+            }
+        }
 
         /* "When this unit appears on (R)" only for a real call: not a unit the camera finds again out of the
          Main Phase, or a call against the rules that no skill allows */
@@ -963,6 +1089,7 @@ public class RulesEngine : MonoBehaviour
 
     void CheckGuard(CardInstance card, bool isTurnPlayer, string fromZone)
     {
+        if (!isTurnPlayer && mAttacker != null) mGuardedAt = Time.time; // its shield's arrow (GuardArrow)
         if (isTurnPlayer) Breaks(card, SkillRules.Move.Guard, "The attacking player doesn't guard.");
         else if (gs.currentPhase != TurnPhase.BattlePhase) Breaks(card, SkillRules.Move.Guard, "Guardians are only called during a battle.");
         else if (mNoGuard) Breaks(card, SkillRules.Move.Guard, "You said no guard for this attack.");
@@ -1453,6 +1580,7 @@ public class RulesEngine : MonoBehaviour
         else if (!placing && DamageDue()) zones.Add((defender, "Trigger"));
 
         if (mRideCostDue || RideDiscardDue) zones.Add((gs.CurrentPlayer, "Drop"));
+        foreach (CardInstance unit in OverGradeUnits(gs.CurrentPlayer)) zones.Add((gs.CurrentPlayer, unit.zone)); // to take back to the hand
         // A ride to redo, as long as the HUD asks for one
         if (mRideNeedsFix || (gs.currentPhase == TurnPhase.RidePhase && mRodeThisTurn && !mRideLegal)) zones.Add((gs.CurrentPlayer, "Vanguard"));
         return zones;
@@ -1875,6 +2003,15 @@ public class RulesEngine : MonoBehaviour
 
     static int VanguardGrade(PlayerState player) => player.vanguardCircle != null ? player.vanguardCircle.data.grade : 0;
 
+    readonly HashSet<CardInstance> mAllowedOverGrade = new HashSet<CardInstance>(); // called over the vanguard's grade with a skill's leave
+
+    /* A player's rear-guards of a higher grade than their vanguard that no skill allowed: called by
+     mistake, so each must go back to the hand before the game moves on (AdvancePhase). Leaving the
+     circle (the camera stops seeing it) is going back. None while the vanguard hasn't been seen */
+    List<CardInstance> OverGradeUnits(PlayerState player) =>
+        player == null || player.vanguardCircle == null ? new List<CardInstance>()
+        : player.AllRearguards().Where(c => c.data.grade > VanguardGrade(player) && !mAllowedOverGrade.Contains(c)).ToList();
+
     // Each player's Nth turn allows up to grade N: turns 1-2 grade 1, turns 3-4 grade 2, ...
     int MaxRideGrade() => (gs.turnNumber + 1) / 2;
 
@@ -1974,14 +2111,17 @@ public class RulesEngine : MonoBehaviour
         public HashSet<string> attackedFrom, cantBeHit;
         public HashSet<(PlayerState, string)> setOrders;
         public object skills;
+        // Where the rules had each card, kept up to date until the change, so Undo can re-arm the cards it moved (not in the key)
+        public Dictionary<CardInstance, (PlayerState owner, string zone)> zones;
+        public CardInstance[] previousVanguards;
 
-        public bool rode, standWarned, rideCostDue, drew, energyChargeDue, energyDrawn, energyDrawDue,
+        public bool rode, standWarned, rideCostDue, drew, energyChargeDue, energyDrawn, energyDrawDue, personaDrawDue,
             rideLegal, rideNeedsFix, rideDeckCharged, attackByVanguard, guardSaid, noGuard, vanguardAttacked;
-        public int dropBeforeRide, rideDeckAfterRide, deckAtDrawPhase, energyCharged, deckAtEnergyDraw,
+        public int dropBeforeRide, rideDeckAfterRide, deckAtDrawPhase, energyCharged, deckAtEnergyDraw, deckAtPersonaDraw,
             gradeBeforeRide, driveLeft, damageLeft;
         public CardInstance vanguardBeforeRide, attacker, booster, pendingBooster;
         public HashSet<CardInstance> beenVanguard, countedDamage;
-        public PlayerState attackerOwner, checkTriggerOwner;
+        public PlayerState attackerOwner, checkTriggerOwner, personaFrontRow;
         public string attackerZone, decideAfterPick;
         public BattleStep step;
         public Heal heal;
@@ -2011,7 +2151,13 @@ public class RulesEngine : MonoBehaviour
     {
         if (!mStarted || Skills == null || mPassingTurn) return;
         Snapshot now = Capture();
-        if (mLast != null && now.key == mLast.key) return; // unchanged: it keeps the time it began
+        if (mLast != null && now.key == mLast.key)
+        {
+            // Unchanged: it keeps the time it began, but where the cards are follows, so it's as just before the change
+            mLast.zones = now.zones;
+            mLast.previousVanguards = now.previousVanguards;
+            return;
+        }
         if (mLast != null)
         {
             mHistory.Add(mLast);
@@ -2048,7 +2194,7 @@ public class RulesEngine : MonoBehaviour
         }
         MatchLogger.Action("Undo: back to " + gs.CurrentPlayer.playerName + "'s " + PhaseName(gs.currentPhase) + ", turn " + gs.turnNumber);
         Notice("Undo", "Back to " + gs.CurrentPlayer.playerName + "'s " + PhaseName(gs.currentPhase) + " (turn " + gs.turnNumber + ")" +
-            (MatchSession.IsOnline ? ", on both PCs" : "") + ". The cards stay where they are on the mat: move them back too if they changed.");
+            (MatchSession.IsOnline ? ", on both PCs" : "") + ". To redo a move, pick the card up and put it down again: it counts as new.");
     }
 
     /* Online: the other PC undid back to the state it had since sinceMs (wall clock). This PC goes back
@@ -2089,6 +2235,7 @@ public class RulesEngine : MonoBehaviour
         }
         DamageSlots.Quiet = true; // the damage cards follow the counts back without asking which to flip
         Restore(back);
+        PutCardsBack(back);
         Moves.Clear(true); // the counts went back too
 
         foreach (PlayerState player in gs.players)
@@ -2117,6 +2264,7 @@ public class RulesEngine : MonoBehaviour
 
             rode = mRodeThisTurn, standWarned = mStandWarned, rideCostDue = mRideCostDue, drew = mDrewThisTurn,
             energyChargeDue = mEnergyChargeDue, energyDrawn = mEnergyDrawn, energyDrawDue = mEnergyDrawDue,
+            personaDrawDue = mPersonaDrawDue, deckAtPersonaDraw = mDeckAtPersonaDraw,
             rideLegal = mRideLegal, rideNeedsFix = mRideNeedsFix, rideDeckCharged = mRideDeckCharged,
             attackByVanguard = mAttackByVanguard, guardSaid = mGuardSaid, noGuard = mNoGuard, vanguardAttacked = mVanguardAttacked,
             dropBeforeRide = mDropBeforeRide, rideDeckAfterRide = mRideDeckAfterRide, deckAtDrawPhase = mDeckAtDrawPhase,
@@ -2124,7 +2272,7 @@ public class RulesEngine : MonoBehaviour
             driveLeft = mDriveLeft, damageLeft = mDamageLeft,
             vanguardBeforeRide = mVanguardBeforeRide, attacker = mAttacker, booster = mBooster, pendingBooster = mPendingBooster,
             beenVanguard = new HashSet<CardInstance>(mBeenVanguard), countedDamage = new HashSet<CardInstance>(mCountedDamage),
-            attackerOwner = mAttackerOwner, checkTriggerOwner = mCheckTriggerOwner,
+            attackerOwner = mAttackerOwner, checkTriggerOwner = mCheckTriggerOwner, personaFrontRow = mPersonaFrontRow,
             attackerZone = mAttackerZone, decideAfterPick = mDecideAfterPick,
             step = mStep, checkTrigger = mCheckTrigger,
             heal = mHeal == null ? null : new Heal
@@ -2133,6 +2281,8 @@ public class RulesEngine : MonoBehaviour
                 faceDownCounted = mHeal.faceDownCounted, facingUnknown = mHeal.facingUnknown, time = mHeal.time,
             },
             pick = CopyPick(mPick),
+            zones = CardZones(),
+            previousVanguards = gs.players.Select(p => p.previousVanguard).ToArray(),
         };
         foreach (PlayerState player in gs.players)
             foreach (CardInstance card in player.AllFieldCards())
@@ -2173,6 +2323,7 @@ public class RulesEngine : MonoBehaviour
 
         mRodeThisTurn = s.rode; mStandWarned = s.standWarned; mRideCostDue = s.rideCostDue; mDrewThisTurn = s.drew;
         mEnergyChargeDue = s.energyChargeDue; mEnergyDrawn = s.energyDrawn; mEnergyDrawDue = s.energyDrawDue;
+        mPersonaDrawDue = s.personaDrawDue; mDeckAtPersonaDraw = s.deckAtPersonaDraw;
         mRideLegal = s.rideLegal; mRideNeedsFix = s.rideNeedsFix; mRideDeckCharged = s.rideDeckCharged;
         mAttackByVanguard = s.attackByVanguard; mGuardSaid = s.guardSaid; mNoGuard = s.noGuard; mVanguardAttacked = s.vanguardAttacked;
         mDropBeforeRide = s.dropBeforeRide; mRideDeckAfterRide = s.rideDeckAfterRide; mDeckAtDrawPhase = s.deckAtDrawPhase;
@@ -2181,11 +2332,65 @@ public class RulesEngine : MonoBehaviour
         mVanguardBeforeRide = s.vanguardBeforeRide; mAttacker = s.attacker; mBooster = s.booster; mPendingBooster = s.pendingBooster;
         mBeenVanguard.Clear(); mBeenVanguard.UnionWith(s.beenVanguard);
         mCountedDamage.Clear(); mCountedDamage.UnionWith(s.countedDamage);
-        mAttackerOwner = s.attackerOwner; mCheckTriggerOwner = s.checkTriggerOwner;
+        mAttackerOwner = s.attackerOwner; mCheckTriggerOwner = s.checkTriggerOwner; mPersonaFrontRow = s.personaFrontRow;
         mAttackerZone = s.attackerZone; mDecideAfterPick = s.decideAfterPick;
         mStep = s.step; mCheckTrigger = s.checkTrigger;
         mHeal = s.heal; // the snapshot's own copy; it isn't used again
         mPick = CopyPick(s.pick);
+    }
+
+    static readonly string[] CardZoneNames =
+        { "Vanguard", "LeftFront", "RightFront", "LeftBack", "RightBack", "CenterBack",
+          "Guardian", "Trigger", "Order", "Crest", "Soul", "Drop", "Damage", "Bind", "OOG", "Deck", "RideDeck" };
+
+    // Where the rules have each tracked card now
+    Dictionary<CardInstance, (PlayerState owner, string zone)> CardZones()
+    {
+        var zones = new Dictionary<CardInstance, (PlayerState, string)>();
+        foreach (PlayerState player in gs.players)
+            foreach (string zone in CardZoneNames)
+            {
+                CardInstance single = player.CardOnCircle(zone);
+                if (single != null) zones[single] = (player, zone);
+                List<CardInstance> list = player.ZoneList(zone);
+                if (list != null) foreach (CardInstance card in list) zones[card] = (player, zone);
+            }
+        return zones;
+    }
+
+    /* The mat isn't undone, but the cards the undone moves put somewhere go back to where the rules
+     had them, quietly: the camera then reports each again once it's lifted or moved, so doing the
+     move again (riding, calling, guarding with the same card) counts as a new one instead of the
+     card "never having left". Online, only this PC's own cards: the other PC sends its own. */
+    void PutCardsBack(Snapshot back)
+    {
+        if (back.zones == null) return;
+        bool Mine(PlayerState p) => p != null && (!MatchSession.IsOnline || p.playerIndex == MatchSession.LocalSeat);
+
+        Dictionary<CardInstance, (PlayerState owner, string zone)> now = CardZones();
+        var moved = new List<CardInstance>();
+        foreach (var pair in now)
+            if (!back.zones.TryGetValue(pair.Key, out var was) || was != pair.Value) moved.Add(pair.Key);
+        foreach (var pair in back.zones)
+            if (!now.ContainsKey(pair.Key)) moved.Add(pair.Key);
+        moved.RemoveAll(card =>
+        {
+            now.TryGetValue(card, out var at);
+            back.zones.TryGetValue(card, out var was);
+            return !Mine(at.owner) && !Mine(was.owner);
+        });
+        if (moved.Count == 0) return;
+
+        foreach (CardInstance card in moved) gs.TakeOffQuietly(card);
+        foreach (CardInstance card in moved)
+        {
+            back.zones.TryGetValue(card, out var was);
+            gs.PutBackQuietly(card, was.owner, was.zone);
+            mLeftFrom.Remove(card); // not "lifted and put back": putting it down again is a new move
+        }
+        for (int i = 0; i < gs.players.Length; i++)
+            if (Mine(gs.players[i])) gs.players[i].previousVanguard = back.previousVanguards[i];
+        MatchLogger.Action("Undo: " + moved.Count + " card" + (moved.Count == 1 ? "" : "s") + " back where they were, waiting to be moved again");
     }
 
     static PendingPick CopyPick(PendingPick pick)
@@ -2214,10 +2419,10 @@ public class RulesEngine : MonoBehaviour
         Add(s.rode); Add(s.standWarned); Add(s.rideCostDue); Add(s.drew); Add(s.energyChargeDue); Add(s.energyDrawn); Add(s.energyDrawDue);
         Add(s.rideLegal); Add(s.rideNeedsFix); Add(s.rideDeckCharged); Add(s.attackByVanguard); Add(s.guardSaid); Add(s.noGuard);
         Add(s.vanguardAttacked); Add(s.dropBeforeRide); Add(s.rideDeckAfterRide); Add(s.deckAtDrawPhase); Add(s.energyCharged);
-        Add(s.deckAtEnergyDraw); Add(s.gradeBeforeRide); Add(s.driveLeft); Add(s.damageLeft);
+        Add(s.deckAtEnergyDraw); Add(s.personaDrawDue); Add(s.deckAtPersonaDraw); Add(s.gradeBeforeRide); Add(s.driveLeft); Add(s.damageLeft);
         Add(Id(s.vanguardBeforeRide)); Add(Id(s.attacker)); Add(Id(s.booster)); Add(Id(s.pendingBooster));
         Add(s.beenVanguard.Count); Add(s.countedDamage.Count);
-        Add(s.attackerOwner?.playerIndex); Add(s.checkTriggerOwner?.playerIndex); Add(s.attackerZone); Add(s.decideAfterPick);
+        Add(s.attackerOwner?.playerIndex); Add(s.checkTriggerOwner?.playerIndex); Add(s.personaFrontRow?.playerIndex); Add(s.attackerZone); Add(s.decideAfterPick);
         Add(s.step); Add(s.checkTrigger);
         if (s.heal != null) { Add(s.heal.owner?.playerIndex); Add(s.heal.dropCounted); Add(s.heal.damageCounted); Add(s.heal.faceDownCounted); Add(s.heal.facingUnknown); }
         if (s.pick != null) { Add(s.pick.owner?.playerIndex); Add(s.pick.icon); Add(s.pick.power); Add(Id(s.pick.powerOn)); Add(Id(s.pick.criticalOn)); Add(string.Join(",", s.pick.picks)); }

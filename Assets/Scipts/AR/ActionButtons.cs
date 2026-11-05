@@ -180,6 +180,13 @@ public class ActionButtons : MonoBehaviour
             return actions;
         }
 
+        // Another copy of the vanguard laid on it: the camera sees no change, so the player says
+        if (gs.currentPhase == TurnPhase.RidePhase)
+        {
+            if (mRules.CanPersonaRide && MatchSession.IsLocal(gs.CurrentPlayer)) actions.Add(("Persona Ride\n(same card)", "persona ride"));
+            return actions;
+        }
+
         // [ACT] skills ready to use, then the Energy Blast draw
         if (gs.currentPhase == TurnPhase.MainPhase)
         {

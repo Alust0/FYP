@@ -6,7 +6,9 @@ using TMPro;
 
 /* Displays popup notifications: Persona Ride, Stride, Triggers, Gifts and the referee's notices. Most go
  after a few seconds. A to-do (GameState.OnRuleToDo: a skill's prompt, cost or step, a trigger pick, a
- check to reveal...) stays up until it's done: newer notices show over it, then it comes back. */
+ check to reveal...) stays up until it's done: newer notices show over it, then it comes back. The
+ panel's Hide button tucks the to-dos away (or ends a timed notice early); the To-do tab at the
+ camera area's side shows how many are tucked and brings them back. A new to-do still shows. */
 public class NotificationOverlay : MonoBehaviour
 {
     [Header("Notification Panel")]
@@ -45,7 +47,15 @@ public class NotificationOverlay : MonoBehaviour
     [Header("Special Sprites")]
     public Sprite personaRideSprite;
     public Sprite strideSprite;
+
+    [Header("Hide / bring back")]
+    public Button hideButton; // on the panel
+    public GameObject todoTab; // at the side, while to-dos are tucked away
+    public TextMeshProUGUI todoTabLabel;
+
     private Coroutine hideCoroutine;
+    bool mSkip; // Hide pressed on a timed notice
+    ToDo mShowingToDo; // the to-do on the panel now, if it's one
 
     // Notifications wait their turn instead of replacing the one on screen
     readonly Queue<(string title, string body, Sprite icon)> mQueue = new Queue<(string, string, Sprite)>();
@@ -56,6 +66,7 @@ public class NotificationOverlay : MonoBehaviour
         public string title, body;
         public System.Func<bool> stillToDo;
         public int turn; // only this turn's: a to-do left over isn't kept up forever
+        public bool tucked; // put aside with Hide until the To-do tab brings it back
     }
     readonly List<ToDo> mToDos = new List<ToDo>(); // newest last
 
@@ -63,6 +74,43 @@ public class NotificationOverlay : MonoBehaviour
     void Start()
     {
         if (slideUp && notificationPanel != null) SetY(HiddenY);
+        if (hideButton != null) hideButton.onClick.AddListener(Hide);
+        if (todoTab != null)
+        {
+            todoTab.GetComponent<Button>()?.onClick.AddListener(BringBack);
+            todoTab.SetActive(false);
+        }
+    }
+
+    void Update()
+    {
+        if (todoTab == null) return;
+        int tucked = TuckedCount();
+        if (todoTab.activeSelf != tucked > 0) todoTab.SetActive(tucked > 0);
+        if (tucked > 0 && todoTabLabel != null) todoTabLabel.text = "To-do (" + tucked + ")";
+    }
+
+    // The panel's Hide: a to-do showing is tucked away with any others; a timed notice ends now
+    public void Hide()
+    {
+        if (mShowingToDo != null)
+            foreach (ToDo t in mToDos) t.tucked = true;
+        mSkip = true;
+    }
+
+    // The To-do tab: the tucked to-dos show again
+    public void BringBack()
+    {
+        foreach (ToDo t in mToDos) t.tucked = false;
+        if (hideCoroutine == null) hideCoroutine = StartCoroutine(ShowQueue());
+    }
+
+    int TuckedCount()
+    {
+        mToDos.RemoveAll(t => t.turn != Turn || !StillToDo(t));
+        int count = 0;
+        foreach (ToDo t in mToDos) if (t.tucked) count++;
+        return count;
     }
 
     float HiddenY => -((RectTransform)notificationPanel.transform).rect.height - 20f;
@@ -103,20 +151,23 @@ public class NotificationOverlay : MonoBehaviour
         GameState.OnRuleToDo -= AddToDo;
     }
 
-    // Comes just before its notice, which is shown as usual
+    // Comes just before its notice, which is shown as usual; one tucked away stays tucked
     void AddToDo(string title, string body, System.Func<bool> stillToDo)
     {
+        bool tucked = mToDos.Exists(t => t.title == title && t.body == body && t.tucked);
         mToDos.RemoveAll(t => t.title == title && t.body == body);
-        mToDos.Add(new ToDo { title = title, body = body, stillToDo = stillToDo, turn = Turn });
+        mToDos.Add(new ToDo { title = title, body = body, stillToDo = stillToDo, turn = Turn, tucked = tucked });
     }
 
     static int Turn => GameState.Instance != null ? GameState.Instance.turnNumber : 0;
 
-    // The newest to-do not done yet; done ones are dropped
+    // The newest to-do not done yet and not tucked away; done ones are dropped
     ToDo OpenToDo()
     {
         mToDos.RemoveAll(t => t.turn != Turn || !StillToDo(t));
-        return mToDos.Count > 0 ? mToDos[mToDos.Count - 1] : null;
+        for (int i = mToDos.Count - 1; i >= 0; i--)
+            if (!mToDos[i].tucked) return mToDos[i];
+        return null;
     }
 
     static bool StillToDo(ToDo t)
@@ -136,7 +187,7 @@ public class NotificationOverlay : MonoBehaviour
     {
         ShowNotification(
             "Persona Ride!",
-            cardName + "\nDraw 1 card. Vanguard gets Power +10000 until end of turn.",
+            cardName + "\nDraw 1 card. Your front-row units get Power +10000 until end of turn.",
             personaRideSprite
         );
     }
@@ -180,6 +231,7 @@ public class NotificationOverlay : MonoBehaviour
 
         string key = title + "|" + body;
         if (key == mShowingKey) return;
+        if (mToDos.Exists(t => t.tucked && t.title + "|" + t.body == key)) return; // its to-do was tucked away
         foreach (var queued in mQueue)
             if (queued.title + "|" + queued.body == key) return;
         if (mQueue.Count >= maxQueued) mQueue.Dequeue(); // oldest waiting one goes
@@ -225,10 +277,17 @@ public class NotificationOverlay : MonoBehaviour
                 yield return Slide(shownY);
             }
 
+            mSkip = false;
+            mShowingToDo = todo;
             if (todo != null) yield return new WaitUntil(() => mQueue.Count > 0 || OpenToDo() != todo);
-            else yield return new WaitForSeconds(mQueue.Count > 0 ? queuedDuration : displayDuration);
+            else
+            {
+                float until = Time.time + (mQueue.Count > 0 ? queuedDuration : displayDuration);
+                yield return new WaitUntil(() => mSkip || Time.time >= until);
+            }
         }
 
+        mShowingToDo = null;
         if (slideUp) yield return Slide(HiddenY);
         else if (hideWhenDone) notificationPanel.SetActive(false);
         mShowingKey = null;
