@@ -187,6 +187,95 @@ public static class RtdbRest
     // As stored, as a string: equal strings mean equal values
     public static string ToJson(object value) => ToToken(value).ToString(Formatting.None);
 
+    /* Listens to path with the database's streaming (server-sent events), so changes arrive as they're
+     written instead of by polling. onChange gets each "put" or "patch" as the changed path inside the
+     listened one ("/" for all of it, "/jpg" for one field) and its value. Runs until the connection
+     ends or stop() is true; done gets whether anything arrived (the server sends the current value
+     straight away, so false means streaming doesn't work here). */
+    public static IEnumerator Listen(string path, Action<string, JToken> onChange, Func<bool> stop, Action<bool> done)
+    {
+        if (sBaseUrl == null && !Init())
+        {
+            done(false);
+            yield break;
+        }
+
+        var events = new EventStream();
+        using (UnityWebRequest request = new UnityWebRequest(Url(path), "GET", events, null))
+        {
+            request.SetRequestHeader("Accept", "text/event-stream");
+            UnityWebRequestAsyncOperation sending = request.SendWebRequest();
+            while (true)
+            {
+                // Handed over here, on the main thread, whichever thread the bytes came in on
+                foreach ((string name, string data) in events.Take())
+                {
+                    if (name != "put" && name != "patch") continue; // keep-alive, cancel, auth_revoked
+                    JObject change;
+                    try { change = Parse(data) as JObject; }
+                    catch (JsonException) { continue; }
+                    if (change != null) onChange((string)change["path"] ?? "/", change["data"]);
+                }
+                if (sending.isDone || stop()) break;
+                yield return null;
+            }
+            if (!sending.isDone) request.Abort();
+            done(events.AnyEvent);
+        }
+    }
+
+    // Splits a server-sent event stream into (event name, data) pairs
+    class EventStream : DownloadHandlerScript
+    {
+        readonly Decoder mDecoder = Encoding.UTF8.GetDecoder();
+        readonly StringBuilder mText = new StringBuilder();
+        readonly List<(string, string)> mReady = new List<(string, string)>();
+        readonly object mLock = new object();
+
+        public bool AnyEvent { get; private set; }
+
+        public EventStream() : base(new byte[64 * 1024]) { }
+
+        protected override bool ReceiveData(byte[] data, int dataLength)
+        {
+            char[] chars = new char[mDecoder.GetCharCount(data, 0, dataLength)];
+            mDecoder.GetChars(data, 0, dataLength, chars, 0);
+            mText.Append(chars);
+
+            // An event ends at a blank line
+            string text = mText.ToString().Replace("\r\n", "\n");
+            int end;
+            while ((end = text.IndexOf("\n\n", StringComparison.Ordinal)) >= 0)
+            {
+                string name = null, value = null;
+                foreach (string line in text.Substring(0, end).Split('\n'))
+                {
+                    if (line.StartsWith("event:")) name = line.Substring(6).Trim();
+                    else if (line.StartsWith("data:")) value = line.Substring(5).Trim();
+                }
+                if (name != null)
+                    lock (mLock)
+                    {
+                        mReady.Add((name, value));
+                        AnyEvent = true;
+                    }
+                text = text.Substring(end + 2);
+            }
+            mText.Clear().Append(text);
+            return true;
+        }
+
+        public List<(string, string)> Take()
+        {
+            lock (mLock)
+            {
+                var taken = new List<(string, string)>(mReady);
+                mReady.Clear();
+                return taken;
+            }
+        }
+    }
+
     static string Url(string path, string query = null) =>
         sBaseUrl + "/" + path + ".json" + (string.IsNullOrEmpty(query) ? "" : "?" + query);
 

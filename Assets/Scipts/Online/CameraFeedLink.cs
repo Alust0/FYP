@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 /* Carries camera pictures (JPEG bytes) between the two PCs of an online match, for SplitScreenView.
@@ -17,14 +18,16 @@ using UnityEngine;
  (a UWP build needs the privateNetworkClientServer capability for home/work networks).
  Each side's first message is the room code, so a wrong connection is dropped.
 
- Fallback, when there's no direct connection: about a picture a second through the Realtime Database, in
- an entry next to the room ("<code>_video<seat>"), which the same rules cover and the lobby's
- room search skips (it has no status). Slow, and every picture counts toward the database's download allowance. */
+ Fallback, when there's no direct connection (two homes' networks): about three pictures a second
+ through the Realtime Database, in an entry next to the room ("<code>_video<seat>"), which the same
+ rules cover and the lobby's room search skips (it has no status). The opponent's PC listens to it
+ (RtdbRest.Listen), so a picture shows as soon as it's written. Every picture counts toward the
+ database's download allowance (Spark plan: 10 GB a month, roughly 0.6 GB per hour of match). */
 public class CameraFeedLink : MonoBehaviour
 {
     public float directSeconds = 0.1f;   // between pictures over a direct connection
-    public float fallbackSeconds = 1f;   // between pictures through the database
-    public float fallbackPollSeconds = 0.4f; // between checks for the opponent's next database picture
+    public float fallbackSeconds = 0.3f; // between pictures through the database (also waits for the last upload)
+    public float fallbackPollSeconds = 0.4f; // between checks for the opponent's next database picture, if streaming fails
     public float connectWaitSeconds = 8f; // before falling back
 
     public bool Direct => mConnection != null && mConnection.Verified && !mConnection.Closed;
@@ -266,11 +269,44 @@ public class CameraFeedLink : MonoBehaviour
         mUploading = false;
     }
 
-    /* Polls the tiny "ms" stamp often and downloads the picture only when it changed, so a new one
-     shows soon after it's sent and an unchanged one isn't downloaded again */
+    /* Listens to the opponent's picture entry, so each picture arrives as soon as it's written. A
+     dropped stream is reopened; one that never delivers anything (streaming blocked on this
+     network or platform) gives way to polling. */
     IEnumerator FallbackDownloads()
     {
         string path = FramePath(mRoomCode, 1 - mLocalSeat);
+        int failures = 0;
+        while (failures < 3)
+        {
+            yield return new WaitForSecondsRealtime(failures == 0 ? 0f : 1f);
+            if (!UsingFallback)
+            {
+                yield return new WaitForSecondsRealtime(fallbackPollSeconds);
+                continue;
+            }
+
+            bool worked = false;
+            yield return RtdbRest.Listen(path, OnFallbackChange, () => !UsingFallback, ok => worked = ok);
+            failures = worked || !UsingFallback ? 0 : failures + 1; // stopped for a direct connection isn't a failure
+        }
+
+        Debug.LogWarning("[CameraFeedLink] Database streaming isn't working here; polling for pictures instead.");
+        yield return PollFallback(path);
+    }
+
+    // A whole entry ("/") or one field of it ("/jpg") from the stream
+    void OnFallbackChange(string changed, JToken value)
+    {
+        JToken jpg = changed == "/" || changed == "" ? (value as JObject)?["jpg"] : changed == "/jpg" ? value : null;
+        if (jpg == null || jpg.Type != JTokenType.String) return;
+        try { mFallbackFrame = Convert.FromBase64String((string)jpg); }
+        catch (FormatException) { }
+    }
+
+    /* Polls the tiny "ms" stamp often and downloads the picture only when it changed, so a new one
+     shows soon after it's sent and an unchanged one isn't downloaded again */
+    IEnumerator PollFallback(string path)
+    {
         long lastSeen = 0;
         while (true)
         {

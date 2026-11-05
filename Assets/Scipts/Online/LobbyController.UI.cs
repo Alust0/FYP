@@ -15,7 +15,8 @@ public partial class LobbyController
 
         // Header
         TMP_Text title = AddText(root, "Online Lobby", 64, Color.white, TextAlignmentOptions.Left);
-        Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(48f, -110f), new Vector2(-300f, -20f));
+        Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(128f, -110f), new Vector2(-300f, -20f));
+        Place((RectTransform)SceneSettings.AddButton(root).transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(48f, -96f), new Vector2(110f, -34f));
         Button back = AddButton(root, "Back", OnBack, PanelColor, Color.white, 30);
         Place((RectTransform)back.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-240f, -96f), new Vector2(-48f, -34f));
 

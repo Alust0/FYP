@@ -47,7 +47,11 @@ public partial class LoginController : MonoBehaviour
     const string Emails = "emails";
     const string EmailKey = "email"; // Cloud Save
 
+    static readonly Color SuccessColor = new Color(0.35f, 0.9f, 0.45f);
+    static readonly Color ErrorColor = new Color(1f, 0.4f, 0.4f);
+
     bool mSignUpPage;
+    Color mStatusColor; // the scene's status colour, for progress messages
     EmailOtp mOtp; // the code mailed for the sign-up's email
     string mVerifiedEmail; // proved on this visit, so a taken username afterwards doesn't need a new code
 
@@ -60,6 +64,8 @@ public partial class LoginController : MonoBehaviour
             return;
         }
 
+        mStatusColor = statusText.color;
+        AddTitle();
         mSignUpPage = SceneManager.GetActiveScene().name == signUpSceneName;
         if (mSignUpPage && emailInput == null) emailInput = MakeEmailInput();
         if (!mSignUpPage) SetPlaceholder(usernameInput, "Username or email");
@@ -370,7 +376,7 @@ public partial class LoginController : MonoBehaviour
             return;
         }
 
-        SetBusy(true, $"Connected!\nWelcome, {PlayerSession.Name}");
+        SetBusy(true, $"Connected!\nWelcome, {PlayerSession.Name}", SuccessColor);
         await Awaitable.WaitForSecondsAsync(welcomeSeconds);
         if (this == null) return; // scene left while waiting
         SceneManager.LoadScene(menuSceneName);
@@ -462,11 +468,13 @@ public partial class LoginController : MonoBehaviour
         SetBusy(false, message);
     }
 
-    void SetBusy(bool busy, string status)
+    // A message shown while not busy is a problem (wrong password, taken username...), so it's red
+    void SetBusy(bool busy, string status, Color? color = null)
     {
         if (this == null) return; // scene already unloaded
         loginButton.interactable = !busy;
         signUpButton.interactable = !busy;
         statusText.text = status;
+        statusText.color = color ?? (busy ? mStatusColor : ErrorColor);
     }
 }

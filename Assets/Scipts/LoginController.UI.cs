@@ -25,6 +25,20 @@ public partial class LoginController
         if (mCodePanel != null) mCodePanel.SetActive(false);
     }
 
+    // The build's name (Player Settings' Product Name) across the top of the page
+    void AddTitle()
+    {
+        TMP_Text title = MenuUI.AddText(statusText.canvas.transform, Application.productName, 72, MenuUI.Accent, TextAlignmentOptions.Center);
+        title.name = "Title";
+        title.fontStyle = FontStyles.Bold;
+        title.enableAutoSizing = true;
+        title.fontSizeMin = 36;
+        title.fontSizeMax = 72;
+        title.raycastTarget = false;
+        // Margins clear SceneSettings' gear in the top-right corner
+        MenuUI.PlaceTop(title.rectTransform, 0f, 1f, 30f, 100f, 120f, 120f);
+    }
+
     string CodeSentText() =>
         $"We sent a 6-digit code to\n<b>{mOtp.email}</b>\nIt works for {EmailOtp.ValidMinutes} minutes. Check your spam folder too.";
 
