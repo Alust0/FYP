@@ -1,10 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/* Switches builds between full screen and a window (GameSettings.FullScreen): the Display button in
- the Settings menus (SettingsMenu in a match, SceneSettings elsewhere), or F11 in any scene. The saved choice is applied at start-up; before one is saved
- the Player Settings' mode stands. */
-public class WindowMode : MonoBehaviour
+/* Switches builds between full screen and a window,or F11 in any scene.*/
+ public class WindowMode : MonoBehaviour
 {
     const float WindowedSize = 0.75f; // a window's share of the screen's width and height
 

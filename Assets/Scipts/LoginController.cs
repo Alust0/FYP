@@ -17,12 +17,7 @@ using Firebase;
 using Firebase.Auth;
 #endif
 
-/* Login and SignUp scenes (same controller; the scene name picks the page): Unity username/password
- sign-in (works on UWP, no browser), then a Firebase anonymous sign-in so Firestore rules allow access,
- then loads the menu. On the login page Sign Up opens the sign-up page; on the sign-up page Login goes
- back. Sign-up also takes an email, one account per email, proved by a mailed code (EmailOtp):
- Realtime Database emails/{hash} holds {username, playerId} (so the login page takes the email in
- place of the username) and the player's Cloud Save key "email" keeps it with the account. */
+
 public partial class LoginController : MonoBehaviour
 {
     [SerializeField] private TMP_InputField usernameInput;
