@@ -15,6 +15,10 @@ public class Ripple : MonoBehaviour
     RectTransform[] mRings;
     Image[][] mEdges;
     bool mVisible = true;
+    static float sStart; // every ripple's rings count from here
+
+    // Every ripple's rings start again from the box (Undo)
+    public static void Replay() => sStart = Time.unscaledTime;
 
     public static Ripple Add(RectTransform box, Color color)
     {
@@ -40,18 +44,27 @@ public class Ripple : MonoBehaviour
     // Off for a box that's shown but not asking for anything, e.g. an attack target that can't be picked
     public void SetVisible(bool visible)
     {
-        if (visible == mVisible) return;
+        if (visible == mVisible) { return; }
         mVisible = visible;
         foreach (RectTransform ring in mRings) ring.gameObject.SetActive(visible);
     }
 
     void Update()
     {
-        if (!mVisible) return;
-        float t = Time.unscaledTime / seconds;
+        if (!mVisible) { return; }
+        float t = (Time.unscaledTime - sStart) / seconds;
         for (int i = 0; i < Rings; i++)
         {
-            float phase = Mathf.Repeat(t + (float)i / Rings, 1f);
+            float raw = t - (float)i / Rings; // after a replay the second ring follows half a ring later
+            if (raw < 0f && t < 1f)
+            {
+                foreach (Image image in mEdges[i])
+                {
+                    image.color = Color.clear;
+                }
+                continue;
+            }
+            float phase = Mathf.Repeat(raw, 1f);
             mRings[i].localScale = Vector3.one * (1f + growth * phase);
             Color edge = new Color(color.r, color.g, color.b, 0.9f * (1f - phase));
             foreach (Image image in mEdges[i]) image.color = edge;

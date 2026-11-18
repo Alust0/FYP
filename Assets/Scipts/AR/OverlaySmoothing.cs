@@ -30,7 +30,7 @@ public class OverlaySmoothing : MonoBehaviour
     void LateUpdate()
     {
         Camera cam = Camera.main;
-        if (mTarget == null || cam == null) return;
+        if (mTarget == null || cam == null) { return; }
 
         Transform view = cam.transform;
         Vector3 position = view.InverseTransformPoint(mTarget.TransformPoint(mLocalPosition));

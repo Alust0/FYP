@@ -36,17 +36,17 @@ public class InspectorDeckSource : DeckSource
         };
         var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (DeckEntry entry in deck.cards)
-            if (!string.IsNullOrWhiteSpace(entry.cardNumber)) listed.Add(entry.cardNumber.Trim());
+            if (!string.IsNullOrWhiteSpace(entry.cardNumber)) { listed.Add(entry.cardNumber.Trim()); }
 
         foreach (string setCode in wholeSets)
         {
-            if (string.IsNullOrWhiteSpace(setCode)) continue;
+            if (string.IsNullOrWhiteSpace(setCode)) { continue; }
 
             List<string> numbers = CardImageLibrary.CardNumbersInSet(setCode);
-            if (numbers.Count == 0) Debug.LogWarning("[InspectorDeckSource] No card pictures found for set " + setCode);
+            if (numbers.Count == 0) { Debug.LogWarning("[InspectorDeckSource] No card pictures found for set " + setCode); }
 
             foreach (string number in numbers)
-                if (listed.Add(number)) result.cards.Add(new DeckEntry { cardNumber = number, count = 1 });
+                if (listed.Add(number)) { result.cards.Add(new DeckEntry { cardNumber = number, count = 1 }); }
         }
         return result;
     }

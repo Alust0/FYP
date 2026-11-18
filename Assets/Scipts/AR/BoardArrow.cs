@@ -11,17 +11,25 @@ public class BoardArrow : MonoBehaviour
     public float seconds = 0.8f;
 
     const float Thickness = 10f;
-    const float Head = 34f;
+    const float Head = 55f;
     const int ChevronCount = 3;
 
     Style mStyle;
     RectTransform mRoot;
     Image[] mParts;          // Pulse: shaft and the two sides of the head
-    Image mTrack;            // Chevrons: the faint line under them
+    Image mTrack;            // Chevrons (>): the faint line under them
     RectTransform[] mChevrons;
     Image[][] mSides;        // each chevron's two sides
     float mLength;
     float mSize = 1f;        // thickness and head scale
+    float mSince;            // when it last came on
+    static float sReplay;    // Undo: every arrow runs in again from here
+    const float DrawInSeconds = 0.3f;
+
+    // Every arrow on screen runs in again from its start (Undo)
+    public static void Replay() => sReplay = Time.unscaledTime;
+
+    float Age => Time.unscaledTime - Mathf.Max(mSince, sReplay);
 
     public static BoardArrow Add(RectTransform parent, Style style, Color color, float size = 1f)
     {
@@ -34,7 +42,7 @@ public class BoardArrow : MonoBehaviour
         arrow.mRoot = root;
         arrow.color = color;
         arrow.mSize = size;
-        if (style == Style.Pulse) arrow.BuildPulse();
+        if (style == Style.Pulse) { arrow.BuildPulse(); }
         else
         {
             arrow.seconds = 0.9f;
@@ -47,7 +55,11 @@ public class BoardArrow : MonoBehaviour
     // Points it from one box to the other (rects in the parent's pixels) and shows it
     public void Show(Rect from, Rect to)
     {
-        if (!mRoot.gameObject.activeSelf) mRoot.gameObject.SetActive(true);
+        if (!mRoot.gameObject.activeSelf)
+        {
+            mRoot.gameObject.SetActive(true);
+            mSince = Time.unscaledTime;
+        }
         Vector2 direction = (to.center - from.center).normalized;
         Vector2 start = from.center, end = to.center;
         if (mStyle == Style.Pulse)
@@ -57,6 +69,10 @@ public class BoardArrow : MonoBehaviour
             end -= direction * Mathf.Min(to.width, to.height) * 0.4f;
         }
         mLength = Mathf.Max(0f, (end - start).magnitude);
+        if (mStyle == Style.Pulse)
+        {
+            mLength *= Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Age / DrawInSeconds)); // grows out from the start
+        }
         mRoot.anchoredPosition = start;
         mRoot.sizeDelta = new Vector2(mLength, Thickness * mSize);
         mRoot.localEulerAngles = new Vector3(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
@@ -64,7 +80,7 @@ public class BoardArrow : MonoBehaviour
 
     public void Hide()
     {
-        if (mRoot.gameObject.activeSelf) mRoot.gameObject.SetActive(false);
+        if (mRoot.gameObject.activeSelf) { mRoot.gameObject.SetActive(false); }
     }
 
     void Update()
@@ -76,12 +92,16 @@ public class BoardArrow : MonoBehaviour
             return;
         }
 
-        mTrack.color = new Color(color.r, color.g, color.b, 0.3f);
+        float age = Age;
+        mTrack.color = new Color(color.r, color.g, color.b, 0.3f * Mathf.Clamp01(age / DrawInSeconds));
         for (int i = 0; i < mChevrons.Length; i++)
         {
-            float along = Mathf.Repeat(Time.unscaledTime / seconds + i / (float)mChevrons.Length, 1f);
+            // From the start, one after another
+            float raw = age / seconds - i / (float)mChevrons.Length;
+            float along = Mathf.Repeat(raw, 1f);
             mChevrons[i].anchoredPosition = new Vector2(along * mLength, 0f);
-            Color shade = new Color(color.r, color.g, color.b, Mathf.Sin(along * Mathf.PI));
+            float alpha = raw < 0f ? 0f : Mathf.Sin(along * Mathf.PI);
+            Color shade = new Color(color.r, color.g, color.b, alpha);
             foreach (Image side in mSides[i]) side.color = shade;
         }
     }

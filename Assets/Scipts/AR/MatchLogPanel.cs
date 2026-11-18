@@ -21,13 +21,13 @@ public class MatchLogPanel : MonoBehaviour
 
     void Update()
     {
-        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) Toggle();
+        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) { Toggle(); }
     }
 
     public void Toggle()
     {
-        if (panel.activeSelf) Close();
-        else Open();
+        if (panel.activeSelf) { Close(); }
+        else { Open(); }
     }
 
     public void Open()
@@ -40,7 +40,7 @@ public class MatchLogPanel : MonoBehaviour
 
     void HandleNotification(string entry)
     {
-        if (panel.activeSelf) Refresh();
+        if (panel.activeSelf) { Refresh(); }
     }
 
     // Shows the latest maxShown notifications, scrolled to the newest

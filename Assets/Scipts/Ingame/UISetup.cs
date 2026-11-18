@@ -50,7 +50,7 @@ public class UISetup : MonoBehaviour
         gameObject.AddComponent<ZoneHighlighter>(); // lights up the zones a skill, check or cost needs cards moved on
 
         // F2 test panel for placing cards without a camera, e.g. in a second editor
-        if (Application.isEditor) gameObject.AddComponent<DebugCardPlacer>();
+        if (Application.isEditor) { gameObject.AddComponent<DebugCardPlacer>(); }
 
         Debug.Log("[UISetup] All UI elements created successfully.");
     }
@@ -77,7 +77,7 @@ public class UISetup : MonoBehaviour
 
     void ShowExitButton()
     {
-        if (mExitButton != null) mExitButton.SetActive(true);
+        if (mExitButton != null) { mExitButton.SetActive(true); }
     }
 
     // Creates the main Canvas with correct settings
@@ -246,8 +246,10 @@ public class UISetup : MonoBehaviour
         phaseHUD = section.gameObject.AddComponent<PhaseHUDOverlay>();
         phaseHUD.waitingText = waitingText;
         if (MatchTimer.HasLimit)
+        {
             phaseHUD.timerText = CreateStretchText("TimerText", section, 8f, 24f, 230f, 12f, "", 20, TextAlignmentOptions.TopRight);
-        if (MatchSession.IsOneSide) phaseHUD.sideLabels = new string[0]; // players aren't on a left/right side of one board
+        }
+        if (MatchSession.IsOneSide) { phaseHUD.sideLabels = new string[0]; } // players aren't on a left/right side of one board
 
         for (int player = 0; player < 2; player++)
         {
@@ -311,8 +313,8 @@ public class UISetup : MonoBehaviour
     {
         GameState gs = GameState.Instance;
         PlayerState player = gs != null ? gs.players[playerIndex] : null;
-        if (player == null) return;
-        if (zone == "Energy" && delta > 0 && player.CountInZone("Energy") >= RulesEngine.MaxEnergy) return;
+        if (player == null) { return; }
+        if (zone == "Energy" && delta > 0 && player.CountInZone("Energy") >= RulesEngine.MaxEnergy) { return; }
 
         if (zone != "CB")
         {
@@ -321,7 +323,7 @@ public class UISetup : MonoBehaviour
         }
 
         // CB counts face-up damage, so "-" pays Counter Blast by turning one more damage face down
-        if (delta < 0 && player.FaceUpDamage == 0) return;
+        if (delta < 0 && player.FaceUpDamage == 0) { return; }
         gs.AdjustCount(player, "FaceDownDamage", -delta);
     }
 
@@ -329,14 +331,14 @@ public class UISetup : MonoBehaviour
     public static PlayerState LocalPlayer()
     {
         GameState gs = GameState.Instance;
-        if (gs == null || gs.players[0] == null) return null;
+        if (gs == null || gs.players[0] == null) { return null; }
         return MatchSession.IsOnline ? gs.players[MatchSession.LocalSeat] : gs.CurrentPlayer;
     }
 
     // Counts one card off the deck; shared by the Draw button, VoiceCommands and HandZones
     public static void Draw(PlayerState player)
     {
-        if (player == null) return;
+        if (player == null) { return; }
         AdjustZoneCount(player.playerIndex, "Deck", -1);
         GameState.OnRuleNotice?.Invoke("Draw", player.playerName + " drew 1 card.");
     }

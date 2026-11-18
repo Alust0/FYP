@@ -38,7 +38,7 @@ public class EmailOtp
     public async Task<string> SendAsync()
     {
         string problem = ReadConfig();
-        if (problem != null) return problem;
+        if (problem != null) { return problem; }
 
         string code = RandomNumberGenerator.GetInt32(0, 1000000).ToString("D6");
         var body = new JObject
@@ -55,7 +55,7 @@ public class EmailOtp
             },
         };
         string privateKey = (string)sConfig["private_key"];
-        if (!string.IsNullOrEmpty(privateKey) && !privateKey.StartsWith("PASTE")) body["accessToken"] = privateKey;
+        if (!string.IsNullOrEmpty(privateKey) && !privateKey.StartsWith("PASTE")) { body["accessToken"] = privateKey; }
 
         using (UnityWebRequest request = new UnityWebRequest(SendUrl, "POST"))
         {
@@ -66,7 +66,9 @@ public class EmailOtp
             await request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.ConnectionError)
+            {
                 return "Can't reach the email service. Check your internet connection.";
+            }
             if (request.result != UnityWebRequest.Result.Success)
             {
                 // EmailJS says why in plain text, e.g. a wrong template ID or API calls from apps turned off
@@ -85,10 +87,10 @@ public class EmailOtp
     // Null when the typed code is right, otherwise why not
     public string Check(string typed)
     {
-        if (mCode == null) return "Press Resend for a code.";
-        if (Time.realtimeSinceStartup >= mExpiresAt) return "That code has expired. Press Resend for a new one.";
-        if (mWrong >= MaxWrong) return "Too many wrong codes. Press Resend for a new one.";
-        if (typed.Trim() == mCode) return null;
+        if (mCode == null) { return "Press Resend for a code."; }
+        if (Time.realtimeSinceStartup >= mExpiresAt) { return "That code has expired. Press Resend for a new one."; }
+        if (mWrong >= MaxWrong) { return "Too many wrong codes. Press Resend for a new one."; }
+        if (typed.Trim() == mCode) { return null; }
 
         mWrong++;
         return mWrong >= MaxWrong ? "Too many wrong codes. Press Resend for a new one." : $"Wrong code. {MaxWrong - mWrong} tries left.";
@@ -96,13 +98,15 @@ public class EmailOtp
 
     static string ReadConfig()
     {
-        if (sConfig != null) return null;
+        if (sConfig != null) { return null; }
         try
         {
             JObject config = JObject.Parse(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "emailjs.json")));
             string serviceId = (string)config["service_id"];
             if (string.IsNullOrEmpty(serviceId) || serviceId.StartsWith("PASTE"))
+            {
                 return "Email codes aren't set up yet (StreamingAssets/emailjs.json).";
+            }
             sConfig = config;
             return null;
         }

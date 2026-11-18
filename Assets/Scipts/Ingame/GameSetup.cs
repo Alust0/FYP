@@ -10,7 +10,7 @@ public class GameSetup : MonoBehaviour
         gs.players[0] = new PlayerState { playerName = MatchSession.PlayerNames[0], playerIndex = 0 };
         gs.players[1] = new PlayerState { playerName = MatchSession.PlayerNames[1], playerIndex = 1 };
 
-        if (MatchSession.IsOnline) gameObject.AddComponent<OnlineMatch>();
+        if (MatchSession.IsOnline) { gameObject.AddComponent<OnlineMatch>(); }
         gameObject.AddComponent<SplitScreenView>(); // camera views beside the sidebar; online, both players'
 
         gs.BroadcastState();
@@ -19,6 +19,6 @@ public class GameSetup : MonoBehaviour
     // Leaving a solo test, so Ingame opened another way is the one-PC game again
     void OnDestroy()
     {
-        if (MatchSession.IsSolo) MatchSession.End();
+        if (MatchSession.IsSolo) { MatchSession.End(); }
     }
 }

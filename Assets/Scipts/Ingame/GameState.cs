@@ -114,10 +114,10 @@ public class CardInstance
     // Returns true if this card is currently on any field circle
     public bool IsOnField(PlayerState owner)
     {
-        if (owner.vanguardCircle == this) return true;
-        if (owner.centerBackRearguard == this) return true;
-        foreach (var c in owner.frontRowRearguards) if (c == this) return true;
-        foreach (var c in owner.backRowRearguards) if (c == this) return true;
+        if (owner.vanguardCircle == this) { return true; }
+        if (owner.centerBackRearguard == this) { return true; }
+        foreach (var c in owner.frontRowRearguards) if (c == this) { return true; }
+        foreach (var c in owner.backRowRearguards) if (c == this) { return true; }
         return false;
     }
 }
@@ -154,19 +154,19 @@ public class PlayerState
     // Returns all cards currently on the field and order zone
     public IEnumerable<CardInstance> AllFieldCards()
     {
-        if (vanguardCircle != null) yield return vanguardCircle;
-        if (centerBackRearguard != null) yield return centerBackRearguard;
-        foreach (var c in frontRowRearguards) if (c != null) yield return c;
-        foreach (var c in backRowRearguards) if (c != null) yield return c;
+        if (vanguardCircle != null) { yield return vanguardCircle; }
+        if (centerBackRearguard != null) { yield return centerBackRearguard; }
+        foreach (var c in frontRowRearguards) if (c != null) { yield return c; }
+        foreach (var c in backRowRearguards) if (c != null) { yield return c; }
         foreach (var c in orderZone) yield return c;
     }
 
     // Returns all rear-guard instances currently on field
     public IEnumerable<CardInstance> AllRearguards()
     {
-        foreach (var c in frontRowRearguards) if (c != null) yield return c;
-        foreach (var c in backRowRearguards) if (c != null) yield return c;
-        if (centerBackRearguard != null) yield return centerBackRearguard;
+        foreach (var c in frontRowRearguards) if (c != null) { yield return c; }
+        foreach (var c in backRowRearguards) if (c != null) { yield return c; }
+        if (centerBackRearguard != null) { yield return centerBackRearguard; }
     }
 
     // Counts the camera can't track (deck, soul, extra copies)
@@ -184,10 +184,10 @@ public class PlayerState
     {
         int tracked = CountInZone(zone) - Untracked(zone);
         int count = Mathf.Max(-tracked, Untracked(zone) + delta);
-        if (zone == "Damage") count = Mathf.Min(count, MaxDamage);
-        if (zone == "FaceDownDamage") count = Mathf.Clamp(count, 0, Untracked("Damage"));
+        if (zone == "Damage") { count = Mathf.Min(count, MaxDamage); }
+        if (zone == "FaceDownDamage") { count = Mathf.Clamp(count, 0, Untracked("Damage")); }
         untrackedCards[zone] = count;
-        if (zone == "Damage" && Untracked("FaceDownDamage") > count) untrackedCards["FaceDownDamage"] = count; // a heal takes face-down damage too
+        if (zone == "Damage" && Untracked("FaceDownDamage") > count) { untrackedCards["FaceDownDamage"] = count; } // a heal takes face-down damage too
     }
 
     // Multi-card zone for a BoardLayout key suffix; null for single-card circles and unknown names
@@ -228,7 +228,7 @@ public class PlayerState
     // Tracked cards plus untracked count (Damage: count only)
     public int CountInZone(string zone)
     {
-        if (zone == "Damage") return Untracked(zone);
+        if (zone == "Damage") { return Untracked(zone); }
         List<CardInstance> list = ZoneList(zone);
         int tracked = list != null ? list.Count : (CardOnCircle(zone) != null ? 1 : 0);
         return tracked + Untracked(zone);
@@ -237,12 +237,12 @@ public class PlayerState
     // Removes a card from whichever zone it occupies, e.g. when a scanned card moves zones
     public void RemoveCardFromAllZones(CardInstance card)
     {
-        if (vanguardCircle == card) vanguardCircle = null;
-        if (centerBackRearguard == card) centerBackRearguard = null;
-        for (int i = 0; i < frontRowRearguards.Length; i++) if (frontRowRearguards[i] == card) frontRowRearguards[i] = null;
-        for (int i = 0; i < backRowRearguards.Length; i++) if (backRowRearguards[i] == card) backRowRearguards[i] = null;
+        if (vanguardCircle == card) { vanguardCircle = null; }
+        if (centerBackRearguard == card) { centerBackRearguard = null; }
+        for (int i = 0; i < frontRowRearguards.Length; i++) if (frontRowRearguards[i] == card) { frontRowRearguards[i] = null; }
+        for (int i = 0; i < backRowRearguards.Length; i++) if (backRowRearguards[i] == card) { backRowRearguards[i] = null; }
 
-        if (card.zone != null) ZoneList(card.zone)?.Remove(card);
+        if (card.zone != null) { ZoneList(card.zone)?.Remove(card); }
     }
 
     // Places a card by zone name (key without "P1_"/"P2_")
@@ -270,7 +270,7 @@ public class PlayerState
         }
 
         List<CardInstance> list = ZoneList(zoneSuffix);
-        if (list == null) return false;
+        if (list == null) { return false; }
         list.Add(card);
         return true;
     }
@@ -317,8 +317,8 @@ public class GameState : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null) { Instance = this; }
+        else { Destroy(gameObject); }
     }
 
     // Returns the player whose turn it currently is
@@ -330,7 +330,7 @@ public class GameState : MonoBehaviour
     // Moves a card to a zone, or off the board when null
     public void MoveCard(CardInstance card, PlayerState owner, string zone)
     {
-        if (gameOver) return; // the board is final once the game is over
+        if (gameOver) { return; } // the board is final once the game is over
         // An order is never a unit: on the vanguard or a rear-guard circle it isn't counted as on the board
         if (card.data.isOrderCard && Skill.IsUnitCircle(zone) && !handOnCircles)
         {
@@ -339,7 +339,7 @@ public class GameState : MonoBehaviour
             owner = null;
             zone = null;
         }
-        if (card.zoneOwner == owner && card.zone == zone) return;
+        if (card.zoneOwner == owner && card.zone == zone) { return; }
 
         PlayerState fromOwner = card.zoneOwner;
         string fromZone = card.zone;
@@ -381,7 +381,7 @@ public class GameState : MonoBehaviour
 
     public void SetOrientation(CardInstance card, CardOrientation orientation)
     {
-        if (gameOver || card.orientation == orientation) return;
+        if (gameOver || card.orientation == orientation) { return; }
         card.orientation = orientation;
         MatchLogger.CardTurned(card);
         OnCardOrientationChanged?.Invoke(card);
@@ -390,7 +390,7 @@ public class GameState : MonoBehaviour
     // Corrects a zone count by hand (HUD +/- now, gestures later) or from rules bookkeeping
     public void AdjustCount(PlayerState player, string zone, int delta)
     {
-        if (gameOver) return;
+        if (gameOver) { return; }
         player.AdjustCount(zone, delta);
         MatchLogger.Action(player.playerName + ": " + zone + " " + delta.ToString("+0;-0") + " (now " + player.CountInZone(zone) + ")");
         CheckWinCondition();
@@ -399,7 +399,7 @@ public class GameState : MonoBehaviour
 
     public void SetFacing(CardInstance card, CardFacing facing)
     {
-        if (gameOver || card.facing == facing) return;
+        if (gameOver || card.facing == facing) { return; }
         card.facing = facing;
         MatchLogger.CardFlipped(card);
         OnCardFacingChanged?.Invoke(card);
@@ -409,21 +409,21 @@ public class GameState : MonoBehaviour
     // Six damage or an empty deck loses
     public void CheckWinCondition()
     {
-        if (gameOver || players[0] == null || players[1] == null) return;
+        if (gameOver || players[0] == null || players[1] == null) { return; }
 
         bool[] loses = new bool[2];
         string reason = null;
         for (int i = 0; i < 2; i++)
         {
             int deck = players[i].CountInZone("Deck");
-            if (deck > 0) mHadDeck[i] = true;
+            if (deck > 0) { mHadDeck[i] = true; }
 
-            if (players[i].CountInZone("Damage") >= 6) reason = players[i].playerName + " reached 6 damage";
-            else if (mHadDeck[i] && deck <= 0) reason = players[i].playerName + "'s deck ran out";
-            else continue;
+            if (players[i].CountInZone("Damage") >= 6) { reason = players[i].playerName + " reached 6 damage"; }
+            else if (mHadDeck[i] && deck <= 0) { reason = players[i].playerName + "'s deck ran out"; }
+            else { continue; }
             loses[i] = true;
         }
-        if (!loses[0] && !loses[1]) return;
+        if (!loses[0] && !loses[1]) { return; }
 
         EndGame(loses[0] && loses[1] ? null : players[loses[0] ? 1 : 0], loses[0] && loses[1] ? "both players lost at once" : reason);
     }
@@ -431,7 +431,7 @@ public class GameState : MonoBehaviour
     // Ends the match; a null winner is a draw (MatchTimer's time running out)
     public void EndGame(PlayerState winner, string reason)
     {
-        if (gameOver) return;
+        if (gameOver) { return; }
         gameOver = true;
         winnerIndex = winner != null ? winner.playerIndex : -1;
         endReason = reason;
@@ -442,7 +442,7 @@ public class GameState : MonoBehaviour
     // Broadcasts the current phase and game state to all listeners
     public void BroadcastState()
     {
-        if (players[0] == null || players[1] == null) return;
+        if (players[0] == null || players[1] == null) { return; }
         CheckWinCondition(); // every count change passes through here, e.g. the deck's last draw
         OnPhaseChanged?.Invoke(currentPhase, CurrentPlayer.playerName);
         OnGameStateUpdated?.Invoke(this);
@@ -472,6 +472,8 @@ public class GameState : MonoBehaviour
     public void ClearBattleModifiers(CardInstance attacker)
     {
         if (attacker != null)
+        {
             attacker.powerModifier = 0;
+        }
     }
 }

@@ -16,7 +16,9 @@ public class CardScannerEditor : Editor
         EditorGUILayout.LabelField(new GUIContent("Cloud Reco Databases", "Ticked databases are searched while scanning; the rest stay off."), EditorStyles.boldLabel);
         SerializedProperty databases = serializedObject.FindProperty("databases");
         if (databases.arraySize == 0)
+        {
             EditorGUILayout.HelpBox("No CloudRecoBehaviour in this scene, so scanning can't start.", MessageType.Info);
+        }
         for (int i = 0; i < databases.arraySize; i++)
         {
             SerializedProperty database = databases.GetArrayElementAtIndex(i);

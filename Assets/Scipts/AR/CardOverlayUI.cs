@@ -71,20 +71,26 @@ public class CardOverlayUI : MonoBehaviour
     void Awake()
     {
         if (detailToggleButton != null)
+        {
             detailToggleButton.onClick.AddListener(ToggleDetailPanel);
+        }
         if (detailPanel != null)
+        {
             detailPanel.SetActive(false);
+        }
     }
 
     // Detail panel faces the camera so it stays upright
     void LateUpdate()
     {
         ShowStats();
-        if (!mDetailOpen || detailPanel == null) return;
+        if (!mDetailOpen || detailPanel == null) { return; }
 
         Camera cam = Camera.main;
         if (cam != null)
+        {
             detailPanel.transform.rotation = cam.transform.rotation * Quaternion.Euler(0f, 0f, RotatedView.Turned ? -90f : 0f);
+        }
     }
 
     void OnDestroy() => sOpen.Remove(this);
@@ -94,8 +100,8 @@ public class CardOverlayUI : MonoBehaviour
         CardInfoPanel.Instance?.Show(mData); // the sidebar shows it too
         mDetailOpen = !mDetailOpen;
         detailPanel?.SetActive(mDetailOpen);
-        if (mDetailOpen) sOpen.Add(this);
-        else sOpen.Remove(this);
+        if (mDetailOpen) { sOpen.Add(this); }
+        else { sOpen.Remove(this); }
     }
 
     public void CloseDetailPanel()
@@ -112,7 +118,7 @@ public class CardOverlayUI : MonoBehaviour
     {
         sOpen.RemoveAll(ui => ui == null);
         foreach (CardOverlayUI ui in sOpen)
-            if (ui.detailPanel != null) ui.detailPanel.SetActive(!hide);
+            if (ui.detailPanel != null) { ui.detailPanel.SetActive(!hide); }
     }
 
     // Populates all UI fields from a CardData asset
@@ -121,41 +127,65 @@ public class CardOverlayUI : MonoBehaviour
         mData = data;
         // English name first (default font has no Japanese)
         if (cardNameText != null)
+        {
             cardNameText.text = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
+        }
         if (gradeText != null) 
+        {
             gradeText.text = "G" + data.grade;
+        }
         // Orders have no power, critical or shield; G3s usually have no shield
         bool unit = !data.isOrderCard;
-        if (statBand != null) statBand.SetActive(unit);
-        if (shieldBand != null) shieldBand.SetActive(unit && data.shield > 0);
+        if (statBand != null) { statBand.SetActive(unit); }
+        if (shieldBand != null) { shieldBand.SetActive(unit && data.shield > 0); }
         if (powerText != null)
+        {
             SetPower(data.power, 0);
+        }
         if (criticalText != null)
+        {
             SetCritical(data.critical, 0);
+        }
         if (shieldText != null)
+        {
             shieldText.text = "<size=50%>SHIELD</size> " + data.shield;
+        }
 
         SetTriggerIcon(data.triggerIcon);
         SetGiftIcon(data.imaginaryGift);
 
         if (orientationIcon != null && standSprite != null)
+        {
             orientationIcon.sprite = standSprite; // default stand
+        }
 
         if (clanRaceText != null)
+        {
             clanRaceText.text = string.IsNullOrEmpty(data.clan) ? data.race : data.clan + " / " + data.race;
+        }
         if (skillBadgeText != null) 
+        {
             skillBadgeText.text = data.skillText;
+        }
         if (flavorBodyText != null) 
+        {
             flavorBodyText.text = data.flavorText;
+        }
         if (rarityText != null) 
+        {
             rarityText.text = data.rarity;
+        }
 
         string name = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
         if (skillTitleText != null)
+        {
             skillTitleText.text = "<b>" + name + "</b>";
+        }
         if (skillInfoText != null)
+        {
             skillInfoText.text = TypeLabel(data) + "   Grade " + data.grade + "   Power " + data.power + "   Shield " + data.shield +
                 (string.IsNullOrEmpty(data.skillText) ? "" : "   " + data.skillText);
+        }
         if (skillBodyText != null)
         {
             string trigger = TriggerEffect(data.triggerIcon);
@@ -165,16 +195,18 @@ public class CardOverlayUI : MonoBehaviour
         }
 
         if (rulePromptPanel != null)
+        {
             rulePromptPanel.SetActive(false); // hidden by default
+        }
     }
 
     // Card type in English
     public static string TypeLabel(CardData data)
     {
         string type = data.cardType?.Trim();
-        if (!string.IsNullOrEmpty(type) && type.All(c => c < 128)) return type;
+        if (!string.IsNullOrEmpty(type) && type.All(c => c < 128)) { return type; }
 
-        if (data.isOrderCard) return data.isBlitzOrder ? "Blitz Order" : "Normal Order";
+        if (data.isOrderCard) { return data.isBlitzOrder ? "Blitz Order" : "Normal Order"; }
         return data.isTriggerUnit ? "Trigger Unit" : "Normal Unit";
     }
 
@@ -211,8 +243,8 @@ public class CardOverlayUI : MonoBehaviour
     // Battle power, rolling to a new value over RollSeconds
     void ShowStats()
     {
-        if (mInstance == null) return;
-        if (sRules == null) sRules = FindFirstObjectByType<RulesEngine>();
+        if (mInstance == null) { return; }
+        if (sRules == null) { sRules = FindFirstObjectByType<RulesEngine>(); }
 
         int power = sRules != null ? sRules.ShownPower(mInstance) : mInstance.TotalPower;
         if (power != mPowerTo)
@@ -226,10 +258,10 @@ public class CardOverlayUI : MonoBehaviour
         {
             float eased = 1f - (1f - t) * (1f - t) * (1f - t); // fast, then settling
             SetPower(mInstance.data.power, Mathf.RoundToInt(Mathf.Lerp(mPowerFrom, mPowerTo, eased)) - mInstance.data.power);
-            if (powerText != null) powerText.rectTransform.localScale = Vector3.one * (1f + 0.3f * Mathf.Sin(t * Mathf.PI));
+            if (powerText != null) { powerText.rectTransform.localScale = Vector3.one * (1f + 0.3f * Mathf.Sin(t * Mathf.PI)); }
         }
 
-        if (mInstance.TotalCritical != mShownCritical) UpdateCritical(mInstance.data.critical, mInstance.criticalModifier);
+        if (mInstance.TotalCritical != mShownCritical) { UpdateCritical(mInstance.data.critical, mInstance.criticalModifier); }
     }
 
     static RulesEngine sRules;
@@ -240,7 +272,7 @@ public class CardOverlayUI : MonoBehaviour
     // Updates the power display with color coding for modifiers (once bound, ShowStats does)
     public void UpdatePower(int basePower, int modifier)
     {
-        if (mInstance == null) SetPower(basePower, modifier);
+        if (mInstance == null) { SetPower(basePower, modifier); }
     }
 
     // Updates the critical display
@@ -248,7 +280,7 @@ public class CardOverlayUI : MonoBehaviour
 
     void SetPower(int basePower, int modifier)
     {
-        if (powerText == null) return;
+        if (powerText == null) { return; }
         mShownPower = basePower + modifier;
         powerText.text = "<size=45%>POWER</size>\n" + mShownPower;
         powerText.color = modifier > 0 ? Raised : modifier < 0 ? Lowered : PowerColor;
@@ -256,7 +288,7 @@ public class CardOverlayUI : MonoBehaviour
 
     void SetCritical(int baseCrit, int modifier)
     {
-        if (criticalText == null) return;
+        if (criticalText == null) { return; }
         mShownCritical = baseCrit + modifier;
         criticalText.text = "<size=45%>CRIT</size>\n" + mShownCritical;
         criticalText.color = modifier > 0 ? Raised : modifier < 0 ? Lowered : CriticalColor;
@@ -266,7 +298,9 @@ public class CardOverlayUI : MonoBehaviour
     public void SetRestIndicator(bool isRested)
     {
         if (orientationIcon == null) 
+        {
             return;
+        }
 
         orientationIcon.sprite = isRested ? restSprite : standSprite;
         orientationIcon.color = isRested ? Color.yellow : Color.white; // yellow when rested
@@ -329,6 +363,8 @@ public class CardOverlayUI : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         if (rulePromptPanel != null)
+        {
             rulePromptPanel.SetActive(false); // dismiss prompt
+        }
     }
 }

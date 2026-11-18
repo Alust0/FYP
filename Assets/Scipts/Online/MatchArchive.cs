@@ -19,7 +19,7 @@ public static class MatchArchive
     // Sent without waiting, since the match scene may be closing
     public static void Save(Dictionary<string, object> fields)
     {
-        if (sUrl == null && !Init()) return;
+        if (sUrl == null && !Init()) { return; }
 
         var body = new JObject { ["fields"] = new JObject(fields.Select(pair => new JProperty(pair.Key, ToValue(pair.Value)))) };
         var request = new UnityWebRequest(sUrl, "POST")
@@ -31,8 +31,8 @@ public static class MatchArchive
         request.SetRequestHeader("Content-Type", "application/json");
         request.SendWebRequest().completed += _ =>
         {
-            if (request.result == UnityWebRequest.Result.Success) Debug.Log("[MatchArchive] Saved the match to Firestore.");
-            else Debug.LogWarning("[MatchArchive] Couldn't save the match (" + request.responseCode + "): " + request.error + " " + request.downloadHandler.text);
+            if (request.result == UnityWebRequest.Result.Success) { Debug.Log("[MatchArchive] Saved the match to Firestore."); }
+            else { Debug.LogWarning("[MatchArchive] Couldn't save the match (" + request.responseCode + "): " + request.error + " " + request.downloadHandler.text); }
             request.Dispose();
         };
     }

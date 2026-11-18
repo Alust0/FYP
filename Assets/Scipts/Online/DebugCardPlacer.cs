@@ -31,29 +31,29 @@ public class DebugCardPlacer : MonoBehaviour
 
     void Update()
     {
-        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) mOpen = !mOpen;
+        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) { mOpen = !mOpen; }
     }
 
     void OnGUI()
     {
-        if (mOpen) mWindow = GUILayout.Window(GetInstanceID(), mWindow, DrawWindow, "Test cards (F2)");
+        if (mOpen) { mWindow = GUILayout.Window(GetInstanceID(), mWindow, DrawWindow, "Test cards (F2)"); }
     }
 
     void DrawWindow(int id)
     {
-        if (!MatchSession.IsOnline) mPlayer = GUILayout.Toolbar(mPlayer, PlayerLabels);
+        if (!MatchSession.IsOnline) { mPlayer = GUILayout.Toolbar(mPlayer, PlayerLabels); }
 
         GUILayout.Label("Card number, as in the deck list (e.g. D-SD01-001)");
         mCardNumber = GUILayout.TextField(mCardNumber);
         mZone = GUILayout.SelectionGrid(mZone, Zones, 3);
 
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Place")) WithCard(card => GameState.Instance.MoveCard(card, Player, Zones[mZone]));
-        if (GUILayout.Button("Rest/Stand")) WithCard(card => GameState.Instance.SetOrientation(card,
-            card.orientation == CardOrientation.Rest ? CardOrientation.Stand : CardOrientation.Rest));
-        if (GUILayout.Button("Flip")) WithCard(card => GameState.Instance.SetFacing(card,
-            card.facing == CardFacing.FaceUp ? CardFacing.FaceDown : CardFacing.FaceUp));
-        if (GUILayout.Button("Remove")) WithCard(card => GameState.Instance.MoveCard(card, null, null));
+        if (GUILayout.Button("Place")) { WithCard(card => GameState.Instance.MoveCard(card, Player, Zones[mZone])); }
+        if (GUILayout.Button("Rest/Stand")) { WithCard(card => GameState.Instance.SetOrientation(card,
+            card.orientation == CardOrientation.Rest ? CardOrientation.Stand : CardOrientation.Rest)); }
+        if (GUILayout.Button("Flip")) { WithCard(card => GameState.Instance.SetFacing(card,
+            card.facing == CardFacing.FaceUp ? CardFacing.FaceDown : CardFacing.FaceUp)); }
+        if (GUILayout.Button("Remove")) { WithCard(card => GameState.Instance.MoveCard(card, null, null)); }
         GUILayout.EndHorizontal();
 
         GUILayout.Label(mStatus);
@@ -65,7 +65,7 @@ public class DebugCardPlacer : MonoBehaviour
     {
         string number = mCardNumber.Trim();
         PlayerState player = Player;
-        if (number.Length == 0 || player == null) return;
+        if (number.Length == 0 || player == null) { return; }
 
         string key = player.playerIndex + "_" + number.ToUpperInvariant();
         if (mCards.TryGetValue(key, out CardInstance known))
@@ -90,8 +90,12 @@ public class DebugCardPlacer : MonoBehaviour
         CardData FromLocalCache() => ApiCardDatabase.Instance != null ? ApiCardDatabase.Instance.GetByNumber(number) : null;
 
         if (CardFirestoreDatabase.Instance != null)
+        {
             CardFirestoreDatabase.Instance.GetCardByNumber(number, Apply, _ => Apply(FromLocalCache()));
+        }
         else
+        {
             Apply(FromLocalCache());
+        }
     }
 }

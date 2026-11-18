@@ -65,16 +65,16 @@ public class ActionButtons : MonoBehaviour
 
     void Update()
     {
-        if (mHint == null) return;
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        if (mHint == null) { return; }
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
 
         List<(string label, string phrase)> actions = Actions();
-        if (actions.Count != mLaidOut) LayOut(actions.Count);
+        if (actions.Count != mLaidOut) { LayOut(actions.Count); }
         for (int i = 0; i < MaxButtons; i++)
         {
             bool shown = i < actions.Count;
-            if (mButtons[i].gameObject.activeSelf != shown) mButtons[i].gameObject.SetActive(shown);
-            if (!shown) continue;
+            if (mButtons[i].gameObject.activeSelf != shown) { mButtons[i].gameObject.SetActive(shown); }
+            if (!shown) { continue; }
             mLabels[i].text = actions[i].label;
             mPhrases[i] = actions[i].phrase;
         }
@@ -107,19 +107,19 @@ public class ActionButtons : MonoBehaviour
             mTriggerList = phrase == WhichTrigger;
             return;
         }
-        if (phrase != null && phrase.EndsWith(" trigger")) mTriggerList = false; // answered
-        if (phrase != null && phrase.StartsWith(MatchSetup.PhrasePrefix)) mRules?.Setup?.Press(phrase);
-        else if (phrase == HealedFaceUp) mRules?.SetHealedFacing(false);
-        else if (phrase == HealedFaceDown) mRules?.SetHealedFacing(true);
-        else if (phrase == KeepTrigger) mRules?.KeepPicks();
-        else if (phrase == EnergyDraw) mRules?.EnergyDraw();
-        else if (phrase == LaterSkill) mRules?.Skills?.Later();
+        if (phrase != null && phrase.EndsWith(" trigger")) { mTriggerList = false; } // answered
+        if (phrase != null && phrase.StartsWith(MatchSetup.PhrasePrefix)) { mRules?.Setup?.Press(phrase); }
+        else if (phrase == HealedFaceUp) { mRules?.SetHealedFacing(false); }
+        else if (phrase == HealedFaceDown) { mRules?.SetHealedFacing(true); }
+        else if (phrase == KeepTrigger) { mRules?.KeepPicks(); }
+        else if (phrase == EnergyDraw) { mRules?.EnergyDraw(); }
+        else if (phrase == LaterSkill) { mRules?.Skills?.Later(); }
         else if (phrase == YourPartDone)
         {
             OnlineMatch.DoneOpponentStep();
             VoiceCommands.Instance?.Press("skill done"); // reaches the skill owner's PC (OpponentStep)
         }
-        else if (phrase != null) VoiceCommands.Instance?.Press(phrase);
+        else if (phrase != null) { VoiceCommands.Instance?.Press(phrase); }
     }
 
     // The keywords that make sense right now, for players at this PC
@@ -127,7 +127,7 @@ public class ActionButtons : MonoBehaviour
     {
         var actions = new List<(string, string)>();
         GameState gs = GameState.Instance;
-        if (mRules == null || mRules.Skills == null || gs == null || gs.players[0] == null) return actions;
+        if (mRules == null || mRules.Skills == null || gs == null || gs.players[0] == null) { return actions; }
 
         // Before turn 1: the opening hand's steps (MatchSetup)
         if (mRules.InSetup)
@@ -150,8 +150,8 @@ public class ActionButtons : MonoBehaviour
             if (MatchSession.IsLocal(skills.PromptOwner))
             {
                 actions.Add(("Activate" + (skills.PromptCost.Length > 0 ? "\n" + skills.PromptCost : ""), "activate skill"));
-                if (!skills.PromptMandatory) actions.Add(("Skip", "skip skill")); // one with no cost and no "may" has to be used
-                if (skills.PromptCount > 1) actions.Add(("Later", LaterSkill));
+                if (!skills.PromptMandatory) { actions.Add(("Skip", "skip skill")); } // one with no cost and no "may" has to be used
+                if (skills.PromptCount > 1) { actions.Add(("Later", LaterSkill)); }
             }
             return actions;
         }
@@ -159,19 +159,19 @@ public class ActionButtons : MonoBehaviour
         // A used skill's step waiting: which cost to pay, or done / skip
         if (skills.Stepping)
         {
-            if (!MatchSession.IsLocal(skills.PromptOwner)) return actions;
+            if (!MatchSession.IsLocal(skills.PromptOwner)) { return actions; }
 
             // The opponent's part: their Done, online on their PC (OnlineMatch); it can't be skipped
             if (skills.OpponentStepWaiting != null)
             {
-                if (!MatchSession.IsOnline) actions.Add(("Done\n(opponent's part)", "skill done"));
+                if (!MatchSession.IsOnline) { actions.Add(("Done\n(opponent's part)", "skill done")); }
                 return actions;
             }
             ChoiceCost choice = skills.ChoiceDue;
             if (choice != null)
             {
                 actions.Add(("Pay\n" + choice.Options[0].ShortText, "pay first"));
-                if (choice.Options.Count > 1) actions.Add(("Pay\n" + choice.Options[1].ShortText, "pay second"));
+                if (choice.Options.Count > 1) { actions.Add(("Pay\n" + choice.Options[1].ShortText, "pay second")); }
             }
             else
             {
@@ -184,7 +184,7 @@ public class ActionButtons : MonoBehaviour
         // Another copy of the vanguard laid on it: the camera sees no change, so the player says
         if (gs.currentPhase == TurnPhase.RidePhase)
         {
-            if (mRules.CanPersonaRide && MatchSession.IsLocal(gs.CurrentPlayer)) actions.Add(("Persona Ride\n(same card)", "persona ride"));
+            if (mRules.CanPersonaRide && MatchSession.IsLocal(gs.CurrentPlayer)) { actions.Add(("Persona Ride\n(same card)", "persona ride")); }
             return actions;
         }
 
@@ -193,10 +193,10 @@ public class ActionButtons : MonoBehaviour
         {
             foreach ((CardInstance card, Skill skill) in skills.ReadyActs())
                 actions.Add((card.data.DisplayName + "\n[ACT]" + (skill.Costs.Count > 0 ? " " + skill.ShortCostText : ""), VoiceCommands.ActivatePhrase(card.zone)));
-            if (mRules.CanEnergyDraw) actions.Add(("Energy Blast " + RulesEngine.EnergyDrawCost + ":\nDraw 1", EnergyDraw));
+            if (mRules.CanEnergyDraw) { actions.Add(("Energy Blast " + RulesEngine.EnergyDrawCost + ":\nDraw 1", EnergyDraw)); }
             return actions;
         }
-        if (gs.currentPhase != TurnPhase.BattlePhase) return actions;
+        if (gs.currentPhase != TurnPhase.BattlePhase) { return actions; }
 
         // A heal the camera couldn't place: which kind of damage card went
         PlayerState healer = mRules.HealFacingAsked;
@@ -213,7 +213,7 @@ public class ActionButtons : MonoBehaviour
         // A trigger being placed (on the lit circles): or leave it where it is
         if (mRules.PickNow != RulesEngine.TriggerPick.None)
         {
-            if (MatchSession.IsLocal(mRules.PickOwner)) actions.Add(("Keep trigger\nwhere it is", KeepTrigger));
+            if (MatchSession.IsLocal(mRules.PickOwner)) { actions.Add(("Keep trigger\nwhere it is", KeepTrigger)); }
             return actions;
         }
 
@@ -222,14 +222,14 @@ public class ActionButtons : MonoBehaviour
         bool attackerHere = MatchSession.IsLocal(gs.CurrentPlayer);
         bool defenderHere = MatchSession.IsLocal(defender);
 
-        if (attacker == null || mRules.Step == RulesEngine.BattleStep.Close) return actions; // no battle going
+        if (attacker == null || mRules.Step == RulesEngine.BattleStep.Close) { return actions; } // no battle going
 
         // A drive or damage check card due: if the camera didn't scan it, was it a trigger, and which
         PlayerState checker = mRules.CheckingPlayer;
-        if (checker == null) mTriggerList = false;
+        if (checker == null) { mTriggerList = false; }
         else
         {
-            if (!MatchSession.IsLocal(checker)) return actions;
+            if (!MatchSession.IsLocal(checker)) { return actions; }
             if (!mTriggerList)
             {
                 actions.Add(("Not scanned:\nNo trigger", VoiceCommands.TriggerPhrase(TriggerIcon.None)));
@@ -243,10 +243,10 @@ public class ActionButtons : MonoBehaviour
 
         if (mRules.IsChoosingTarget)
         {
-            if (!attackerHere) return actions;
-            if (defender.CardOnCircle("LeftFront") != null) actions.Add(("Attack\nLeft RG", "attack left"));
+            if (!attackerHere) { return actions; }
+            if (defender.CardOnCircle("LeftFront") != null) { actions.Add(("Attack\nLeft RG", "attack left")); }
             actions.Add(("Attack\nVanguard", "attack vanguard"));
-            if (defender.CardOnCircle("RightFront") != null) actions.Add(("Attack\nRight RG", "attack right"));
+            if (defender.CardOnCircle("RightFront") != null) { actions.Add(("Attack\nRight RG", "attack right")); }
             return actions;
         }
 
@@ -265,13 +265,13 @@ public class ActionButtons : MonoBehaviour
                 // A perfect guard comes from a Sentinel placed on the Guardian circle, not a button
                 if (mRules.VanguardAttacking)
                 {
-                    if (attackerHere) actions.Add(("Drive Check", "drive check")); // only once the guard is settled
+                    if (attackerHere) { actions.Add(("Drive Check", "drive check")); } // only once the guard is settled
                 }
-                else if (defenderHere && mRules.AttackHits) actions.Add(("Damage Check", "damage check")); // a rear-guard's attack that hits: no drive check
+                else if (defenderHere && mRules.AttackHits) { actions.Add(("Damage Check", "damage check")); } // a rear-guard's attack that hits: no drive check
                 break;
 
             case RulesEngine.BattleStep.Damage:
-                if (mRules.DamageLeft == 0 && defenderHere) actions.Add(("Damage Check", "damage check"));
+                if (mRules.DamageLeft == 0 && defenderHere) { actions.Add(("Damage Check", "damage check")); }
                 break;
         }
         return actions;

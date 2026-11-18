@@ -12,7 +12,7 @@ public partial class LoginController
 
     void ShowCodePanel()
     {
-        if (mCodePanel == null) BuildCodePanel();
+        if (mCodePanel == null) { BuildCodePanel(); }
         mCodePanel.transform.SetAsLastSibling();
         mCodePanel.SetActive(true);
         mCodeInput.text = "";
@@ -22,7 +22,7 @@ public partial class LoginController
 
     void HideCodePanel()
     {
-        if (mCodePanel != null) mCodePanel.SetActive(false);
+        if (mCodePanel != null) { mCodePanel.SetActive(false); }
     }
 
     // The build's name (Player Settings' Product Name) across the top of the page
@@ -69,13 +69,63 @@ public partial class LoginController
         mCodeInput.characterLimit = 6;
         mCodeInput.textComponent.fontSize = 40;
         mCodeInput.textComponent.alignment = TextAlignmentOptions.Center;
-        if (mCodeInput.placeholder is TMP_Text hint) hint.alignment = TextAlignmentOptions.Center;
+        if (mCodeInput.placeholder is TMP_Text hint) { hint.alignment = TextAlignmentOptions.Center; }
         mCodeInput.onSubmit.AddListener(_ => OnVerifyClicked());
         MenuUI.PlaceTop((RectTransform)mCodeInput.transform, 0.5f, 0.5f, 210f, 70f, -160f, -160f);
 
         AddPanelButton(panel, "Verify", OnVerifyClicked, MenuUI.Accent, MenuUI.DarkText, -210f);
         mResendButton = AddPanelButton(panel, "Resend", OnResendClicked, MenuUI.RowColor, Color.white, 0f);
         AddPanelButton(panel, "Cancel", OnCodeCancelled, MenuUI.RowColor, Color.white, 210f);
+    }
+
+    static readonly Color WrongPasswordColor = new Color(1f, 0.55f, 0.55f);
+    Color mPasswordColor;
+    bool mPasswordFlagged, mPasswordHooked;
+    Coroutine mShake;
+    Vector2 mShakeHome;
+
+    // Wrong password: the box shakes and stays red until it's typed in again
+    void FlagWrongPassword()
+    {
+        if (this == null || passwordInput == null) { return; }
+        Image box = passwordInput.image;
+        if (box != null)
+        {
+            if (!mPasswordFlagged) { mPasswordColor = box.color; }
+            box.color = WrongPasswordColor;
+        }
+        mPasswordFlagged = true;
+        if (!mPasswordHooked)
+        {
+            mPasswordHooked = true;
+            passwordInput.onValueChanged.AddListener(_ => ClearWrongPassword());
+        }
+
+        var rect = (RectTransform)passwordInput.transform;
+        if (mShake != null) { StopCoroutine(mShake); }
+        else { mShakeHome = rect.anchoredPosition; }
+        mShake = StartCoroutine(Shake(rect));
+    }
+
+    void ClearWrongPassword()
+    {
+        if (!mPasswordFlagged) { return; }
+        mPasswordFlagged = false;
+        if (passwordInput.image != null) { passwordInput.image.color = mPasswordColor; }
+    }
+
+    // Side to side, dying down over 0.45 s
+    System.Collections.IEnumerator Shake(RectTransform rect)
+    {
+        const float Seconds = 0.45f, Pixels = 18f, Swings = 4f;
+        for (float t = 0f; t < Seconds; t += Time.unscaledDeltaTime)
+        {
+            float x = Mathf.Sin(t / Seconds * Swings * 2f * Mathf.PI) * Pixels * (1f - t / Seconds);
+            rect.anchoredPosition = mShakeHome + new Vector2(x, 0f);
+            yield return null;
+        }
+        rect.anchoredPosition = mShakeHome;
+        mShake = null;
     }
 
     // One of the three buttons along the panel's bottom, centred x px from the middle

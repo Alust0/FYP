@@ -88,7 +88,7 @@ public static class JpSkillParser
     public static List<Skill> Parse(string text)
     {
         var skills = new List<Skill>();
-        if (string.IsNullOrWhiteSpace(text)) return skills;
+        if (string.IsNullOrWhiteSpace(text)) { return skills; }
         text = text.Normalize(NormalizationForm.FormKC);
         text = ReminderRx.Replace(text, m => Regex.IsMatch(m.Value, @"\p{IsHiragana}") ? "" : m.Value);
 
@@ -117,7 +117,9 @@ public static class JpSkillParser
             skills.Add(WithKeyword(ParseSkill(kind, body, maskedBody, sin, false), keyword));
             // "(V)か(R)に登場した時": a second skill for the vanguard circle
             if (kind == "自" && OnVorRRx.IsMatch(maskedBody))
+            {
                 skills.Add(WithKeyword(ParseSkill(kind, body, maskedBody, sin, true), keyword));
+            }
         }
         return skills;
     }
@@ -125,12 +127,12 @@ public static class JpSkillParser
     // A keyword before the marker: a once-a-game group (12.3), a gate (14.43), or a label for the player
     static Skill WithKeyword(Skill skill, string keyword)
     {
-        if (keyword.Contains("ディヴァインスキル")) skill.GameGroup = "Divine";
-        else if (keyword.Contains("ユニークスキル")) skill.GameGroup = "Unique";
-        else if (keyword == "白翼") skill.Gate = new SkillGate(SkillGate.Kind.WhiteWings);
-        else if (keyword == "黒翼") skill.Gate = new SkillGate(SkillGate.Kind.BlackWings);
-        else if (keyword.Length > 0) skill.Text = keyword + "-" + skill.Text; // e.g. "3つ以上-": arcana markers aren't counted
-        if (skill.GameGroup != null) skill.PerGame = true;
+        if (keyword.Contains("ディヴァインスキル")) { skill.GameGroup = "Divine"; }
+        else if (keyword.Contains("ユニークスキル")) { skill.GameGroup = "Unique"; }
+        else if (keyword == "白翼") { skill.Gate = new SkillGate(SkillGate.Kind.WhiteWings); }
+        else if (keyword == "黒翼") { skill.Gate = new SkillGate(SkillGate.Kind.BlackWings); }
+        else if (keyword.Length > 0) { skill.Text = keyword + "-" + skill.Text; } // e.g. "3つ以上-": arcana markers aren't counted
+        if (skill.GameGroup != null) { skill.PerGame = true; }
         return skill;
     }
 
@@ -141,9 +143,9 @@ public static class JpSkillParser
         int depth = 0;
         for (int i = 0; i < sb.Length; i++)
         {
-            if (sb[i] == '『') depth++;
-            else if (sb[i] == '』') depth = System.Math.Max(0, depth - 1);
-            else if (depth > 0) sb[i] = Masked;
+            if (sb[i] == '『') { depth++; }
+            else if (sb[i] == '』') { depth = System.Math.Max(0, depth - 1); }
+            else if (depth > 0) { sb[i] = Masked; }
         }
         return sb.ToString();
     }
@@ -152,10 +154,10 @@ public static class JpSkillParser
     static SkillGate HeaderGate(string header)
     {
         Match m;
-        if ((m = LimitBreakRx.Match(header)).Success) return new SkillGate(SkillGate.Kind.LimitBreak, int.Parse(m.Groups[1].Value));
-        if ((m = RitualRx.Match(header)).Success) return new SkillGate(SkillGate.Kind.Ritual, int.Parse(m.Groups[1].Value));
-        if (header.Contains("真剣必殺")) return new SkillGate(SkillGate.Kind.Shinken);
-        if (header.Contains("開眼")) return new SkillGate(SkillGate.Kind.Kaigan);
+        if ((m = LimitBreakRx.Match(header)).Success) { return new SkillGate(SkillGate.Kind.LimitBreak, int.Parse(m.Groups[1].Value)); }
+        if ((m = RitualRx.Match(header)).Success) { return new SkillGate(SkillGate.Kind.Ritual, int.Parse(m.Groups[1].Value)); }
+        if (header.Contains("真剣必殺")) { return new SkillGate(SkillGate.Kind.Shinken); }
+        if (header.Contains("開眼")) { return new SkillGate(SkillGate.Kind.Kaigan); }
         return null;
     }
 
@@ -163,7 +165,7 @@ public static class JpSkillParser
     static string HeaderCircle(string header)
     {
         Match circle = CircleRx.Match(header);
-        if (circle.Success) return circle.Groups[1].Value + "C";
+        if (circle.Success) { return circle.Groups[1].Value + "C"; }
         // "【ソウル/ドロップ】" works from either: "Soul/Drop"
         string zones = string.Join("/", HeaderZones.Where(z => header.Contains(z.jp)).Select(z => z.zone));
         return zones.Length > 0 ? zones : null;
@@ -195,7 +197,7 @@ public static class JpSkillParser
                 rest = body.Substring(timing.Length);
                 mRest = mBody.Substring(timing.Length);
             }
-            else if (KeywordTimings.TryGetValue(body.Trim(), out string keywordWhen)) when = keywordWhen;
+            else if (KeywordTimings.TryGetValue(body.Trim(), out string keywordWhen)) { when = keywordWhen; }
         }
 
         // "このユニットの罪能を使う" does the 罪能, cost and all; "使ってよい" leaves it to the player
@@ -225,8 +227,8 @@ public static class JpSkillParser
             effect = rest.Substring(0, costAt) + rest.Substring(after);
             mEffect = mRest.Substring(0, costAt) + mRest.Substring(after);
         }
-        if (onVanguard && body.Contains("(V)に登場したなら、このコストはなくなる")) costs.Clear();
-        if (sinShown != null) effect += "\n" + sinShown; // for the player, not read as steps
+        if (onVanguard && body.Contains("(V)に登場したなら、このコストはなくなる")) { costs.Clear(); }
+        if (sinShown != null) { effect += "\n" + sinShown; } // for the player, not read as steps
 
         Skill skill;
         switch (kind)
@@ -244,7 +246,7 @@ public static class JpSkillParser
         // 【D-双闘】 can be done once a fight (its reminder text, removed)
         skill.PerGame = header.Contains("ファイト1回") || mBody.StartsWith("【D-双闘】");
         skill.Steps = SkillParser.WithCosts(costs, EffectSteps(mEffect));
-        if (skill is AutoSkill auto && when != null) auto.Named = NamedInTiming(when);
+        if (skill is AutoSkill auto && when != null) { auto.Named = NamedInTiming(when); }
         return skill;
     }
 
@@ -252,9 +254,9 @@ public static class JpSkillParser
     static string NamedInTiming(string when)
     {
         Match m;
-        if ((m = RiddenByRx.Match(when)).Success) return m.Groups[1].Value;
-        if ((m = RodeFromRx.Match(when)).Success) return m.Groups[1].Value;
-        if ((m = AttackedNameRx.Match(when)).Success) return m.Groups[1].Value;
+        if ((m = RiddenByRx.Match(when)).Success) { return m.Groups[1].Value; }
+        if ((m = RodeFromRx.Match(when)).Success) { return m.Groups[1].Value; }
+        if ((m = AttackedNameRx.Match(when)).Success) { return m.Groups[1].Value; }
         return null;
     }
 
@@ -264,8 +266,8 @@ public static class JpSkillParser
         int depth = 0;
         for (int i = open; i < s.Length; i++)
         {
-            if (s[i] == '[') depth++;
-            else if (s[i] == ']' && --depth == 0) return i;
+            if (s[i] == '[') { depth++; }
+            else if (s[i] == ']' && --depth == 0) { return i; }
         }
         return -1;
     }
@@ -275,25 +277,27 @@ public static class JpSkillParser
     {
         bool self = when.Contains("このユニット") || when.Contains("このカード");
         bool theirs = when.Contains("相手の");
-        if (when.Contains("ライドされた")) return SkillTiming.RiddenUpon;
-        if (self && when.Contains("ライドして登場")) return SkillTiming.PlacedOnVC; // "「X」からライドして登場した時"
+        if (when.Contains("ライドされた")) { return SkillTiming.RiddenUpon; }
+        if (self && when.Contains("ライドして登場")) { return SkillTiming.PlacedOnVC; } // "「X」からライドして登場した時"
 
         Match placed = PlacedRx.Match(when);
         if (self && placed.Success)
+        {
             return placed.Groups[1].Value == "V" ? SkillTiming.PlacedOnVC : placed.Groups[1].Value == "R" ? SkillTiming.PlacedOnRC : SkillTiming.PlacedOnGC;
-        if (self && when.Contains("オーダーゾーンに置かれた")) return SkillTiming.PlacedInOrderZone;
-        if (self && when.Contains("アタックがヒットした")) return SkillTiming.AttackHits;
-        if (self && when.Contains("ブーストしたバトル終了時")) return SkillTiming.BoostEndOfBattle;
-        if (self && when.Contains("バトル終了時")) return SkillTiming.EndOfBattle; // "このユニットがアタックしたバトル終了時"
-        if (self && when.Contains("アタックした")) return SkillTiming.Attacks;
-        if (self && when.Contains("ブーストした")) return SkillTiming.Boosts;
-        if (theirs) return SkillTiming.Other;
+        }
+        if (self && when.Contains("オーダーゾーンに置かれた")) { return SkillTiming.PlacedInOrderZone; }
+        if (self && when.Contains("アタックがヒットした")) { return SkillTiming.AttackHits; }
+        if (self && when.Contains("ブーストしたバトル終了時")) { return SkillTiming.BoostEndOfBattle; }
+        if (self && when.Contains("バトル終了時")) { return SkillTiming.EndOfBattle; } // "このユニットがアタックしたバトル終了時"
+        if (self && when.Contains("アタックした")) { return SkillTiming.Attacks; }
+        if (self && when.Contains("ブーストした")) { return SkillTiming.Boosts; }
+        if (theirs) { return SkillTiming.Other; }
         // "「X」を含むあなたのヴァンガードがアタックされた時", also its "...バトルのガードステップ開始時"
-        if (when.Contains("ヴァンガードがアタックされた")) return SkillTiming.VanguardAttacked;
-        if (when.Contains("ライドフェイズ開始時")) return SkillTiming.StartOfRidePhase;
-        if (when.Contains("メインフェイズ開始時")) return SkillTiming.StartOfMainPhase;
-        if (when.Contains("バトルフェイズ開始時")) return SkillTiming.StartOfBattlePhase;
-        if (when.Contains("ターン終了時")) return SkillTiming.EndOfTurn;
+        if (when.Contains("ヴァンガードがアタックされた")) { return SkillTiming.VanguardAttacked; }
+        if (when.Contains("ライドフェイズ開始時")) { return SkillTiming.StartOfRidePhase; }
+        if (when.Contains("メインフェイズ開始時")) { return SkillTiming.StartOfMainPhase; }
+        if (when.Contains("バトルフェイズ開始時")) { return SkillTiming.StartOfBattlePhase; }
+        if (when.Contains("ターン終了時")) { return SkillTiming.EndOfTurn; }
         return SkillTiming.Other;
     }
 
@@ -304,8 +308,8 @@ public static class JpSkillParser
         foreach (string item in part.Split(','))
         {
             List<Cost> options = OrRx.Split(item).Select(o => o.Trim()).Where(o => o.Length > 0).Select(ParseCost).ToList();
-            if (options.Count == 1) costs.Add(options[0]);
-            else if (options.Count > 1) costs.Add(new ChoiceCost(options));
+            if (options.Count == 1) { costs.Add(options[0]); }
+            else if (options.Count > 1) { costs.Add(new ChoiceCost(options)); }
         }
         return costs;
     }
@@ -324,10 +328,10 @@ public static class JpSkillParser
             }
         }
         Match discard = DiscardRx.Match(item);
-        if (discard.Success) return new DiscardCost(int.Parse(discard.Groups[1].Value));
-        if (RestRx.IsMatch(item)) return new RestCost();
+        if (discard.Success) { return new DiscardCost(int.Parse(discard.Groups[1].Value)); }
+        if (RestRx.IsMatch(item)) { return new RestCost(); }
         foreach ((Regex rx, string name) in OtherCosts)
-            if (rx.IsMatch(item)) return new OtherCost(name, 1);
+            if (rx.IsMatch(item)) { return new OtherCost(name, 1); }
         return new OtherCost("the printed cost", 1);
     }
 
@@ -341,11 +345,11 @@ public static class JpSkillParser
         for (int i = 0; i < clauses.Length; i++)
         {
             string c = clauses[i];
-            if (OrderOnlyRx.IsMatch(c)) continue;
+            if (OrderOnlyRx.IsMatch(c)) { continue; }
             if (ConnectorRx.IsMatch(c))
             {
-                if (c == "そのバトル中") battleOnly = true;
-                else if (c == "そのターン中") battleOnly = false;
+                if (c == "そのバトル中") { battleOnly = true; }
+                else if (c == "そのターン中") { battleOnly = false; }
                 continue;
             }
             if (c.Contains("以下を1つ"))
@@ -356,18 +360,18 @@ public static class JpSkillParser
             if (c.EndsWith("か") || c.Contains(")か【"))
             {
                 yield return null;
-                if (c.EndsWith("か")) i++; // the other option
+                if (c.EndsWith("か")) { i++; } // the other option
                 continue;
             }
             // "相手は手札から1枚選び、あなたの監獄に収容する": the opponent does it (OpponentStep), not a condition about them
             if ((c.StartsWith("相手は") || c.StartsWith("相手が")) && !ConditionRx.IsMatch(c))
             {
-                if (!opponentActs) yield return new OpponentStep();
+                if (!opponentActs) { yield return new OpponentStep(); }
                 opponentActs = true;
                 continue;
             }
             // "あなたのユニットを1枚選び、そのバトル中、ヒットされない": the choosing is the perfect guard's
-            if (c.EndsWith("選び") && clauses.Skip(i + 1).Take(2).Any(CantBeHitRx.IsMatch)) continue;
+            if (c.EndsWith("選び") && clauses.Skip(i + 1).Take(2).Any(CantBeHitRx.IsMatch)) { continue; }
             Match discard = ChooseDiscardRx.Match(c);
             if (!opponentActs && discard.Success && i + 1 < clauses.Length && clauses[i + 1].StartsWith("捨て"))
             {
@@ -385,35 +389,35 @@ public static class JpSkillParser
             }
 
             searched |= SearchRx.IsMatch(c);
-            if ((c.EndsWith("選び") || SearchRx.IsMatch(c)) && i + 1 < clauses.Length && RevealRx.IsMatch(clauses[i + 1])) continue;
+            if ((c.EndsWith("選び") || SearchRx.IsMatch(c)) && i + 1 < clauses.Length && RevealRx.IsMatch(clauses[i + 1])) { continue; }
 
             string before = i > 0 && (clauses[i - 1].EndsWith("選び") || SearchRx.IsMatch(clauses[i - 1])) ? clauses[i - 1] : "";
             Match m;
-            if ((m = DrawRx.Match(c)).Success) yield return new DrawStep(int.Parse(m.Groups[1].Value));
-            else if ((m = SoulChargeRx.Match(c)).Success) yield return new CountStep(CountStep.Kind.SoulCharge, int.Parse(m.Groups[1].Value));
-            else if ((m = CounterChargeRx.Match(c)).Success) yield return new CountStep(CountStep.Kind.CounterCharge, int.Parse(m.Groups[1].Value));
-            else if ((m = EnergyChargeRx.Match(c)).Success) yield return new CountStep(CountStep.Kind.EnergyCharge, int.Parse(m.Groups[1].Value));
+            if ((m = DrawRx.Match(c)).Success) { yield return new DrawStep(int.Parse(m.Groups[1].Value)); }
+            else if ((m = SoulChargeRx.Match(c)).Success) { yield return new CountStep(CountStep.Kind.SoulCharge, int.Parse(m.Groups[1].Value)); }
+            else if ((m = CounterChargeRx.Match(c)).Success) { yield return new CountStep(CountStep.Kind.CounterCharge, int.Parse(m.Groups[1].Value)); }
+            else if ((m = EnergyChargeRx.Match(c)).Success) { yield return new CountStep(CountStep.Kind.EnergyCharge, int.Parse(m.Groups[1].Value)); }
             else if (RevealRx.IsMatch(c))
             {
                 revealed = !before.StartsWith("相手"); // "相手は自分の手札から1枚選び、公開する"
-                if (revealed) yield return new RevealStep(Filter(before + c));
-                else if (!opponentActs) yield return null;
-                if (revealed && ToHandRx.IsMatch(c)) yield return new ToHandStep(searched); // "公開して手札に加え"
+                if (revealed) { yield return new RevealStep(Filter(before + c)); }
+                else if (!opponentActs) { yield return null; }
+                if (revealed && ToHandRx.IsMatch(c)) { yield return new ToHandStep(searched); } // "公開して手札に加え"
             }
-            else if (revealed && ToHandRx.IsMatch(c)) yield return new ToHandStep(searched);
+            else if (revealed && ToHandRx.IsMatch(c)) { yield return new ToHandStep(searched); }
             else if (ShuffleRx.IsMatch(c))
             {
                 shuffled = true;
                 yield return new ShuffleStep();
             }
-            else if ((m = SelfBoostRx.Match(c)).Success) yield return new PowerStep(m.Groups[1].Value == "クリティカル", int.Parse(m.Groups[2].Value), battleOnly);
-            else if (StandSelfRx.IsMatch(c)) yield return new StandStep();
-            else if (CantBeHitRx.IsMatch(c)) yield return new CantBeHitStep();
-            else if (ConditionRx.IsMatch(c)) yield return new ConditionStep(c);
-            else if (!opponentActs && (m = DiscardRx.Match(c)).Success) yield return new DiscardStep(int.Parse(m.Groups[1].Value));
-            else if (!opponentActs) yield return null;
+            else if ((m = SelfBoostRx.Match(c)).Success) { yield return new PowerStep(m.Groups[1].Value == "クリティカル", int.Parse(m.Groups[2].Value), battleOnly); }
+            else if (StandSelfRx.IsMatch(c)) { yield return new StandStep(); }
+            else if (CantBeHitRx.IsMatch(c)) { yield return new CantBeHitStep(); }
+            else if (ConditionRx.IsMatch(c)) { yield return new ConditionStep(c); }
+            else if (!opponentActs && (m = DiscardRx.Match(c)).Success) { yield return new DiscardStep(int.Parse(m.Groups[1].Value)); }
+            else if (!opponentActs) { yield return null; }
         }
-        if (searched && !shuffled) yield return new ShuffleStep();
+        if (searched && !shuffled) { yield return new ShuffleStep(); }
     }
 
     static readonly Regex ChooseOpponentRx = new Regex(@"^(.*?)相手の(前列の|後列の)?(?:他の)?(リアガード|ユニット)を(\d+)枚(まで)?選び$");
@@ -445,8 +449,8 @@ public static class JpSkillParser
         int j = i + 1;
         bool battle = battleOnly;
         for (; j < clauses.Length && ConnectorRx.IsMatch(clauses[j]); j++)
-            if (clauses[j] == "そのバトル中") battle = true;
-            else if (clauses[j] == "そのターン中") battle = false;
+            if (clauses[j] == "そのバトル中") { battle = true; }
+            else if (clauses[j] == "そのターン中") { battle = false; }
         string next = j < clauses.Length ? clauses[j] : "";
 
         Match power = OpponentPowerRx.Match(next);
@@ -458,7 +462,7 @@ public static class JpSkillParser
         }
         foreach ((string ja, string act, string theirs, string to) in OpponentActs)
         {
-            if (!next.Contains(ja)) continue;
+            if (!next.Contains(ja)) { continue; }
             i = j;
             return new ChooseOpponentStep(where, count, upTo, filter, ja == "退却させ" ? ChooseOpponentStep.Act.Retire : ChooseOpponentStep.Act.Other, act, theirs, to: to);
         }
@@ -475,11 +479,11 @@ public static class JpSkillParser
             filter.OrGreater = grade.Groups[2].Success;
         }
         Match race = RaceRx.Match(text);
-        if (race.Success) filter.Race = race.Groups[1].Value;
+        if (race.Success) { filter.Race = race.Groups[1].Value; }
         Match name = NameRx.Match(text);
-        if (name.Success) filter.Name = name.Groups[1].Value;
+        if (name.Success) { filter.Name = name.Groups[1].Value; }
         Match keyword = KeywordRx.Match(text);
-        if (keyword.Success) filter.Keyword = keyword.Groups[1].Value;
+        if (keyword.Success) { filter.Keyword = keyword.Groups[1].Value; }
         return filter;
     }
 }

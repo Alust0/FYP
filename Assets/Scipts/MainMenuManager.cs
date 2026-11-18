@@ -14,7 +14,7 @@ public class MainMenuManager : MonoBehaviour
 
     void Start()
     {
-        if (logoutButton != null) logoutButton.onClick.AddListener(Logout);
+        if (logoutButton != null) { logoutButton.onClick.AddListener(Logout); }
     }
 
     public void LoadScene(string sceneName)
@@ -33,7 +33,9 @@ public class MainMenuManager : MonoBehaviour
         AccountLock.Release(); // lets the account log in on another copy straight away
         // Skipped when the menu scene was opened directly in the editor without logging in
         if (UnityServices.State == ServicesInitializationState.Initialized)
+        {
             AuthenticationService.Instance.SignOut(true);
+        }
 #if !UNITY_WSA
         FirebaseAuth.DefaultInstance.SignOut();
 #endif

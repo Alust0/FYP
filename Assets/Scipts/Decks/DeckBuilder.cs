@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
@@ -39,7 +40,8 @@ public partial class DeckBuilder : MonoBehaviour
     // Card details panel
     RawImage mDetailPicture;
     AspectRatioFitter mDetailFitter;
-    Texture2D mDetailTexture; // its own copy, as the browser frees its pictures
+    Texture2D mDetailTexture; // its own copy when the browser hadn't loaded it (the browser frees its pictures)
+    bool mDetailOwned; // mDetailTexture is that copy, not one of mPictures
     TMP_Text mDetailText;
     string mDetailNumber;
 
@@ -59,7 +61,12 @@ public partial class DeckBuilder : MonoBehaviour
     readonly List<(string number, RawImage image)> mPictureQueue = new List<(string, RawImage)>();
     readonly Dictionary<string, TMP_Text> mBadges = new Dictionary<string, TMP_Text>();
     readonly Dictionary<string, Texture2D> mPictures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, UnityWebRequest> mPictureRequests = new Dictionary<string, UnityWebRequest>(StringComparer.OrdinalIgnoreCase);
+    const int PicturesAtOnce = 8; // file reads and PNG decodes in flight, off the main thread
     Coroutine mLoadingPictures;
+    Coroutine mLoadingEverySet;
+    bool mEverySetLoaded; // every bundled card's details are in mCardData (or mNotLocal)
+    readonly HashSet<string> mNotLocal = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // pictures with no local card data
 
     // Filters need card details, so cards load first
     const string AnyNation = "Any nation";
@@ -127,9 +134,12 @@ public partial class DeckBuilder : MonoBehaviour
 
     void Start()
     {
+        LocalCardData.Preload(); // every set read on a worker thread while the scene opens
         // Card names and grades; the Deck scene has no database of its own
         if (CardFirestoreDatabase.Instance == null)
+        {
             new GameObject("CardFirestoreDatabase").AddComponent<CardFirestoreDatabase>();
+        }
 
         BuildUI();
         SetUpScanner();
@@ -140,9 +150,11 @@ public partial class DeckBuilder : MonoBehaviour
 
     void OnDestroy()
     {
+        foreach (UnityWebRequest request in mPictureRequests.Values) request.Dispose();
+        mPictureRequests.Clear();
         foreach (Texture2D picture in mPictures.Values)
-            if (picture != null) Destroy(picture);
-        if (mDetailTexture != null) Destroy(mDetailTexture);
+            if (picture != null) { Destroy(picture); }
+        if (mDetailOwned && mDetailTexture != null) { Destroy(mDetailTexture); }
     }
 
     // Scan mode
@@ -150,15 +162,15 @@ public partial class DeckBuilder : MonoBehaviour
     // Ticking the box in Play Mode shows or hides the button straight away
     void OnValidate()
     {
-        if (mScanButton == null) return;
-        if (!showScanButton && scanner != null && scanner.IsScanning) StopScanning("");
+        if (mScanButton == null) { return; }
+        if (!showScanButton && scanner != null && scanner.IsScanning) { StopScanning(""); }
         mScanButton.gameObject.SetActive(showScanButton);
     }
 
     void SetUpScanner()
     {
-        if (scanner == null) scanner = GetComponent<CardScanner>();
-        if (scanner == null) scanner = gameObject.AddComponent<CardScanner>();
+        if (scanner == null) { scanner = GetComponent<CardScanner>(); }
+        if (scanner == null) { scanner = gameObject.AddComponent<CardScanner>(); }
         scanner.CardScanned += OnCardClicked;
         scanner.StatusChanged += text => mScanText.text = text;
         scanner.Failed += StopScanning;
@@ -185,7 +197,7 @@ public partial class DeckBuilder : MonoBehaviour
     {
         scanner.StopScanning();
         ShowScanMode(false);
-        if (status.Length > 0) SetStatus(status);
+        if (status.Length > 0) { SetStatus(status); }
     }
 
     // The camera's picture shows through where the card grid was
@@ -209,9 +221,9 @@ public partial class DeckBuilder : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogWarning("[DeckBuilder] Couldn't load saved decks: " + e.Message);
-            if (this != null) SetStatus("Couldn't load your saved decks. Check your internet connection.");
+            if (this != null) { SetStatus("Couldn't load your saved decks. Check your internet connection."); }
         }
-        if (this == null) return;
+        if (this == null) { return; }
         mLoading = false;
         ShowDeckChoices();
     }
@@ -243,20 +255,20 @@ public partial class DeckBuilder : MonoBehaviour
     void OnDeckChosen(int index)
     {
         Deck chosen = index >= 0 && index < mDeckChoices.Count ? mDeckChoices[index] : null;
-        if (chosen != null) OnOpenDeck(chosen);
+        if (chosen != null) { OnOpenDeck(chosen); }
         ShowDeckChoices(); // back to the open deck if unsaved changes stopped the switch
     }
 
     void OnOpenDeck(Deck saved)
     {
-        if (mDeck != null && mDeck.id == saved.id) return;
-        if (!CanDiscard("open " + saved.id)) return;
+        if (mDeck != null && mDeck.id == saved.id) { return; }
+        if (!CanDiscard("open " + saved.id)) { return; }
         Open(Copy(saved));
     }
 
     void OnNewDeck()
     {
-        if (!CanDiscard("new")) return;
+        if (!CanDiscard("new")) { return; }
         Open(new Deck { deckName = "New Deck" });
     }
 
@@ -278,8 +290,8 @@ public partial class DeckBuilder : MonoBehaviour
 
     async void OnSave()
     {
-        if (mDeck == null || mBusy) return;
-        if (string.IsNullOrWhiteSpace(mDeck.deckName)) mDeck.deckName = "Untitled Deck";
+        if (mDeck == null || mBusy) { return; }
+        if (string.IsNullOrWhiteSpace(mDeck.deckName)) { mDeck.deckName = "Untitled Deck"; }
         mDeck.deckName = mDeck.deckName.Trim();
 
         // Decks saved before the nation rule can still mix nations
@@ -306,31 +318,31 @@ public partial class DeckBuilder : MonoBehaviour
         {
             Deck saved = Copy(mDeck);
             await DeckRepository.SaveAsync(saved);
-            if (this == null) return;
+            if (this == null) { return; }
             mDeck.id = saved.id;
             mSaved = await DeckRepository.LoadSavedAsync();
-            if (this == null) return;
+            if (this == null) { return; }
             mDirty = false;
             SetBusy(false, "Saved \"" + mDeck.deckName + "\".");
         }
         catch (Exception e)
         {
             Debug.LogWarning("[DeckBuilder] Couldn't save the deck: " + e.Message);
-            if (this != null) SetBusy(false, "Couldn't save the deck. Check your internet connection.");
+            if (this != null) { SetBusy(false, "Couldn't save the deck. Check your internet connection."); }
         }
-        if (this == null) return;
+        if (this == null) { return; }
         ShowDeck();
         ShowDeckChoices();
     }
 
     async void OnDelete()
     {
-        if (mDeck == null || mBusy) return;
+        if (mDeck == null || mBusy) { return; }
 
         // An unsaved new deck just closes
         if (string.IsNullOrEmpty(mDeck.id))
         {
-            if (CanDiscard("delete")) Open(null);
+            if (CanDiscard("delete")) { Open(null); }
             return;
         }
         if (mDiscardWarned != "delete")
@@ -345,38 +357,38 @@ public partial class DeckBuilder : MonoBehaviour
         {
             string name = mDeck.deckName;
             await DeckRepository.DeleteAsync(mDeck.id);
-            if (this == null) return;
+            if (this == null) { return; }
             mSaved = await DeckRepository.LoadSavedAsync();
-            if (this == null) return;
+            if (this == null) { return; }
             Open(null);
             SetBusy(false, "Deleted \"" + name + "\".");
         }
         catch (Exception e)
         {
             Debug.LogWarning("[DeckBuilder] Couldn't delete the deck: " + e.Message);
-            if (this != null) SetBusy(false, "Couldn't delete the deck. Check your internet connection.");
+            if (this != null) { SetBusy(false, "Couldn't delete the deck. Check your internet connection."); }
         }
     }
 
     // The open deck as a .json file in Downloads (DeckFiles)
     void OnExport()
     {
-        if (mDeck == null) return;
+        if (mDeck == null) { return; }
         DeckFiles.Export(Copy(mDeck), message =>
         {
-            if (this != null && message != null) SetStatus(message);
+            if (this != null && message != null) { SetStatus(message); }
         });
     }
 
     // A deck file picked from Downloads, opened as a new deck to check and save
     void OnImport()
     {
-        if (mBusy || !CanDiscard("import")) return;
+        if (mBusy || !CanDiscard("import")) { return; }
         DeckFiles.Import((imported, message) =>
         {
-            if (this == null) return;
-            if (imported != null) ShowImported(imported);
-            else if (message != null) SetStatus(message);
+            if (this == null) { return; }
+            if (imported != null) { ShowImported(imported); }
+            else if (message != null) { SetStatus(message); }
         });
     }
 
@@ -394,14 +406,14 @@ public partial class DeckBuilder : MonoBehaviour
     // Before a change, so Undo can go back to this
     void RememberDeck()
     {
-        if (mDeck == null) return;
+        if (mDeck == null) { return; }
         mUndo.Add(Copy(mDeck));
-        if (mUndo.Count > MaxUndo) mUndo.RemoveAt(0);
+        if (mUndo.Count > MaxUndo) { mUndo.RemoveAt(0); }
     }
 
     void OnUndo()
     {
-        if (mUndo.Count == 0 || mBusy) return;
+        if (mUndo.Count == 0 || mBusy) { return; }
         Deck last = mUndo[mUndo.Count - 1];
         mUndo.RemoveAt(mUndo.Count - 1);
         Restore(last);
@@ -411,7 +423,7 @@ public partial class DeckBuilder : MonoBehaviour
     // Back to the saved deck (an unsaved deck empties); Undo brings the changes back
     void OnCancel()
     {
-        if (mDeck == null || !mDirty || mBusy) return;
+        if (mDeck == null || !mDirty || mBusy) { return; }
         RememberDeck();
         Deck saved = SavedVersion();
         Restore(saved != null ? Copy(saved) : new Deck { deckName = mDeck.deckName });
@@ -437,15 +449,15 @@ public partial class DeckBuilder : MonoBehaviour
 
     void OnBack()
     {
-        if (!CanDiscard("back")) return;
-        if (scanner.IsScanning) StopScanning("");
+        if (!CanDiscard("back")) { return; }
+        if (scanner.IsScanning) { StopScanning(""); }
         SceneManager.LoadScene(menuSceneName);
     }
 
     // With unsaved changes, warns the first time and goes ahead the second
     bool CanDiscard(string action)
     {
-        if (!mDirty || mDiscardWarned == action) return true;
+        if (!mDirty || mDiscardWarned == action) { return true; }
         mDiscardWarned = action;
         SetStatus("This deck has unsaved changes. Save it, or do that again to throw them away.");
         return false;
@@ -500,7 +512,7 @@ public partial class DeckBuilder : MonoBehaviour
         bool wasSleeves = SleeveSection;
         mSection = Sections[Mathf.Clamp(index, 0, Sections.Length - 1)];
         SetStatus("");
-        if (SleeveSection != wasSleeves) ShowBrowserMode();
+        if (SleeveSection != wasSleeves) { ShowBrowserMode(); }
         ShowDeck();
     }
 
@@ -508,12 +520,14 @@ public partial class DeckBuilder : MonoBehaviour
     void ShowBrowserMode()
     {
         bool sleeves = SleeveSection;
-        if (scanner.IsScanning) StopScanning("");
+        if (scanner.IsScanning) { StopScanning(""); }
         mFilterPopup.SetActive(false);
         mFilterButton.gameObject.SetActive(!sleeves);
         mWholeSetButton.gameObject.SetActive(!sleeves);
         if (mSearchInput.placeholder is TMP_Text hint)
+        {
             hint.text = sleeves ? "Search sleeve number, e.g. s120..." : "Search card number, e.g. BT01-005...";
+        }
         mSearchInput.SetTextWithoutNotify("");
         ShowBrowser();
     }
@@ -526,7 +540,9 @@ public partial class DeckBuilder : MonoBehaviour
         {
             string size;
             if (section == DeckSection.DeckSleeve || section == DeckSection.RideSleeve)
+            {
                 size = string.IsNullOrEmpty(SleeveOf(section)) ? "none" : SleeveOf(section);
+            }
             else
             {
                 int count = mDeck != null ? SectionCards(section).Sum(e => e.count) : 0;
@@ -554,9 +570,9 @@ public partial class DeckBuilder : MonoBehaviour
         ShowCardInfo(number, true);
         WithCard(number, card =>
         {
-            if (mDeck == null) Open(new Deck { deckName = "New Deck" });
-            if (CanJoin(card, out string problem)) AddCopy(number);
-            else SetStatus(problem);
+            if (mDeck == null) { Open(new Deck { deckName = "New Deck" }); }
+            if (CanJoin(card, out string problem)) { AddCopy(number); }
+            else { SetStatus(problem); }
         });
     }
 
@@ -564,12 +580,12 @@ public partial class DeckBuilder : MonoBehaviour
     void OnSleeveClicked(string id)
     {
         ShowCardInfo(id, true);
-        if (mDeck == null) Open(new Deck { deckName = "New Deck" });
-        if (string.Equals(SleeveOf(mSection), id, StringComparison.OrdinalIgnoreCase)) return;
+        if (mDeck == null) { Open(new Deck { deckName = "New Deck" }); }
+        if (string.Equals(SleeveOf(mSection), id, StringComparison.OrdinalIgnoreCase)) { return; }
 
         RememberDeck();
-        if (mSection == DeckSection.RideSleeve) mDeck.rideDeckSleeve = id;
-        else mDeck.deckSleeve = id;
+        if (mSection == DeckSection.RideSleeve) { mDeck.rideDeckSleeve = id; }
+        else { mDeck.deckSleeve = id; }
         MarkDirty();
         ShowDeck();
     }
@@ -577,7 +593,7 @@ public partial class DeckBuilder : MonoBehaviour
     void AddCopy(string number)
     {
         string problem = ChangeCount(number, +1);
-        if (problem != null) SetStatus(problem);
+        if (problem != null) { SetStatus(problem); }
     }
 
     // A card's nations (none = any deck)
@@ -593,14 +609,14 @@ public partial class DeckBuilder : MonoBehaviour
     {
         HashSet<string> shared = null;
         IEnumerable<CardData> cards = mDeck.AllEntries.Select(entry => mCardData.TryGetValue(entry.cardNumber, out CardData card) ? card : null);
-        if (extra != null) cards = cards.Append(extra);
+        if (extra != null) { cards = cards.Append(extra); }
 
         foreach (CardData card in cards)
         {
             List<string> nations = card != null ? Nations(card) : null;
-            if (nations == null || nations.Count == 0) continue;
-            if (shared == null) shared = new HashSet<string>(nations, StringComparer.OrdinalIgnoreCase);
-            else shared.IntersectWith(nations);
+            if (nations == null || nations.Count == 0) { continue; }
+            if (shared == null) { shared = new HashSet<string>(nations, StringComparer.OrdinalIgnoreCase); }
+            else { shared.IntersectWith(nations); }
         }
         return shared;
     }
@@ -609,10 +625,10 @@ public partial class DeckBuilder : MonoBehaviour
     bool CanJoin(CardData card, out string problem)
     {
         problem = null;
-        if (card == null || Nations(card).Count == 0) return true;
+        if (card == null || Nations(card).Count == 0) { return true; }
 
         HashSet<string> shared = SharedNations(card);
-        if (shared == null || shared.Count > 0) return true;
+        if (shared == null || shared.Count > 0) { return true; }
 
         problem = CardName(card) + " is " + NationLabel(card) + ", but this deck is " + DeckNationLabel() +
             ". Only Cray Elementals and dual-nation cards can join another nation's deck.";
@@ -622,14 +638,14 @@ public partial class DeckBuilder : MonoBehaviour
     string DeckNationLabel()
     {
         HashSet<string> shared = SharedNations();
-        if (shared == null) return "no nation yet";
+        if (shared == null) { return "no nation yet"; }
         return shared.Count == 0 ? "mixed" : string.Join(" / ", shared);
     }
 
     static string NationLabel(CardData card)
     {
         List<string> nations = Nations(card);
-        if (nations.Count > 0) return string.Join(" / ", nations);
+        if (nations.Count > 0) { return string.Join(" / ", nations); }
         string race = card.race ?? "";
         bool elemental = race.IndexOf("elemental", StringComparison.OrdinalIgnoreCase) >= 0 || race.Contains("エレメンタル");
         return elemental ? "Cray Elemental" : "No nation";
@@ -643,21 +659,29 @@ public partial class DeckBuilder : MonoBehaviour
         if (delta > 0)
         {
             if (mSection == DeckSection.Ride && mDeck.RideCards + delta > RideDeckSize)
+            {
                 return "The ride deck holds " + RideDeckSize + " cards.";
+            }
             if (mSection == DeckSection.Main && mDeck.MainCards + delta > deckSize)
+            {
                 return "The main deck is full: " + deckSize + " cards.";
+            }
             int inDeck = mDeck.cards.Concat(mDeck.rideDeck).Where(e => SameCard(e.cardNumber, number)).Sum(e => e.count);
             if (mSection != DeckSection.Extras && inDeck + delta > maxCopies)
+            {
                 return "A deck can have at most " + maxCopies + " copies of " + number + ".";
+            }
             if (mSection != DeckSection.Extras && IsSentinel(number) && Sentinels() + delta > MaxSentinels)
+            {
                 return "A deck can have at most " + MaxSentinels + " Sentinels.";
+            }
         }
 
         RememberDeck();
         int count = (entry?.count ?? 0) + delta;
-        if (entry == null) cards.Add(new DeckEntry { cardNumber = number, count = count });
-        else if (count <= 0) cards.Remove(entry);
-        else entry.count = count;
+        if (entry == null) { cards.Add(new DeckEntry { cardNumber = number, count = count }); }
+        else if (count <= 0) { cards.Remove(entry); }
+        else { entry.count = count; }
 
         MarkDirty();
         ShowDeck();
@@ -674,7 +698,7 @@ public partial class DeckBuilder : MonoBehaviour
     void OnAddWholeSet()
     {
         string set = ChosenSet;
-        if (set == null || !DeckRepository.IsStarter(set)) return;
+        if (set == null || !DeckRepository.IsStarter(set)) { return; }
 
         List<string> numbers = CardImageLibrary.CardNumbersInSet(set);
         int waiting = numbers.Count;
@@ -682,19 +706,19 @@ public partial class DeckBuilder : MonoBehaviour
         foreach (string number in numbers)
             WithCard(number, _ =>
             {
-                if (--waiting == 0) AddWholeSet(set, numbers);
+                if (--waiting == 0) { AddWholeSet(set, numbers); }
             });
     }
 
     void AddWholeSet(string set, List<string> numbers)
     {
-        if (mDeck == null) Open(new Deck { deckName = set });
+        if (mDeck == null) { Open(new Deck { deckName = set }); }
         RememberDeck();
 
         int leftOut = 0, noRoom = 0;
         foreach (string number in numbers)
         {
-            if (mDeck.cards.Any(e => string.Equals(e.cardNumber, number, StringComparison.OrdinalIgnoreCase))) continue;
+            if (mDeck.cards.Any(e => string.Equals(e.cardNumber, number, StringComparison.OrdinalIgnoreCase))) { continue; }
             mCardData.TryGetValue(number, out CardData card);
             if (!CanJoin(card, out _))
             {
@@ -712,9 +736,9 @@ public partial class DeckBuilder : MonoBehaviour
         MarkDirty();
         ShowDeck();
         var notes = new List<string>();
-        if (leftOut > 0) notes.Add(leftOut + " cards of another nation were left out.");
-        if (noRoom > 0) notes.Add(noRoom + " didn't fit in the " + deckSize + "-card main deck.");
-        if (notes.Count > 0) SetStatus(string.Join(" ", notes));
+        if (leftOut > 0) { notes.Add(leftOut + " cards of another nation were left out."); }
+        if (noRoom > 0) { notes.Add(noRoom + " didn't fit in the " + deckSize + "-card main deck."); }
+        if (notes.Count > 0) { SetStatus(string.Join(" ", notes)); }
     }
 
     void MarkDirty()
@@ -746,11 +770,13 @@ public partial class DeckBuilder : MonoBehaviour
         {
             if (SleeveSection)
             {
-                if (!string.IsNullOrEmpty(sleeve)) AddSleeveCell(sleeve);
+                if (!string.IsNullOrEmpty(sleeve)) { AddSleeveCell(sleeve); }
             }
             else
+            {
                 foreach (DeckEntry entry in SectionCards(mSection).OrderBy(e => e.cardNumber, StringComparer.OrdinalIgnoreCase))
                     AddDeckCell(entry);
+            }
             foreach (DeckEntry entry in mDeck.AllEntries)
                 WithCard(entry.cardNumber, _ => ShowSummary()); // the deck's nation may only be known now
         }
@@ -813,8 +839,8 @@ public partial class DeckBuilder : MonoBehaviour
         Button remove = AddButton(cell, "Remove", () =>
         {
             RememberDeck();
-            if (mSection == DeckSection.RideSleeve) mDeck.rideDeckSleeve = null;
-            else mDeck.deckSleeve = null;
+            if (mSection == DeckSection.RideSleeve) { mDeck.rideDeckSleeve = null; }
+            else { mDeck.deckSleeve = null; }
             MarkDirty();
             ShowDeck();
         }, OverlayColor, Color.white, 24);
@@ -839,7 +865,7 @@ public partial class DeckBuilder : MonoBehaviour
 
     void OnSetChanged()
     {
-        if (scanner.IsScanning) StopScanning("");
+        if (scanner.IsScanning) { StopScanning(""); }
         ShowNationOptions();
         OnFiltersChanged(); // the picked nation may not be in the new list
     }
@@ -863,6 +889,12 @@ public partial class DeckBuilder : MonoBehaviour
 
         if (set == null && FiltersOn)
         {
+            if (!mEverySetLoaded)
+            {
+                ShowCards(new List<string>(), "Loading card details for the filters...");
+                if (mLoadingEverySet == null) { mLoadingEverySet = StartCoroutine(LoadEverySet()); }
+                return;
+            }
             ShowCards(FilterEverySet(search), "No D or DZ cards match the filters.");
             return;
         }
@@ -894,27 +926,47 @@ public partial class DeckBuilder : MonoBehaviour
         string set = ChosenSet;
         bool Matches(string n) => n.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0;
 
-        if (set != null) return CardImageLibrary.CardNumbersInSet(set).Where(Matches).ToList();
-        if (search.Length == 0) return new List<string>();
+        if (set != null) { return CardImageLibrary.CardNumbersInSet(set).Where(Matches).ToList(); }
+        if (search.Length == 0) { return new List<string>(); }
 
-        if (mAllNumbers == null) mAllNumbers = CardImageLibrary.AllCardNumbers();
+        if (mAllNumbers == null) { mAllNumbers = CardImageLibrary.AllCardNumbers(); }
         return mAllNumbers.Where(Matches).ToList();
     }
 
     // All sets + filter: searches local D/DZ data, lazily
     IEnumerable<string> FilterEverySet(string search)
     {
-        if (mAllNumbers == null) mAllNumbers = CardImageLibrary.AllCardNumbers();
+        if (mAllNumbers == null) { mAllNumbers = CardImageLibrary.AllCardNumbers(); }
         foreach (string number in mAllNumbers)
         {
-            if (search.Length > 0 && number.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0) continue;
-            if (!mCardData.ContainsKey(number))
-            {
-                if (!LocalCardData.TryGetCard(number, out CardData card)) continue;
-                mCardData[number] = card;
-            }
-            if (PassesFilters(number)) yield return number;
+            if (search.Length > 0 && number.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0) { continue; }
+            if (PassesFilters(number)) { yield return number; }
         }
+    }
+
+    // Every bundled card's details, a few milliseconds a frame once LocalCardData has read the files, then the browser again
+    IEnumerator LoadEverySet()
+    {
+        LocalCardData.Preload();
+        while (!LocalCardData.Ready) yield return null;
+        if (mAllNumbers == null) { mAllNumbers = CardImageLibrary.AllCardNumbers(); }
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        foreach (string number in mAllNumbers)
+        {
+            if (!mCardData.ContainsKey(number) && !mNotLocal.Contains(number))
+            {
+                if (LocalCardData.TryGetCard(number, out CardData card)) { mCardData[number] = card; }
+                else { mNotLocal.Add(number); }
+            }
+            if (clock.ElapsedMilliseconds < 8) { continue; }
+            yield return null;
+            clock.Restart();
+        }
+        mEverySetLoaded = true;
+        mLoadingEverySet = null;
+        ShowNationOptions();
+        ShowBrowser();
     }
 
     // Filters
@@ -926,7 +978,7 @@ public partial class DeckBuilder : MonoBehaviour
     {
         bool open = !mFilterPopup.activeSelf;
         mFilterPopup.SetActive(open);
-        if (open && !FiltersOn && ChosenSet != null) LoadDetails(BrowserNumbers(), () => { });
+        if (open && !FiltersOn && ChosenSet != null) { LoadDetails(BrowserNumbers(), () => { }); }
     }
 
     void ClearFilters()
@@ -985,7 +1037,7 @@ public partial class DeckBuilder : MonoBehaviour
     // The button's icon turns gold while a filter is on
     void OnFiltersChanged()
     {
-        if (mFilterIcon != null) mFilterIcon.color = FiltersOn ? Accent : Color.white;
+        if (mFilterIcon != null) { mFilterIcon.color = FiltersOn ? Accent : Color.white; }
         ShowBrowser();
     }
 
@@ -993,22 +1045,22 @@ public partial class DeckBuilder : MonoBehaviour
 
     bool PassesFilters(string number)
     {
-        if (!mCardData.TryGetValue(number, out CardData card)) return false;
+        if (!mCardData.TryGetValue(number, out CardData card)) { return false; }
 
         string nation = mNationOptions[mNationDropdown.value];
         List<string> nations = Nations(card);
-        if (nation == NoNation ? nations.Count > 0 : nation != AnyNation && !nations.Contains(nation, StringComparer.OrdinalIgnoreCase)) return false;
-        if (mGradeDropdown.value > 0 && card.grade != mGradeDropdown.value - 1) return false;
-        if (mRarityDropdown.value > 0 && !string.Equals((card.rarity ?? "").Trim(), mRarityOptions[mRarityDropdown.value], StringComparison.OrdinalIgnoreCase)) return false;
-        if (mTypeDropdown.value > 0 && TypeOptions[mTypeDropdown.value] != TypeName(card)) return false;
+        if (nation == NoNation ? nations.Count > 0 : nation != AnyNation && !nations.Contains(nation, StringComparer.OrdinalIgnoreCase)) { return false; }
+        if (mGradeDropdown.value > 0 && card.grade != mGradeDropdown.value - 1) { return false; }
+        if (mRarityDropdown.value > 0 && !string.Equals((card.rarity ?? "").Trim(), mRarityOptions[mRarityDropdown.value], StringComparison.OrdinalIgnoreCase)) { return false; }
+        if (mTypeDropdown.value > 0 && TypeOptions[mTypeDropdown.value] != TypeName(card)) { return false; }
         string[] kinds = KindOptions;
         return kinds == null || mKindDropdown.value == 0 || IsKind(card, kinds[mKindDropdown.value]);
     }
 
     static string TypeName(CardData card)
     {
-        if (card.isOrderCard) return "Order";
-        if (card.isTriggerUnit) return "Trigger Unit";
+        if (card.isOrderCard) { return "Order"; }
+        if (card.isTriggerUnit) { return "Trigger Unit"; }
         string type = card.cardType ?? "";
         return type.Contains("G Unit") || type.Contains("Gユニット") ? "G Unit" : "Normal Unit";
     }
@@ -1029,9 +1081,9 @@ public partial class DeckBuilder : MonoBehaviour
         foreach (string number in missing)
             WithCard(number, _ =>
             {
-                if (--waiting > 0) return;
+                if (--waiting > 0) { return; }
                 ShowNationOptions();
-                if (request == mDetailsRequest) done();
+                if (request == mDetailsRequest) { done(); }
             });
     }
 
@@ -1040,7 +1092,7 @@ public partial class DeckBuilder : MonoBehaviour
     {
         string picked = mNationOptions[mNationDropdown.value];
         IEnumerable<string> loaded = mCardData.Values.SelectMany(Nations);
-        if (ChosenSet == null) loaded = loaded.Concat(LocalCardData.Nations());
+        if (ChosenSet == null) { loaded = loaded.Concat(LocalCardData.Nations()); }
         List<string> nations = loaded.Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
 
@@ -1060,7 +1112,7 @@ public partial class DeckBuilder : MonoBehaviour
     {
         string picked = mRarityOptions[mRarityDropdown.value];
         IEnumerable<string> loaded = mCardData.Values.Select(card => (card.rarity ?? "").Trim());
-        if (ChosenSet == null) loaded = loaded.Concat(LocalCardData.Rarities());
+        if (ChosenSet == null) { loaded = loaded.Concat(LocalCardData.Rarities()); }
         List<string> rarities = loaded.Where(r => r.Length > 0 && r != "-").Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(r => r, StringComparer.OrdinalIgnoreCase).ToList();
 
@@ -1078,7 +1130,7 @@ public partial class DeckBuilder : MonoBehaviour
     {
         string key = SleeveSection + "|" + ChosenSet + "|" + mSearchInput.text.Trim() + "|" + mNationOptions[mNationDropdown.value] + "|" +
             mGradeDropdown.value + "|" + mRarityOptions[mRarityDropdown.value] + "|" + mTypeDropdown.value + "|" + mKindDropdown.value + "|" + emptyText;
-        if (key == mShownKey) return;
+        if (key == mShownKey) { return; }
         mShownKey = key;
 
         // Queued pictures of these cells are skipped once the cells are gone
@@ -1101,7 +1153,7 @@ public partial class DeckBuilder : MonoBehaviour
     // Near the bottom of the grid: the next page
     void OnGridScrolled(Vector2 position)
     {
-        if (mMoreCards != null && position.y < 0.1f) AddMoreCards();
+        if (mMoreCards != null && position.y < 0.1f) { AddMoreCards(); }
     }
 
     // Adds up to pageSize more cards to the grid; false if there were none left
@@ -1172,55 +1224,100 @@ public partial class DeckBuilder : MonoBehaviour
             return;
         }
         mPictureQueue.Add((number, image));
-        if (mLoadingPictures == null) mLoadingPictures = StartCoroutine(LoadPictures());
+        if (mLoadingPictures == null) { mLoadingPictures = StartCoroutine(LoadPictures()); }
     }
 
-    // A few per frame, so a big set doesn't freeze the screen; pictures queued meanwhile join in
+    // Several at once through UnityWebRequest, which reads and decodes off the main thread; pictures queued meanwhile join in
     IEnumerator LoadPictures()
     {
-        int loaded = 0;
-        for (int i = 0; i < mPictureQueue.Count; i++)
+        int next = 0;
+        while (next < mPictureQueue.Count || mPictureRequests.Count > 0)
         {
-            (string number, RawImage image) = mPictureQueue[i];
-            if (image == null) continue; // its cell was replaced
-            if (!mPictures.TryGetValue(number, out Texture2D picture))
+            while (mPictureRequests.Count < PicturesAtOnce && next < mPictureQueue.Count)
             {
-                picture = LoadPicture(number);
-                mPictures[number] = picture;
-                if (++loaded % 4 == 0) yield return null;
+                (string number, RawImage image) = mPictureQueue[next++];
+                if (image == null || mPictureRequests.ContainsKey(number)) { continue; } // its cell was replaced, or it's on its way
+                if (mPictures.TryGetValue(number, out Texture2D loaded))
+                {
+                    ShowPicture(image, loaded);
+                    continue;
+                }
+                string path = PicturePath(number);
+                if (path == null)
+                {
+                    mPictures[number] = null;
+                    continue;
+                }
+                UnityWebRequest request = UnityWebRequestTexture.GetTexture(new Uri(path).AbsoluteUri, PictureParams);
+                request.SendWebRequest();
+                mPictureRequests[number] = request;
             }
-            if (image == null || picture == null) continue;
-            image.texture = picture;
-            image.color = Color.white;
+            yield return null;
+
+            foreach (string number in mPictureRequests.Where(r => r.Value.isDone).Select(r => r.Key).ToList())
+            {
+                UnityWebRequest request = mPictureRequests[number];
+                mPictureRequests.Remove(number);
+                Texture2D picture = request.result == UnityWebRequest.Result.Success ? DownloadHandlerTexture.GetContent(request) : null;
+                request.Dispose();
+                if (picture == null) { picture = LoadPicture(number); } // the old way, should the request fail
+                if (mPictures.TryGetValue(number, out Texture2D old) && old != null && old != picture) { Destroy(old); }
+                mPictures[number] = picture;
+                foreach ((string queued, RawImage image) in mPictureQueue)
+                    if (image != null && string.Equals(queued, number, StringComparison.OrdinalIgnoreCase)) { ShowPicture(image, picture); }
+            }
         }
         mPictureQueue.Clear();
         mLoadingPictures = null;
+    }
+
+    // Mipmapped like LoadImage's, so small cells stay smooth; not readable, to save memory
+    static DownloadedTextureParams PictureParams
+    {
+        get
+        {
+            DownloadedTextureParams parameters = DownloadedTextureParams.Default;
+            parameters.mipmapChain = true;
+            parameters.readable = false;
+            return parameters;
+        }
+    }
+
+    static void ShowPicture(RawImage image, Texture2D picture)
+    {
+        if (picture == null) { return; }
+        image.texture = picture;
+        image.color = Color.white;
     }
 
     // ~300 KB each, so pictures neither the grid nor the deck shows are freed
     void FreeUnusedPictures()
     {
         var keep = new HashSet<string>(mGridNumbers, StringComparer.OrdinalIgnoreCase);
+        if (!mDetailOwned && mDetailNumber != null) { keep.Add(mDetailNumber); } // the details panel shows it
         if (mDeck != null)
         {
             keep.UnionWith(mDeck.AllEntries.Select(e => e.cardNumber));
-            if (!string.IsNullOrEmpty(mDeck.deckSleeve)) keep.Add(mDeck.deckSleeve);
-            if (!string.IsNullOrEmpty(mDeck.rideDeckSleeve)) keep.Add(mDeck.rideDeckSleeve);
+            if (!string.IsNullOrEmpty(mDeck.deckSleeve)) { keep.Add(mDeck.deckSleeve); }
+            if (!string.IsNullOrEmpty(mDeck.rideDeckSleeve)) { keep.Add(mDeck.rideDeckSleeve); }
         }
         foreach (string number in mPictures.Keys.Where(n => !keep.Contains(n)).ToList())
         {
-            if (mPictures[number] != null) Destroy(mPictures[number]);
+            if (mPictures[number] != null) { Destroy(mPictures[number]); }
             mPictures.Remove(number);
         }
     }
 
+    static string PicturePath(string number) =>
+        SleeveLibrary.IsSleeve(number) ? SleeveLibrary.GetPath(number) : CardImageLibrary.GetPath(number);
+
     static Texture2D LoadPicture(string number)
     {
-        string path = SleeveLibrary.IsSleeve(number) ? SleeveLibrary.GetPath(number) : CardImageLibrary.GetPath(number);
-        if (path == null) return null;
+        string path = PicturePath(number);
+        if (path == null) { return null; }
 
         var texture = new Texture2D(2, 2);
-        if (texture.LoadImage(File.ReadAllBytes(path), true)) return texture;
+        if (texture.LoadImage(File.ReadAllBytes(path), true)) { return texture; }
         Destroy(texture);
         return null;
     }
@@ -1231,11 +1328,13 @@ public partial class DeckBuilder : MonoBehaviour
         if (number != mDetailNumber)
         {
             mDetailNumber = number;
-            if (mDetailTexture != null) Destroy(mDetailTexture);
-            mDetailTexture = LoadPicture(number);
+            if (mDetailOwned && mDetailTexture != null) { Destroy(mDetailTexture); }
+            // The browser's copy when it has one, so hovering doesn't read the file again
+            mDetailOwned = !mPictures.TryGetValue(number, out mDetailTexture) || mDetailTexture == null;
+            if (mDetailOwned) { mDetailTexture = LoadPicture(number); }
             mDetailPicture.texture = mDetailTexture;
             mDetailPicture.color = mDetailTexture != null ? Color.white : RowColor;
-            if (mDetailTexture != null) mDetailFitter.aspectRatio = mDetailTexture.width / (float)mDetailTexture.height;
+            if (mDetailTexture != null) { mDetailFitter.aspectRatio = mDetailTexture.width / (float)mDetailTexture.height; }
         }
 
         if (SleeveLibrary.IsSleeve(number))
@@ -1252,34 +1351,36 @@ public partial class DeckBuilder : MonoBehaviour
         }
         WithCard(number, card =>
         {
-            if (mDetailText != null && mDetailNumber == number) mDetailText.text = DetailText(number, card); // unless another card is shown since
+            if (mDetailText != null && mDetailNumber == number) { mDetailText.text = DetailText(number, card); } // unless another card is shown since
         });
     }
 
     static string DetailText(string number, CardData card)
     {
-        if (card == null) return "<b>" + number + "</b>\n<color=#A8B0C2>Not in the card database.</color>";
+        if (card == null) { return "<b>" + number + "</b>\n<color=#A8B0C2>Not in the card database.</color>"; }
 
         var text = new System.Text.StringBuilder();
         text.Append("<size=18><b>").Append(CardName(card)).Append("</b></size>\n");
         if (!string.IsNullOrEmpty(card.cardNameEn) && card.cardNameEn != card.cardName)
+        {
             text.Append("<color=#A8B0C2>").Append(card.cardName).Append("</color>\n");
+        }
         text.Append("<color=#A8B0C2>").Append(number);
-        if (!string.IsNullOrEmpty(card.rarity)) text.Append("  •  ").Append(card.rarity);
+        if (!string.IsNullOrEmpty(card.rarity)) { text.Append("  •  ").Append(card.rarity); }
         text.Append("</color>\n\n");
 
         text.Append(card.cardType);
-        if (card.triggerIcon != TriggerIcon.None) text.Append("  •  ").Append(card.triggerIcon).Append(" trigger");
+        if (card.triggerIcon != TriggerIcon.None) { text.Append("  •  ").Append(card.triggerIcon).Append(" trigger"); }
         text.Append('\n');
         text.Append("Grade ").Append(card.grade).Append("  •  ").Append(card.power).Append(" power");
-        if (card.shield > 0) text.Append("  •  ").Append(card.shield).Append(" shield");
+        if (card.shield > 0) { text.Append("  •  ").Append(card.shield).Append(" shield"); }
         text.Append('\n').Append(NationLabel(card));
-        if (!string.IsNullOrEmpty(card.race)) text.Append("  •  ").Append(card.race);
+        if (!string.IsNullOrEmpty(card.race)) { text.Append("  •  ").Append(card.race); }
         text.Append('\n');
-        if (!string.IsNullOrEmpty(card.skillText)) text.Append("<color=#F5C242>").Append(card.skillText).Append("</color>\n");
+        if (!string.IsNullOrEmpty(card.skillText)) { text.Append("<color=#F5C242>").Append(card.skillText).Append("</color>\n"); }
 
-        if (!string.IsNullOrEmpty(card.abilityText)) text.Append('\n').Append(CardOverlayUI.ReadableJa(card.abilityText)).Append('\n');
-        if (!string.IsNullOrEmpty(card.flavorText)) text.Append("\n<i><color=#A8B0C2>").Append(card.flavorText).Append("</color></i>");
+        if (!string.IsNullOrEmpty(card.abilityText)) { text.Append('\n').Append(CardOverlayUI.ReadableJa(card.abilityText)).Append('\n'); }
+        if (!string.IsNullOrEmpty(card.flavorText)) { text.Append("\n<i><color=#A8B0C2>").Append(card.flavorText).Append("</color></i>"); }
         return text.ToString();
     }
 
@@ -1301,9 +1402,9 @@ public partial class DeckBuilder : MonoBehaviour
 
     void OnCardDetails(string number, CardData card, Action<CardData> onCard)
     {
-        if (this == null) return;
-        if (card != null) mCardData[number] = card;
-        else mNotInDatabase.Add(number);
+        if (this == null) { return; }
+        if (card != null) { mCardData[number] = card; }
+        else { mNotInDatabase.Add(number); }
         onCard(card);
     }
 
@@ -1312,7 +1413,7 @@ public partial class DeckBuilder : MonoBehaviour
     // With nothing else to say, says why Save is greyed out when not logged in
     void SetStatus(string text)
     {
-        if (mStatusText == null) return;
+        if (mStatusText == null) { return; }
         mStatusText.text = text.Length == 0 && !DeckRepository.IsLoggedIn ? "Not logged in, so decks can't be saved." : text;
         mStatusBar.SetActive(mStatusText.text.Length > 0);
     }

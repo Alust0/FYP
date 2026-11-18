@@ -59,7 +59,7 @@ public class ChooseOpponentStep : Step
 
     static List<CardInstance> Chosen(SkillFrame f)
     {
-        if (!f.Locals.TryGetValue("chosen", out object list)) f.Locals["chosen"] = list = new List<CardInstance>();
+        if (!f.Locals.TryGetValue("chosen", out object list)) { f.Locals["chosen"] = list = new List<CardInstance>(); }
         return (List<CardInstance>)list;
     }
 
@@ -67,7 +67,7 @@ public class ChooseOpponentStep : Step
     {
         Chosen(f).Clear();
         f.Left = Count;
-        if (Choices(f).Count > 0) return false;
+        if (Choices(f).Count > 0) { return false; }
         f.Rules.StepNotice(f, OpponentStep.Opponent(f).playerName + " has no " + WhatUnit + " to choose, so this part does nothing.");
         return true;
     }
@@ -75,7 +75,7 @@ public class ChooseOpponentStep : Step
     // A circle picked on screen (or with keys): true once all are picked
     public bool Choose(SkillFrame f, string zone)
     {
-        if (!Choices(f).Contains(zone)) return false;
+        if (!Choices(f).Contains(zone)) { return false; }
         PlayerState opponent = OpponentStep.Opponent(f);
         CardInstance unit = opponent.CardOnCircle(zone);
         Chosen(f).Add(unit);
@@ -89,7 +89,7 @@ public class ChooseOpponentStep : Step
         else
         {
             f.Rules.Announce(f, "chose " + name + ". " + opponent.playerName + ": " + TheirPart.Replace("{card}", unit.data.DisplayName) + ".");
-            if (To != null) f.Rules.Moves?.Expect(opponent, zone, To, unit); // an arrow until it's gone there
+            if (To != null) { f.Rules.Moves?.Expect(opponent, zone, To, unit); } // an arrow until it's gone there
         }
         f.Left--;
         return f.Left <= 0 || Choices(f).Count == 0;

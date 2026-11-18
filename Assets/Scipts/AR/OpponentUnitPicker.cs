@@ -25,21 +25,21 @@ public partial class OpponentUnitPicker : MonoBehaviour
 
     void OnDestroy()
     {
-        if (mCanvasObj != null) Destroy(mCanvasObj);
+        if (mCanvasObj != null) { Destroy(mCanvasObj); }
     }
 
     void Update()
     {
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
         Camera cam = Camera.main;
         GameState gs = GameState.Instance;
         SkillRules skills = mRules != null ? mRules.Skills : null;
 
         List<string> choices = skills != null && gs != null && !gs.gameOver && cam != null ? skills.OpponentChoices() : new List<string>();
         bool show = choices.Count > 0;
-        if (mCanvasObj.activeSelf != show) mCanvasObj.SetActive(show);
-        if (!show) return;
+        if (mCanvasObj.activeSelf != show) { mCanvasObj.SetActive(show); }
+        if (!show) { return; }
 
         PlayerState opponent = skills.ChoiceOpponent;
         int key = 0;
@@ -48,14 +48,14 @@ public partial class OpponentUnitPicker : MonoBehaviour
             Marker marker = mMarkers[i];
             string zone = Circles[i];
             bool canPick = choices.Contains(zone);
-            if (marker.rect.gameObject.activeSelf != canPick) marker.rect.gameObject.SetActive(canPick);
-            if (!canPick) continue;
+            if (marker.rect.gameObject.activeSelf != canPick) { marker.rect.gameObject.SetActive(canPick); }
+            if (!canPick) { continue; }
 
             key++;
             CardInstance unit = opponent.CardOnCircle(zone);
             marker.label.text = key + "\n" + unit.data.DisplayName + "\n" + unit.TotalPower;
             Place(marker.rect, ScreenRect(cam, opponent, zone, i));
-            if (Keyboard.current != null && Keyboard.current[PickKeys[key - 1]].wasPressedThisFrame) skills.ChooseOpponent(zone);
+            if (Keyboard.current != null && Keyboard.current[PickKeys[key - 1]].wasPressedThisFrame) { skills.ChooseOpponent(zone); }
         }
     }
 
@@ -66,11 +66,15 @@ public partial class OpponentUnitPicker : MonoBehaviour
         if (mBoard != null)
         {
             if (!MatchSession.IsOnline && mBoard.TryGetZoneViewRect("P" + (opponent.playerIndex + 1) + "_" + zone, cam, out Rect view))
+            {
                 return new Rect(px.x + view.x * px.width, px.y + view.y * px.height, view.width * px.width, view.height * px.height);
+            }
 
             // Online: on this PC's own circle facing it, in line with it in the opponent's picture above
             if (MatchSession.IsOnline && mBoard.TryGetZoneViewRect("P1_" + Facing(zone), cam, out Rect own))
+            {
                 return new Rect(px.x + own.x * px.width, px.y + own.y * px.height, own.width * px.width, own.height * px.height);
+            }
         }
 
         // Their circles aren't on screen: two rows across the middle of this camera's view

@@ -12,14 +12,14 @@ public class ToHandStep : Step
 
     public override bool Recheck(SkillFrame f)
     {
-        if (!(f.Locals.TryGetValue("revealed", out object card) && card is CardInstance revealed) || revealed.zone != null) return false;
+        if (!(f.Locals.TryGetValue("revealed", out object card) && card is CardInstance revealed) || revealed.zone != null) { return false; }
         Confirm(f);
         return true;
     }
 
     public override void Confirm(SkillFrame f)
     {
-        if (FromDeck) GameState.Instance.AdjustCount(f.Owner, "Deck", -1);
+        if (FromDeck) { GameState.Instance.AdjustCount(f.Owner, "Deck", -1); }
     }
 
     public override string Summary => FromDeck ? "count it off the deck" : null;

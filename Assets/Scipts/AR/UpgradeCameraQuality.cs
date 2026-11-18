@@ -10,7 +10,9 @@ public class UpgradeCameraQuality : MonoBehaviour
 
         // Vuforia may already be running, in which case OnVuforiaStarted has fired without us
         if (VuforiaApplication.Instance.IsRunning)
+        {
             OnVuforiaStarted();
+        }
 
         VuforiaApplication.Instance.OnVuforiaStarted += OnVuforiaStarted;
     }
@@ -38,7 +40,9 @@ public class UpgradeCameraQuality : MonoBehaviour
 
             // Ask the webcam driver directly (PC webcams)
             if (!triggerSet)
+            {
                 WebcamAutoFocus.Enable(CameraChoice.Current);
+            }
         }
 
         // Confirm what resolution Vuforia is actually using right now

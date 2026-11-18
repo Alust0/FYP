@@ -19,9 +19,11 @@ public static class SkillParser
 
     public static List<Skill> Parse(CardData data)
     {
-        if (data == null) return new List<Skill>();
+        if (data == null) { return new List<Skill>(); }
         if (!Cache.TryGetValue(data, out List<Skill> skills))
+        {
             Cache[data] = skills = ParseCard(data.abilityTextJa, data.abilityText);
+        }
         return skills;
     }
 
@@ -40,14 +42,16 @@ public static class SkillParser
             {
                 skills[i].Text = english[i].text;
                 skills[i].Effect = english[i].effect;
-                if (english[i].costs != null && skills[i].Costs.Count > 0) skills[i].CostLabel = english[i].costs;
+                if (english[i].costs != null && skills[i].Costs.Count > 0) { skills[i].CostLabel = english[i].costs; }
             }
-            else if (!string.IsNullOrWhiteSpace(en) && en != ja) skills[i].Text = skills[i].Effect = en; // some sets' English is the Japanese again
+            else if (!string.IsNullOrWhiteSpace(en) && en != ja) { skills[i].Text = skills[i].Effect = en; } // some sets' English is the Japanese again
         }
 
         foreach (Skill skill in skills)
             if (skill is AutoSkill auto && auto.Timing == SkillTiming.Other)
+            {
                 UnityEngine.Debug.LogWarning("[SkillParser] No timing recognised, so this [AUTO] won't be asked about: " + skill.Text);
+            }
         return skills;
     }
 
@@ -60,7 +64,7 @@ public static class SkillParser
         bool manual = false;
         foreach (Step step in effectSteps.Skip(leading))
         {
-            if (step != null) steps.Add(step);
+            if (step != null) { steps.Add(step); }
             else if (!manual)
             {
                 steps.Add(new ManualStep());
@@ -73,9 +77,9 @@ public static class SkillParser
     // An order's play cost as steps
     public static ExtraSkill PlayCost(CardData data)
     {
-        if (data == null || !data.isOrderCard) return null;
+        if (data == null || !data.isOrderCard) { return null; }
         Match jp = JpPlayCostRx.Match((data.abilityTextJa ?? "").Normalize(System.Text.NormalizationForm.FormKC)); // full-width digits and brackets, as JpSkillParser reads them
-        if (!jp.Success) return null;
+        if (!jp.Success) { return null; }
 
         var steps = new List<Step>();
         foreach (string item in Regex.Split(jp.Groups[1].Value, "[、，,]").Select(s => s.Trim()).Where(s => s.Length > 0))
@@ -92,9 +96,9 @@ public static class SkillParser
     // An Over trigger's additional effect as steps
     public static ExtraSkill OverTriggerEffect(CardData data)
     {
-        if (data == null) return null;
+        if (data == null) { return null; }
         Match jp = JpOverExtraRx.Match((data.abilityTextJa ?? "").Normalize(System.Text.NormalizationForm.FormKC));
-        if (!jp.Success) return null;
+        if (!jp.Success) { return null; }
         Match en = EnOverExtraRx.Match(data.abilityText ?? "");
         string text = en.Success ? en.Groups[1].Value : jp.Groups[1].Value;
         return new ExtraSkill("(Over trigger)", text, WithCosts(new List<Cost>(), JpSkillParser.EffectSteps(jp.Groups[1].Value)));
@@ -110,7 +114,7 @@ public static class SkillParser
     static List<EnglishSkill> English(string en)
     {
         var skills = new List<EnglishSkill>();
-        if (string.IsNullOrWhiteSpace(en)) return skills;
+        if (string.IsNullOrWhiteSpace(en)) { return skills; }
 
         MatchCollection markers = MarkerRx.Matches(en);
         for (int i = 0; i < markers.Count; i++)
@@ -130,7 +134,7 @@ public static class SkillParser
                 int to = costEnd.Success ? costEnd.Index + 1 : body.Length;
                 costs = Regex.Replace(Regex.Replace(body.Substring(from, to - from), @"[\[\]]", " "), @"\s+", " ").Trim(); // "Counter Blast (1), Soul Blast (1)"
                 string after = body.Substring(to).TrimStart(' ', ',');
-                if (after.StartsWith("and ")) after = after.Substring(4);
+                if (after.StartsWith("and ")) { after = after.Substring(4); }
                 effect = body.Substring(0, costAt) + after;
             }
 

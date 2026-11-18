@@ -92,7 +92,7 @@ public class BuildWebcamDriver : MonoBehaviour
     // Starts the webcam again, smaller if it never sent a picture (CameraChoice's switch)
     public static IEnumerator Retry()
     {
-        if (sInstance != null && !sInstance.mRestarting) yield return sInstance.RestartWebcam();
+        if (sInstance != null && !sInstance.mRestarting) { yield return sInstance.RestartWebcam(); }
     }
 
     [MonoPInvokeCallback(typeof(DriverCreatedFn))]
@@ -109,7 +109,7 @@ public class BuildWebcamDriver : MonoBehaviour
             sInstance.Use(camera);
             yield break;
         }
-        if (VuforiaApplication.Instance.IsInitialized) yield break;
+        if (VuforiaApplication.Instance.IsInitialized) { yield break; }
 
         if (camera == null)
         {
@@ -130,7 +130,7 @@ public class BuildWebcamDriver : MonoBehaviour
             float giveUp = Time.realtimeSinceStartup + (i == 0 ? 10f : 5f);
             while (sInstance.mWebcam.width <= 16 && Time.realtimeSinceStartup < giveUp)
                 yield return null;
-            if (sInstance.mWebcam.width > 16) break;
+            if (sInstance.mWebcam.width > 16) { break; }
             Debug.LogWarning("[BuildWebcamDriver] '" + camera + "' gave no picture at " + Widths[i] + " wide" + (i + 1 < Widths.Length ? "; trying smaller." : "."));
         }
 
@@ -172,7 +172,7 @@ public class BuildWebcamDriver : MonoBehaviour
 
     static void FallBack()
     {
-        if (sInstance != null) Destroy(sInstance.gameObject);
+        if (sInstance != null) { Destroy(sInstance.gameObject); }
         sInstance = null;
         VuforiaApplication.Instance.Initialize();
     }
@@ -180,13 +180,13 @@ public class BuildWebcamDriver : MonoBehaviour
     // Another camera picked in the lobby
     void Use(string camera)
     {
-        if (camera == null || (mWebcam != null && mWebcam.deviceName == camera)) return;
+        if (camera == null || (mWebcam != null && mWebcam.deviceName == camera)) { return; }
 
         bool playing = mWebcam == null || mWebcam.isPlaying;
         mWidthIndex = 0;
         mRestarts = 0;
         NewWebcam(camera);
-        if (playing) PlayWebcam(); // stopped (Settings switch): OnStarted plays it with Vuforia
+        if (playing) { PlayWebcam(); } // stopped (Settings switch): OnStarted plays it with Vuforia
         mLastFrame = Time.realtimeSinceStartup;
     }
 
@@ -205,7 +205,7 @@ public class BuildWebcamDriver : MonoBehaviour
         {
             if (mHasPicture)
             {
-                if (mWebcam.isPlaying) mWebcam.Stop(); // may be stopped already with Vuforia
+                if (mWebcam.isPlaying) { mWebcam.Stop(); } // may be stopped already with Vuforia
                 Destroy(mWebcam);
             }
             else if (mPlayed)
@@ -213,7 +213,7 @@ public class BuildWebcamDriver : MonoBehaviour
                 mWebcam.hideFlags |= HideFlags.DontUnloadUnusedAsset;
                 sAbandoned.Add(mWebcam);
             }
-            else Destroy(mWebcam);
+            else { Destroy(mWebcam); }
         }
         int width = Widths[mWidthIndex];
         mWebcam = new WebCamTexture(camera, width, width * 9 / 16, RequestedFps);
@@ -231,7 +231,7 @@ public class BuildWebcamDriver : MonoBehaviour
     // Only a webcam that has sent a picture since it was started is stopped (see sAbandoned)
     void StopWebcam()
     {
-        if (mWebcam != null && mHasPicture) mWebcam.Stop();
+        if (mWebcam != null && mHasPicture) { mWebcam.Stop(); }
     }
 
     // Frame size and buffers, from the webcam's size capped at MaxWidth
@@ -249,8 +249,8 @@ public class BuildWebcamDriver : MonoBehaviour
         mImagePtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(CameraImage)));
 
         Shader brightness = Resources.Load<Shader>("CameraBrightness");
-        if (brightness != null && brightness.isSupported) mBrightness = new Material(brightness);
-        else Debug.LogWarning("[BuildWebcamDriver] CameraBrightness shader unavailable; camera brightness can't be changed.");
+        if (brightness != null && brightness.isSupported) { mBrightness = new Material(brightness); }
+        else { Debug.LogWarning("[BuildWebcamDriver] CameraBrightness shader unavailable; camera brightness can't be changed."); }
 
         var data = new DriverData { DriverCreated = sOnDriverCreated, GetConfig = sOnGetConfig };
         sUserData = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(DriverData)));
@@ -265,7 +265,7 @@ public class BuildWebcamDriver : MonoBehaviour
     {
         mVuforiaRunning = true;
         mLastFrame = Time.realtimeSinceStartup;
-        if (!mWebcam.isPlaying) PlayWebcam();
+        if (!mWebcam.isPlaying) { PlayWebcam(); }
     }
 
     const float StallSeconds = 3f;
@@ -281,14 +281,14 @@ public class BuildWebcamDriver : MonoBehaviour
         mRestarts++;
         Debug.LogWarning("[BuildWebcamDriver] '" + mWebcam.deviceName + "' sent no picture; starting it again (" + mRestarts + "/" + MaxRestarts + ").");
         bool replace = !mHasPicture;
-        if (!replace) mWebcam.Stop();
+        if (!replace) { mWebcam.Stop(); }
         yield return new WaitForSecondsRealtime(1.5f);
         if (replace)
         {
             mWidthIndex = Mathf.Min(mWidthIndex + 1, Widths.Length - 1);
             NewWebcam(mWebcam.deviceName);
         }
-        if (mVuforiaRunning) PlayWebcam();
+        if (mVuforiaRunning) { PlayWebcam(); }
         mLastFrame = Time.realtimeSinceStartup;
         mRestarting = false;
     }
@@ -301,16 +301,16 @@ public class BuildWebcamDriver : MonoBehaviour
 
     void Update()
     {
-        if (mWebcam == null) return;
-        if (mWebcam.didUpdateThisFrame) mHasPicture = true;
+        if (mWebcam == null) { return; }
+        if (mWebcam.didUpdateThisFrame) { mHasPicture = true; }
         if (mVuforiaRunning && !mRestarting && !CameraChoice.Refreshing)
         {
-            if (mWebcam.didUpdateThisFrame) mRestarts = 0;
-            else if (Time.realtimeSinceStartup - mLastFrame > StallSeconds && mRestarts < MaxRestarts) StartCoroutine(RestartWebcam());
+            if (mWebcam.didUpdateThisFrame) { mRestarts = 0; }
+            else if (Time.realtimeSinceStartup - mLastFrame > StallSeconds && mRestarts < MaxRestarts) { StartCoroutine(RestartWebcam()); }
         }
-        if (mWebcam.didUpdateThisFrame) mLastFrame = Time.realtimeSinceStartup;
+        if (mWebcam.didUpdateThisFrame) { mLastFrame = Time.realtimeSinceStartup; }
 
-        if (!mVuforiaRunning || sDriver == IntPtr.Zero || mReadback == null || !mWebcam.didUpdateThisFrame) return;
+        if (!mVuforiaRunning || sDriver == IntPtr.Zero || mReadback == null || !mWebcam.didUpdateThisFrame) { return; }
 
         // Flip rows for Vuforia (top row first); upside down just mirrors it
         bool upsideDown = GameSettings.CameraUpsideDown;
@@ -320,8 +320,8 @@ public class BuildWebcamDriver : MonoBehaviour
             mBrightness.SetFloat(UpsideDownId, upsideDown ? 1f : 0f);
             Graphics.Blit(mWebcam, mFlipped, mBrightness);
         }
-        else if (upsideDown) Graphics.Blit(mWebcam, mFlipped, new Vector2(-1f, 1f), new Vector2(1f, 0f));
-        else Graphics.Blit(mWebcam, mFlipped, new Vector2(1f, -1f), new Vector2(0f, 1f));
+        else if (upsideDown) { Graphics.Blit(mWebcam, mFlipped, new Vector2(-1f, 1f), new Vector2(1f, 0f)); }
+        else { Graphics.Blit(mWebcam, mFlipped, new Vector2(1f, -1f), new Vector2(0f, 1f)); }
         RenderTexture previous = RenderTexture.active;
         RenderTexture.active = mFlipped;
         mReadback.ReadPixels(new Rect(0, 0, sConfig.Width, sConfig.Height), 0, 0, false);
@@ -347,8 +347,8 @@ public class BuildWebcamDriver : MonoBehaviour
         VuforiaApplication.Instance.OnVuforiaStarted -= OnStarted;
         VuforiaApplication.Instance.OnVuforiaStopped -= OnStopped;
         StopWebcam();
-        if (mPixelsHandle.IsAllocated) mPixelsHandle.Free();
-        if (mImagePtr != IntPtr.Zero) Marshal.FreeHGlobal(mImagePtr);
-        if (mBrightness != null) Destroy(mBrightness);
+        if (mPixelsHandle.IsAllocated) { mPixelsHandle.Free(); }
+        if (mImagePtr != IntPtr.Zero) { Marshal.FreeHGlobal(mImagePtr); }
+        if (mBrightness != null) { Destroy(mBrightness); }
     }
 }

@@ -29,7 +29,9 @@ public class ApiCardDatabase : MonoBehaviour
     void Start()
     {
         if (!string.IsNullOrEmpty(defaultSetCode))
+        {
             StartCoroutine(LoadSet(defaultSetCode));
+        }
     }
 
     // Fetch all cards from a set code (e.g. "D-BT01") and add them to the cache
@@ -44,8 +46,10 @@ public class ApiCardDatabase : MonoBehaviour
         CardApiClient.Instance.GetSetCards(setCode, cards =>
         {
             if (cards != null)
+            {
                 foreach (ScrapedCardDto dto in cards)
                     allCards.Add(dto.ToCardData());
+            }
             done = true;
         },
         err =>
@@ -77,8 +81,10 @@ public class ApiCardDatabase : MonoBehaviour
         CardApiClient.Instance.SearchCards(query, cards =>
         {
             if (cards != null)
+            {
                 foreach (ScrapedCardDto dto in cards)
                     allCards.Add(dto.ToCardData());
+            }
             done = true;
         },
         err =>
@@ -121,7 +127,7 @@ public class ApiCardDatabase : MonoBehaviour
         for (int g = 0; g <= 3; g++)
         {
             CardData card = allCards.FirstOrDefault(c => c.grade == g && !c.isTriggerUnit && !c.isOrderCard);
-            if (card != null) ride.Add(card);
+            if (card != null) { ride.Add(card); }
         }
         return ride;
     }
@@ -134,7 +140,7 @@ public class ApiCardDatabase : MonoBehaviour
         foreach (TriggerIcon icon in new[] { TriggerIcon.Critical, TriggerIcon.Draw, TriggerIcon.Stand, TriggerIcon.Heal })
         {
             List<CardData> pool = GetTriggers(icon);
-            if (pool.Count == 0) continue;
+            if (pool.Count == 0) { continue; }
             for (int i = 0; i < 4; i++)
                 deck.Add(pool[i % pool.Count]);
         }

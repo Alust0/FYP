@@ -76,13 +76,15 @@ public partial class LobbyController : MonoBehaviour
     {
         MatchSession.End(); // back from an earlier match
         BuildUI();
-        if (!RtdbRest.Init()) SetStatus("Couldn't read the database settings (google-services.json).");
+        if (!RtdbRest.Init()) { SetStatus("Couldn't read the database settings (google-services.json)."); }
     }
 
     void Update()
     {
         if (!IsHosting && !mRefreshing && Time.time >= mNextRefresh)
+        {
             StartCoroutine(RefreshRooms());
+        }
     }
 
     void OnDestroy()
@@ -185,7 +187,7 @@ public partial class LobbyController : MonoBehaviour
 
     void OnJoin(RtdbRest.Result room)
     {
-        if (mJoining || IsHosting) return;
+        if (mJoining || IsHosting) { return; }
 
         if (!room.fields.GetBool("isPublic"))
         {
@@ -220,8 +222,8 @@ public partial class LobbyController : MonoBehaviour
             {
                 mJoining = false;
                 RefreshSoon();
-                if (hidden.status == 404) ShowPasswordProblem("Wrong password for " + host + "'s room.");
-                else SetStatus(Problem(hidden));
+                if (hidden.status == 404) { ShowPasswordProblem("Wrong password for " + host + "'s room."); }
+                else { SetStatus(Problem(hidden)); }
                 yield break;
             }
             room = hidden;
@@ -273,14 +275,14 @@ public partial class LobbyController : MonoBehaviour
 
     void OnHost()
     {
-        if (IsHosting || mJoining) return;
+        if (IsHosting || mJoining) { return; }
         mHosting = StartCoroutine(HostRoom(!mPrivateToggle.isOn));
         ShowHosting(true);
     }
 
     void OnCancelHost()
     {
-        if (mHosting != null) StopCoroutine(mHosting);
+        if (mHosting != null) { StopCoroutine(mHosting); }
         StopHosting("");
     }
 
@@ -322,8 +324,8 @@ public partial class LobbyController : MonoBehaviour
             string candidate = RandomCode();
             yield return RtdbRest.Create(Rooms, candidate, fields, r => result = r); // the list entry (never the password)
 
-            if (result.succeeded) code = candidate;
-            else if (result.status != 409) break; // 409: that code is taken, so try another
+            if (result.succeeded) { code = candidate; }
+            else if (result.status != 409) { break; } // 409: that code is taken, so try another
         }
 
         // Private: the room itself goes where only its password leads; the list entry just shows it
@@ -347,7 +349,7 @@ public partial class LobbyController : MonoBehaviour
 
         mHostedCode = code;
         mHostedPath = path;
-        if (!isPublic) mPasswordInput.text = password; // shows a made-up one to the host
+        if (!isPublic) { mPasswordInput.text = password; } // shows a made-up one to the host
         SetStatus(isPublic
             ? "Your room is in the list. Waiting for an opponent..."
             : "Private room: give your opponent the password in your Room password box.");
@@ -362,7 +364,7 @@ public partial class LobbyController : MonoBehaviour
                 lastBeat = Time.time;
                 var beat = new Dictionary<string, object> { ["host"] = new Dictionary<string, object> { ["beatMs"] = NowMs } };
                 yield return RtdbRest.Patch(path, beat, new[] { "host.beatMs" }, null);
-                if (!isPublic) yield return RtdbRest.Patch(RoomPath(code), beat, new[] { "host.beatMs" }, null); // keeps the list entry fresh
+                if (!isPublic) { yield return RtdbRest.Patch(RoomPath(code), beat, new[] { "host.beatMs" }, null); } // keeps the list entry fresh
             }
 
             RtdbRest.Result room = null;
@@ -374,12 +376,12 @@ public partial class LobbyController : MonoBehaviour
                 StopHosting("Your room was closed.");
                 yield break;
             }
-            if (!room.succeeded) continue; // a dropped read; the next poll tries again
+            if (!room.succeeded) { continue; } // a dropped read; the next poll tries again
 
             Dictionary<string, object> guest = room.fields.GetMap("guest");
             if (guest != null)
             {
-                if (!isPublic) RtdbRest.DeleteWithoutWaiting(RoomPath(code)); // off the list; the match is on the hidden path
+                if (!isPublic) { RtdbRest.DeleteWithoutWaiting(RoomPath(code)); } // off the list; the match is on the hidden path
                 mHostedCode = mHostedPath = null;
                 StartMatch(code, path, 0, PlayerSession.Name, guest.GetString("name"), timer, mSkillsToggle.isOn);
                 yield break;
@@ -389,9 +391,9 @@ public partial class LobbyController : MonoBehaviour
 
     void LeaveHostedRoom()
     {
-        if (mHostedCode == null) return;
+        if (mHostedCode == null) { return; }
         RtdbRest.DeleteWithoutWaiting(RoomPath(mHostedCode));
-        if (mHostedPath != null && mHostedPath != RoomPath(mHostedCode)) RtdbRest.DeleteWithoutWaiting(mHostedPath);
+        if (mHostedPath != null && mHostedPath != RoomPath(mHostedCode)) { RtdbRest.DeleteWithoutWaiting(mHostedPath); }
         mHostedCode = mHostedPath = null;
     }
 
@@ -426,7 +428,7 @@ public partial class LobbyController : MonoBehaviour
     // The Test button: the match with this deck and camera alone, no room or opponent
     void OnTest()
     {
-        if (IsHosting || mJoining) return;
+        if (IsHosting || mJoining) { return; }
         MatchSession.BeginSolo(PlayerSession.Name, ChosenTimer, mSkillsToggle.isOn);
         CameraChoice.Apply();
         SceneManager.LoadScene(matchSceneName);
@@ -435,8 +437,8 @@ public partial class LobbyController : MonoBehaviour
     // Says why a request failed, instead of always blaming the connection
     static string Problem(RtdbRest.Result result)
     {
-        if (result == null || result.status == 0) return "Couldn't reach the server. Check your internet connection.";
-        if (result.status == 403) return "The database refused it: its Realtime Database rules don't allow rooms yet.";
+        if (result == null || result.status == 0) { return "Couldn't reach the server. Check your internet connection."; }
+        if (result.status == 403) { return "The database refused it: its Realtime Database rules don't allow rooms yet."; }
         return "The server answered " + result.status + ". Try again.";
     }
 
@@ -452,12 +454,12 @@ public partial class LobbyController : MonoBehaviour
         try
         {
             List<Deck> saved = await DeckRepository.LoadSavedAsync();
-            if (this != null) ShowDecks(saved);
+            if (this != null) { ShowDecks(saved); }
         }
         catch (Exception e)
         {
             Debug.LogWarning("[LobbyController] Couldn't load saved decks: " + e.Message);
-            if (this != null) SetStatus("Couldn't load your saved decks. The starter decks still work.");
+            if (this != null) { SetStatus("Couldn't load your saved decks. The starter decks still work."); }
         }
     }
 
@@ -527,8 +529,8 @@ public partial class LobbyController : MonoBehaviour
     // A card picture from StreamingAssets/cards, loaded once; null if there isn't one
     Texture2D Cover(string cardNumber)
     {
-        if (string.IsNullOrEmpty(cardNumber)) return null;
-        if (mCovers.TryGetValue(cardNumber, out Texture2D cached)) return cached;
+        if (string.IsNullOrEmpty(cardNumber)) { return null; }
+        if (mCovers.TryGetValue(cardNumber, out Texture2D cached)) { return cached; }
 
         string path = CardImageLibrary.GetPath(cardNumber);
         Texture2D texture = null;
@@ -547,7 +549,7 @@ public partial class LobbyController : MonoBehaviour
 
     void SetStatus(string text)
     {
-        if (mStatusText != null) mStatusText.text = text;
+        if (mStatusText != null) { mStatusText.text = text; }
     }
 
     string TypedPassword => mPasswordInput.text.Trim().ToUpperInvariant();

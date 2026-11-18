@@ -104,7 +104,7 @@ public class OnlineMatch : MonoBehaviour
     // Tells the opponent this PC has left, so they aren't left waiting
     void OnDestroy()
     {
-        if (!MatchSession.IsOnline) return;
+        if (!MatchSession.IsOnline) { return; }
         RtdbRest.PatchWithoutWaiting(RoomPath, new Dictionary<string, object> { ["status"] = "closed" }, new[] { "status" });
         MatchSession.End();
     }
@@ -118,8 +118,8 @@ public class OnlineMatch : MonoBehaviour
         int local = MatchSession.LocalSeat;
 
         Dictionary<string, object> seat = SeatSnapshot(gs.players[local], rules.HidesHand);
-        if (rules.Setup != null) seat["setup"] = rules.Setup.SeatField();
-        if (gs.currentPlayerIndex == local && gs.attackTarget != null) seat["attackTarget"] = gs.attackTarget;
+        if (rules.Setup != null) { seat["setup"] = rules.Setup.SeatField(); }
+        if (gs.currentPlayerIndex == local && gs.attackTarget != null) { seat["attackTarget"] = gs.attackTarget; }
         if (RulesEngine.AttackCount > 0)
         {
             seat["attackFrom"] = RulesEngine.LastAttackFrom;
@@ -143,10 +143,10 @@ public class OnlineMatch : MonoBehaviour
         }
         // A step of this PC's skill that's the opponent's to do: their PC shows it and its Done
         string opponentStep = rules.Skills?.OpponentStepWaiting;
-        if (opponentStep != null) seat["oppStep"] = opponentStep;
+        if (opponentStep != null) { seat["oppStep"] = opponentStep; }
         // Their cards this PC's rules want moved, e.g. retired by a skill: arrows on their PC (CardMoves)
         string moves = rules.Moves.ForPlayer(gs.players[MatchSession.RemoteSeat]);
-        if (moves != null) seat["moves"] = moves;
+        if (moves != null) { seat["moves"] = moves; }
         seat["turned"] = GameSettings.RotateView;
         string seatJson = RtdbRest.ToJson(seat);
         if (seatJson != mUploadedSeat)
@@ -192,16 +192,16 @@ public class OnlineMatch : MonoBehaviour
             mask.Add(RoleField(local) + ".beatMs");
         }
 
-        if (mask.Count == 0) yield break;
+        if (mask.Count == 0) { yield break; }
 
         RtdbRest.Result result = null;
         yield return RtdbRest.Patch(RoomPath, fields, mask, r => result = r);
-        if (!result.succeeded) yield break; // kept as unsent, so the next sync tries again
+        if (!result.succeeded) { yield break; } // kept as unsent, so the next sync tries again
 
-        if (mask.Contains(SeatField(local))) mUploadedSeat = seatJson;
-        if (mask.Contains("turn")) mSyncedTurnKey = undid ? turnKey : Mathf.Max(mSyncedTurnKey, turnKey);
-        if (undid) mSentUndos = undos;
-        if (beat) mLastBeat = Time.time;
+        if (mask.Contains(SeatField(local))) { mUploadedSeat = seatJson; }
+        if (mask.Contains("turn")) { mSyncedTurnKey = undid ? turnKey : Mathf.Max(mSyncedTurnKey, turnKey); }
+        if (undid) { mSentUndos = undos; }
+        if (beat) { mLastBeat = Time.time; }
     }
 
     // hideRearguards: setup, when the opening hand lies on the rear-guard circles (MatchSetup)
@@ -210,7 +210,7 @@ public class OnlineMatch : MonoBehaviour
         var cards = new List<object>();
         foreach (string zone in Zones)
         {
-            if (hideRearguards && Skill.IsUnitCircle(zone) && zone != "Vanguard") continue; // the five rear-guard circles
+            if (hideRearguards && Skill.IsUnitCircle(zone) && zone != "Vanguard") { continue; } // the five rear-guard circles
             IEnumerable<CardInstance> inZone = player.ZoneList(zone) ?? new List<CardInstance> { player.CardOnCircle(zone) };
             foreach (CardInstance card in inZone.Where(c => c != null))
             {
@@ -227,7 +227,7 @@ public class OnlineMatch : MonoBehaviour
 
         var counts = new Dictionary<string, object>();
         foreach (KeyValuePair<string, int> pair in player.untrackedCards)
-            if (pair.Value != 0) counts[pair.Key] = (long)pair.Value;
+            if (pair.Value != 0) { counts[pair.Key] = (long)pair.Value; }
 
         return new Dictionary<string, object> { ["cards"] = cards, ["counts"] = counts };
     }
@@ -241,7 +241,7 @@ public class OnlineMatch : MonoBehaviour
 
         if (!room.succeeded)
         {
-            if (!mReadFailing) Debug.LogWarning("[OnlineMatch] Couldn't read the room: " + room.error);
+            if (!mReadFailing) { Debug.LogWarning("[OnlineMatch] Couldn't read the room: " + room.error); }
             mReadFailing = true;
             yield break;
         }
@@ -272,10 +272,14 @@ public class OnlineMatch : MonoBehaviour
         bool silent = opponent == null || NowMs - opponent.GetLong("beatMs") > opponentTimeoutSeconds * 1000f;
 
         if ((closed || silent) && !mOpponentGone)
+        {
             Notice("Opponent disconnected", gs.players[MatchSession.RemoteSeat].playerName +
                 (closed ? " left the match." : " hasn't been heard from for a while."));
+        }
         else if (!closed && !silent && mOpponentGone)
+        {
             Notice("Opponent reconnected", gs.players[MatchSession.RemoteSeat].playerName + " is back.");
+        }
 
         mOpponentGone = closed || silent;
     }
@@ -290,7 +294,7 @@ public class OnlineMatch : MonoBehaviour
             return;
         }
         mAppliedUndoAt = at;
-        if ((int)undo.GetLong("seat") == MatchSession.LocalSeat) return; // this PC's own
+        if ((int)undo.GetLong("seat") == MatchSession.LocalSeat) { return; } // this PC's own
 
         rules.ApplyRemoteUndo(undo.GetLong("sinceMs"), (int)undo.GetLong("player"), (int)undo.GetLong("number"),
             (TurnPhase)undo.GetLong("phase"), gs.players[MatchSession.RemoteSeat].playerName);
@@ -300,12 +304,12 @@ public class OnlineMatch : MonoBehaviour
 
     void ApplyTurn(Dictionary<string, object> turn)
     {
-        if (turn == null) return;
+        if (turn == null) { return; }
 
         int number = (int)turn.GetLong("number");
         TurnPhase phase = (TurnPhase)turn.GetLong("phase");
         int key = number * 10 + (int)phase;
-        if (key <= mSyncedTurnKey) return; // already here, or this PC is ahead
+        if (key <= mSyncedTurnKey) { return; } // already here, or this PC is ahead
 
         mSyncedTurnKey = key;
         rules.ApplyRemoteTurn((int)turn.GetLong("player"), number, phase);
@@ -331,7 +335,7 @@ public class OnlineMatch : MonoBehaviour
 
         // Their latest keyword, before their cards
         long saidN = seat.GetLong("saidN");
-        if (mAppliedSaidN < 0) mAppliedSaidN = saidN;
+        if (mAppliedSaidN < 0) { mAppliedSaidN = saidN; }
         else if (saidN > mAppliedSaidN)
         {
             mAppliedSaidN = saidN;
@@ -339,7 +343,7 @@ public class OnlineMatch : MonoBehaviour
         }
 
         long pickN = seat.GetLong("pickN");
-        if (mAppliedPickN < 0) mAppliedPickN = pickN;
+        if (mAppliedPickN < 0) { mAppliedPickN = pickN; }
         else if (pickN > mAppliedPickN)
         {
             mAppliedPickN = pickN;
@@ -348,7 +352,7 @@ public class OnlineMatch : MonoBehaviour
 
         // The skill they last used or skipped, for this PC's notices and log
         long skillN = seat.GetLong("skillN");
-        if (mAppliedSkillN < 0) mAppliedSkillN = skillN;
+        if (mAppliedSkillN < 0) { mAppliedSkillN = skillN; }
         else if (skillN > mAppliedSkillN)
         {
             mAppliedSkillN = skillN;
@@ -359,7 +363,7 @@ public class OnlineMatch : MonoBehaviour
         foreach (Dictionary<string, object> card in (seat.GetList("cards") ?? new List<object>()).OfType<Dictionary<string, object>>())
         {
             string id = card.GetString("id");
-            if (id == null) continue;
+            if (id == null) { continue; }
             seen.Add(id);
 
             if (!mRemoteCards.TryGetValue(id, out RemoteCard remote))
@@ -372,18 +376,18 @@ public class OnlineMatch : MonoBehaviour
         }
 
         foreach (KeyValuePair<string, RemoteCard> pair in mRemoteCards)
-            if (!seen.Contains(pair.Key)) pair.Value.wanted = null;
+            if (!seen.Contains(pair.Key)) { pair.Value.wanted = null; }
 
         PlayerState player = gs.players[MatchSession.RemoteSeat];
         player.untrackedCards.Clear();
         foreach (KeyValuePair<string, object> pair in seat.GetMap("counts") ?? new Dictionary<string, object>())
-            if (pair.Value is long n) player.untrackedCards[pair.Key] = (int)n;
+            if (pair.Value is long n) { player.untrackedCards[pair.Key] = (int)n; }
 
         ApplyRemoteCards();
 
         // An attack their PC started, in case its rest fell between two syncs and wasn't seen here
         long attackN = seat.GetLong("attackN");
-        if (mAppliedAttackN < 0) mAppliedAttackN = attackN;
+        if (mAppliedAttackN < 0) { mAppliedAttackN = attackN; }
         else if (attackN > mAppliedAttackN)
         {
             mAppliedAttackN = attackN;
@@ -392,7 +396,7 @@ public class OnlineMatch : MonoBehaviour
 
         // Their attack's target, once its attack has arrived through ApplyRemoteCards
         string target = seat.GetString("attackTarget");
-        if (target != null && target != gs.attackTarget && gs.currentPlayerIndex == MatchSession.RemoteSeat) rules.ChooseTarget(target);
+        if (target != null && target != gs.attackTarget && gs.currentPlayerIndex == MatchSession.RemoteSeat) { rules.ChooseTarget(target); }
 
         gs.CheckWinCondition();
         gs.BroadcastState();
@@ -434,9 +438,13 @@ public class OnlineMatch : MonoBehaviour
         CardData FromLocalCache() => ApiCardDatabase.Instance != null ? ApiCardDatabase.Instance.GetByNumber(cardNumber) : null;
 
         if (CardFirestoreDatabase.Instance != null)
+        {
             CardFirestoreDatabase.Instance.GetCardByNumber(cardNumber, Apply, _ => Apply(FromLocalCache()));
+        }
         else
+        {
             Apply(FromLocalCache());
+        }
     }
 
     // Logged by MatchLogger

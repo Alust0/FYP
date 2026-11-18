@@ -33,20 +33,20 @@ public class CardInfoPanel : MonoBehaviour
 
     void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance == this) { Instance = null; }
     }
 
     // A card landing on a zone, seen by this PC's camera or synced from the opponent's
     void OnCardMoved(CardInstance card, PlayerState previousOwner, string previousZone)
     {
-        if (card == null || card.zone == null || card.zone == previousZone) return;
-        if (card.facing == CardFacing.FaceDown) return;
+        if (card == null || card.zone == null || card.zone == previousZone) { return; }
+        if (card.facing == CardFacing.FaceDown) { return; }
         Show(card.data);
     }
 
     public void Show(CardData data)
     {
-        if (data == null) return;
+        if (data == null) { return; }
         mShown = data;
 
         string name = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
@@ -68,7 +68,7 @@ public class CardInfoPanel : MonoBehaviour
     // Whether the rules engine runs all its skills, or leaves parts to the player (SkillParser.Supported)
     static string SupportLine(CardData data)
     {
-        if (SkillParser.Parse(data).Count == 0) return "";
+        if (SkillParser.Parse(data).Count == 0) { return ""; }
         return SkillParser.Supported(data)
             ? "\n\n<color=#81c784><b>Engine:</b> runs all its skills</color>"
             : "\n\n<color=#ffb74d><b>Engine:</b> some of it is done by hand</color>";
@@ -76,8 +76,8 @@ public class CardInfoPanel : MonoBehaviour
 
     void ShowArt(CardData data)
     {
-        if (art == null) return;
-        if (mArtBox == Vector2.zero) mArtBox = art.rectTransform.sizeDelta;
+        if (art == null) { return; }
+        if (mArtBox == Vector2.zero) { mArtBox = art.rectTransform.sizeDelta; }
         Texture2D texture = Art(data);
         art.texture = texture;
         art.color = texture != null ? Color.white : new Color(1f, 1f, 1f, 0.08f);
@@ -91,8 +91,8 @@ public class CardInfoPanel : MonoBehaviour
     Texture2D Art(CardData data)
     {
         string number = data.cardNumber;
-        if (string.IsNullOrEmpty(number)) return null;
-        if (sArt.TryGetValue(number, out Texture2D texture)) return texture;
+        if (string.IsNullOrEmpty(number)) { return null; }
+        if (sArt.TryGetValue(number, out Texture2D texture)) { return texture; }
 
         string path = CardImageLibrary.GetPath(number);
         if (path != null)
@@ -104,7 +104,9 @@ public class CardInfoPanel : MonoBehaviour
         }
 
         if (!string.IsNullOrEmpty(data.imageUrl) && sLoading.Add(number))
+        {
             StartCoroutine(Download(data));
+        }
         return null;
     }
 
@@ -115,6 +117,6 @@ public class CardInfoPanel : MonoBehaviour
             yield return request.SendWebRequest();
             sArt[data.cardNumber] = request.result == UnityWebRequest.Result.Success ? DownloadHandlerTexture.GetContent(request) : null;
         }
-        if (mShown == data) ShowArt(data);
+        if (mShown == data) { ShowArt(data); }
     }
 }

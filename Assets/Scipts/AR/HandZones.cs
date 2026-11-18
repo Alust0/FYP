@@ -167,12 +167,12 @@ public partial class HandZones : MonoBehaviour
 
     void OnDestroy()
     {
-        if (mCapture != null) mCapture.Release();
+        if (mCapture != null) { mCapture.Release(); }
     }
 
     void OnDeckBackTouched(string zoneKey, float hiddenSince)
     {
-        if (zoneKey != mDeckKey || mDeck == null || !mDeck.shown) return;
+        if (zoneKey != mDeckKey || mDeck == null || !mDeck.shown) { return; }
         mBackTouch = new Vector2(hiddenSince, Time.time);
         TryCountDraw();
     }
@@ -180,7 +180,7 @@ public partial class HandZones : MonoBehaviour
     // Draw = hand on the deck and off again, while a draw is due
     void TryCountDraw()
     {
-        if (!(mHandTouch is Vector2 h) || h.x < mDrawWatchStart) return;
+        if (!(mHandTouch is Vector2 h) || h.x < mDrawWatchStart) { return; }
 
         CardBackTracker backs = CardBackTracker.Instance;
         bool backHidden = backs != null && backs.DeckHiddenDuring(mDeckKey, h.x - deckTouchTolerance, h.y + deckTouchTolerance);
@@ -192,11 +192,11 @@ public partial class HandZones : MonoBehaviour
 
     void Update()
     {
-        if (mCamera == null) mCamera = Camera.main;
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        if (mCamera == null) { mCamera = Camera.main; }
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
         GameState gs = GameState.Instance;
-        if (mCamera == null || gs == null || gs.players[0] == null) return;
+        if (mCamera == null || gs == null || gs.players[0] == null) { return; }
 
         UpdateDeckArea(gs);
         UpdatePickAreas();
@@ -214,14 +214,14 @@ public partial class HandZones : MonoBehaviour
                     area.baseline = null;
                     area.covered = false;
                 }
-                else if (area.covered) area.fired = true;
+                else if (area.covered) { area.fired = true; }
             }
-            if (area.isDeck && shown && !area.shown) StartDrawWatch();
+            if (area.isDeck && shown && !area.shown) { StartDrawWatch(); }
             area.shown = shown;
             PlaceUI(area);
         }
 
-        if (Keyboard.current != null && Keyboard.current[previewKey].wasPressedThisFrame) mPreview.SetActive(!mPreview.activeSelf);
+        if (Keyboard.current != null && Keyboard.current[previewKey].wasPressedThisFrame) { mPreview.SetActive(!mPreview.activeSelf); }
 
         if (!mReadingBack && Time.time >= mNextSample)
         {
@@ -234,36 +234,40 @@ public partial class HandZones : MonoBehaviour
     // Which areas are live right now
     bool IsShown(Area area, GameState gs)
     {
-        if (gs.gameOver) return false; // nothing more to do once it's over
+        if (gs.gameOver) { return false; } // nothing more to do once it's over
         bool yourTurn = MatchSession.IsLocal(gs.CurrentPlayer);
         if (area.isDeck)
+        {
             return yourTurn && area.view.width > 0f &&
                 ((gs.currentPhase == TurnPhase.DrawPhase && !DrewThisTurn(gs)) || ExtraDrawDue);
+        }
 
         // The ride deck while this turn's ride is still to come, once its discard is in the drop zone
-        if (area.isRideDeck) return yourTurn && area.view.width > 0f && mRules != null && mRules.RideDeckRideDue && !mRules.RideDiscardDue;
+        if (area.isRideDeck) { return yourTurn && area.view.width > 0f && mRules != null && mRules.RideDeckRideDue && !mRules.RideDiscardDue; }
 
         if (area.pickZone != null)
         {
-            if (!useTriggerPicks || mRules == null || area.view.width <= 0f) return false;
+            if (!useTriggerPicks || mRules == null || area.view.width <= 0f) { return false; }
 
             // Online, picking an attack target: your own front row, each circle standing for the one it faces
             if (mRules.IsChoosingTarget)
             {
-                if (!MatchSession.IsOnline || !yourTurn || !area.pickKey.StartsWith("P1")) return false;
+                if (!MatchSession.IsOnline || !yourTurn || !area.pickKey.StartsWith("P1")) { return false; }
                 string target = AttackTargetPicker.Facing(area.pickZone);
                 return target != null && (target == "Vanguard" || gs.Opponent.CardOnCircle(target) != null);
             }
 
-            if (mRules.PickNow == RulesEngine.TriggerPick.None) return false;
+            if (mRules.PickNow == RulesEngine.TriggerPick.None) { return false; }
             PlayerState owner = mBoard != null ? mBoard.ZoneOwner(gs, area.pickKey) : null;
             return owner == mRules.PickOwner && MatchSession.IsLocal(owner) && mRules.PickZones().Contains(area.pickZone);
         }
 
-        if (!useButtons) return false;
+        if (!useButtons) { return false; }
         bool picking = yourTurn && mRules != null && mRules.IsChoosingTarget;
         if (area.targetZone != null)
+        {
             return picking && (area.targetZone == "Vanguard" || gs.Opponent.CardOnCircle(area.targetZone) != null);
+        }
         return yourTurn && !picking;
     }
 
@@ -272,9 +276,9 @@ public partial class HandZones : MonoBehaviour
     {
         foreach (Area area in mAreas)
         {
-            if (area.pickKey == null) continue;
+            if (area.pickKey == null) { continue; }
             Rect view = Rect.zero;
-            if (mBoard != null) mBoard.TryGetZoneViewRect(area.pickKey, mCamera, out view);
+            if (mBoard != null) { mBoard.TryGetZoneViewRect(area.pickKey, mCamera, out view); }
             if (Vector2.Distance(view.center, area.view.center) > 0.01f || Mathf.Abs(view.width - area.view.width) > 0.01f)
             {
                 area.view = view;
@@ -298,7 +302,7 @@ public partial class HandZones : MonoBehaviour
     void Follow(Area area, string key)
     {
         Rect view = Rect.zero;
-        if (mBoard != null) mBoard.TryGetZoneViewRect(key, mCamera, out view);
+        if (mBoard != null) { mBoard.TryGetZoneViewRect(key, mCamera, out view); }
 
         if (Vector2.Distance(view.center, area.view.center) > 0.01f || Mathf.Abs(view.width - area.view.width) > 0.01f)
         {
@@ -319,7 +323,7 @@ public partial class HandZones : MonoBehaviour
         // Webcam picture shrunk on the GPU and read back async
         if (mWebcam != null && mWebcam.isPlaying && mWebcam.width > 16)
         {
-            if (mCapture == null) mCapture = new RenderTexture(CaptureWidth, CaptureHeight, 24);
+            if (mCapture == null) { mCapture = new RenderTexture(CaptureWidth, CaptureHeight, 24); }
             Rect vis = VisiblePart(mWebcam.width, mWebcam.height);
             bool flip = mWebcam.videoVerticallyMirrored != flipPicture;
             Graphics.Blit(mWebcam, mCapture, new Vector2(vis.width, flip ? -vis.height : vis.height), new Vector2(vis.x, flip ? vis.yMax : vis.y));
@@ -337,7 +341,7 @@ public partial class HandZones : MonoBehaviour
         AsyncGPUReadback.Request(mCapture, 0, TextureFormat.RGBA32, done =>
         {
             mReadingBack = false;
-            if (this == null || done.hasError) return;
+            if (this == null || done.hasError) { return; }
             Analyse(new Picture
             {
                 pixels = done.GetData<Color32>().ToArray(),
@@ -361,13 +365,15 @@ public partial class HandZones : MonoBehaviour
 
     void RenderCapture()
     {
-        if (mCapture == null) mCapture = new RenderTexture(CaptureWidth, CaptureHeight, 24);
+        if (mCapture == null) { mCapture = new RenderTexture(CaptureWidth, CaptureHeight, 24); }
 
         Rect rect = mCamera.rect;
         mCamera.rect = new Rect(0f, 0f, 1f, 1f);
         var request = new RenderPipeline.StandardRequest { destination = mCapture };
         if (RenderPipeline.SupportsRenderRequest(mCamera, request))
+        {
             RenderPipeline.SubmitRenderRequest(mCamera, request);
+        }
         else
         {
             RenderTexture target = mCamera.targetTexture; // RotatedView's, when the view is turned
@@ -397,11 +403,13 @@ public partial class HandZones : MonoBehaviour
         mGlobalBaseline = Blend(mGlobalBaseline, global, Adapt);
 
         foreach (Area area in mAreas)
-            if (area.view.width > 0f) Check(area, Cells(picture, area.view, Grid, Grid), shift);
+            if (area.view.width > 0f) { Check(area, Cells(picture, area.view, Grid, Grid), shift); }
 
         // Whole row changing = light or movement, so it resets
         if (mAreas.Where(a => IsButton(a) && a.covered).Select(a => a.view.center).Distinct().Count() >= Slots)
+        {
             foreach (Area area in mAreas.Where(IsButton)) ResetArea(area);
+        }
     }
 
     void Check(Area area, Color[] cells, Color shift)
@@ -421,7 +429,7 @@ public partial class HandZones : MonoBehaviour
 
         // Covered but still = a card, not a hand; relearn its look
         bool still = area.lastCells != null && ChangedFraction(cells, area.lastCells, Color.clear) == 0f;
-        if (!still) area.stillSince = now;
+        if (!still) { area.stillSince = now; }
         area.lastCells = cells;
 
         // Just-lit circle relearns its look until quiet
@@ -433,7 +441,7 @@ public partial class HandZones : MonoBehaviour
                 area.baseline = (Color[])cells.Clone();
                 area.baselineSince = now;
             }
-            if (now - area.baselineSince >= RelearnSeconds || now - area.shownSince >= MaxRelearnSeconds) area.relearn = false;
+            if (now - area.baselineSince >= RelearnSeconds || now - area.shownSince >= MaxRelearnSeconds) { area.relearn = false; }
             return;
         }
 
@@ -465,7 +473,7 @@ public partial class HandZones : MonoBehaviour
                 area.fired = false;
                 area.peak = changed;
             }
-            else area.baseline = Blend(area.baseline, cells, Adapt);
+            else { area.baseline = Blend(area.baseline, cells, Adapt); }
             return;
         }
 
@@ -491,11 +499,11 @@ public partial class HandZones : MonoBehaviour
                 TryCountDraw();
             }
             // Ride deck: on and off again, a card taken off it to ride
-            if (area.isRideDeck && area.shown && held >= minDeckTouchSeconds && held < maxCoverSeconds) mRules?.RideDeckTouched();
+            if (area.isRideDeck && area.shown && held >= minDeckTouchSeconds && held < maxCoverSeconds) { mRules?.RideDeckTouched(); }
             return;
         }
 
-        if (now - area.coveredSince >= maxCoverSeconds) area.fired = true;
+        if (now - area.coveredSince >= maxCoverSeconds) { area.fired = true; }
 
         // Hand on the deck for minDeckTouchSeconds = the draw
         if (area.isDeck && area.shown && !area.fired && now - area.coveredSince >= minDeckTouchSeconds)
@@ -509,14 +517,14 @@ public partial class HandZones : MonoBehaviour
         // A finger on a lit circle: the arm reaching it covers circles on the way, so the one furthest out is the fingertip
         if (area.pickZone != null)
         {
-            if (changed > fingerMaxFraction) area.coveredSince = now; // a hand or arm over it: the hold starts over
+            if (changed > fingerMaxFraction) { area.coveredSince = now; } // a hand or arm over it: the hold starts over
             if (area.shown && !area.fired && now - area.coveredSince >= pickHoldSeconds && IsFingertip(area))
             {
                 // Every circle under the arm must clear before the next pick
                 foreach (Area a in mAreas)
-                    if (a.pickZone != null && a.covered) a.fired = true;
-                if (mRules != null && mRules.IsChoosingTarget) mRules.ChooseTarget(AttackTargetPicker.Facing(area.pickZone));
-                else mRules?.Pick(area.pickZone);
+                    if (a.pickZone != null && a.covered) { a.fired = true; }
+                if (mRules != null && mRules.IsChoosingTarget) { mRules.ChooseTarget(AttackTargetPicker.Facing(area.pickZone)); }
+                else { mRules?.Pick(area.pickZone); }
             }
             return;
         }
@@ -524,8 +532,8 @@ public partial class HandZones : MonoBehaviour
         if (IsButton(area) && area.shown && !area.fired && now - area.coveredSince >= holdSeconds && !OtherButtonCovered(area))
         {
             area.fired = true;
-            if (area.targetZone != null) mRules?.ChooseTarget(area.targetZone);
-            else if (area.isNextPhase) mRules?.AdvancePhase();
+            if (area.targetZone != null) { mRules?.ChooseTarget(area.targetZone); }
+            else if (area.isNextPhase) { mRules?.AdvancePhase(); }
         }
     }
 
@@ -542,7 +550,7 @@ public partial class HandZones : MonoBehaviour
     public float PickProgress(string pickKey)
     {
         Area area = mAreas.FirstOrDefault(a => a.pickKey == pickKey);
-        if (area == null || !area.shown || !area.covered || area.fired || !IsFingertip(area)) return 0f;
+        if (area == null || !area.shown || !area.covered || area.fired || !IsFingertip(area)) { return 0f; }
         return Mathf.Clamp01((Time.time - area.coveredSince) / pickHoldSeconds);
     }
 
@@ -550,7 +558,7 @@ public partial class HandZones : MonoBehaviour
     float Reach(Area area)
     {
         Vector2 c = area.view.center;
-        if (mBoard == null || mBoard.boardMode == BoardLayout.BoardMode.Multiplayer) return c.y;
+        if (mBoard == null || mBoard.boardMode == BoardLayout.BoardMode.Multiplayer) { return c.y; }
         return area.pickKey.StartsWith("P1") ? c.x : 1f - c.x;
     }
 
@@ -571,7 +579,7 @@ public partial class HandZones : MonoBehaviour
         GameState gs = GameState.Instance;
         if (!ExtraDrawDue)
         {
-            if (DrewThisTurn(gs)) return;
+            if (DrewThisTurn(gs)) { return; }
             mDeckDrawTurn = gs.turnNumber;
         }
         Debug.Log("[HandZones] Draw counted: the camera saw the " + seen + ".");
@@ -608,7 +616,7 @@ public partial class HandZones : MonoBehaviour
             {
                 int x = Mathf.Clamp((int)(x0 + (col + (sx + 0.5f) / SamplesPerCellSide) * cellW), 0, picture.width - 1);
                 int y = Mathf.Clamp((int)(y0 + (row + (sy + 0.5f) / SamplesPerCellSide) * cellH), 0, picture.height - 1);
-                if (picture.flipY) y = picture.height - 1 - y;
+                if (picture.flipY) { y = picture.height - 1 - y; }
 
                 Color32 c = picture.pixels[y * picture.width + x];
                 r += c.r;
@@ -627,7 +635,7 @@ public partial class HandZones : MonoBehaviour
         for (int i = 0; i < cells.Length; i++)
         {
             Color d = cells[i] - baseline[i] - shift;
-            if ((Mathf.Abs(d.r) + Mathf.Abs(d.g) + Mathf.Abs(d.b)) / 3f > cellThreshold) changed++;
+            if ((Mathf.Abs(d.r) + Mathf.Abs(d.g) + Mathf.Abs(d.b)) / 3f > cellThreshold) { changed++; }
         }
         return (float)changed / cells.Length;
     }
@@ -641,7 +649,7 @@ public partial class HandZones : MonoBehaviour
 
     static Color[] Blend(Color[] baseline, Color[] cells, float t)
     {
-        if (baseline == null) return cells;
+        if (baseline == null) { return cells; }
         for (int i = 0; i < cells.Length; i++) baseline[i] = Color.Lerp(baseline[i], cells[i], t);
         return baseline;
     }

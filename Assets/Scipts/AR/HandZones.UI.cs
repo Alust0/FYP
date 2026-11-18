@@ -85,7 +85,7 @@ public partial class HandZones
 
     void UpdatePreview()
     {
-        if (mPreview == null || !mPreview.activeSelf) return;
+        if (mPreview == null || !mPreview.activeSelf) { return; }
 
         Rect px = mCamera.pixelRect;
         RectTransform rt = (RectTransform)mPreview.transform;
@@ -103,12 +103,12 @@ public partial class HandZones
         {
             bool live = area.view.width > 0f && area.baseline != null;
             area.previewFrame.gameObject.SetActive(live);
-            if (!live) continue;
+            if (!live) { continue; }
 
             area.previewFrame.anchoredPosition = new Vector2(area.view.x * size.x, area.view.y * size.y);
             area.previewFrame.sizeDelta = new Vector2(area.view.width * size.x, area.view.height * size.y);
             foreach (Image edge in area.previewFrame.GetComponentsInChildren<Image>())
-                if (edge.transform != area.previewFrame) edge.color = area.covered ? Color.green : Color.white;
+                if (edge.transform != area.previewFrame) { edge.color = area.covered ? Color.green : Color.white; }
             area.previewText.text = Mathf.RoundToInt(area.changed * 100f) + "%";
         }
     }
@@ -116,8 +116,8 @@ public partial class HandZones
     void PlaceUI(Area area)
     {
         bool visible = area.shown && area.view.width > 0f && !(area.pickZone != null && mRules != null && mRules.IsChoosingTarget); // AttackTargetPicker draws those
-        if (area.ui.gameObject.activeSelf != visible) area.ui.gameObject.SetActive(visible);
-        if (!visible) return;
+        if (area.ui.gameObject.activeSelf != visible) { area.ui.gameObject.SetActive(visible); }
+        if (!visible) { return; }
 
         Rect px = mCamera.pixelRect;
         area.ui.anchoredPosition = new Vector2(px.x + area.view.x * px.width, px.y + area.view.y * px.height);

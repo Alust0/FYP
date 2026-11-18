@@ -28,8 +28,8 @@ public class CameraFeedLink : MonoBehaviour
     {
         get
         {
-            if (Time.unscaledTime < mNextSend) return false;
-            if (Direct) return !mConnection.Sending;
+            if (Time.unscaledTime < mNextSend) { return false; }
+            if (Direct) { return !mConnection.Sending; }
             return UsingFallback && !mUploading;
         }
     }
@@ -59,8 +59,8 @@ public class CameraFeedLink : MonoBehaviour
         mLocalSeat = MatchSession.LocalSeat;
         mStartTime = Time.unscaledTime;
 
-        if (mLocalSeat == 0) StartCoroutine(Host());
-        else StartCoroutine(Join());
+        if (mLocalSeat == 0) { StartCoroutine(Host()); }
+        else { StartCoroutine(Join()); }
         StartCoroutine(FallbackDownloads());
     }
 
@@ -70,14 +70,14 @@ public class CameraFeedLink : MonoBehaviour
         lock (mAcceptLock) mAccepted?.Close();
         try { mListener?.Stop(); } catch (SocketException) { }
         mListener = null;
-        if (mRoomCode != null && mLastFrameMs != 0) RtdbRest.DeleteWithoutWaiting(FramePath(mLocalSeat));
+        if (mRoomCode != null && mLastFrameMs != 0) { RtdbRest.DeleteWithoutWaiting(FramePath(mLocalSeat)); }
     }
 
     void Update()
     {
         lock (mAcceptLock)
         {
-            if (mAccepted == null) return;
+            if (mAccepted == null) { return; }
             mConnection?.Close(); // the guest reconnected
             mConnection = mAccepted;
             mAccepted = null;
@@ -102,7 +102,7 @@ public class CameraFeedLink : MonoBehaviour
     public byte[] TakeLatest()
     {
         byte[] frame = Direct ? mConnection.TakeIncoming() : null;
-        if (frame != null) return frame;
+        if (frame != null) { return frame; }
 
         frame = mFallbackFrame;
         mFallbackFrame = null;
@@ -179,7 +179,7 @@ public class CameraFeedLink : MonoBehaviour
                     mConnection = new Connection(attempt.Result, mRoomCode);
                     float until = Time.unscaledTime + 2f; // time for the hello to come back
                     yield return new WaitUntil(() => Direct || Time.unscaledTime > until);
-                    if (Direct) Debug.Log("[CameraFeedLink] Connected straight to the host.");
+                    if (Direct) { Debug.Log("[CameraFeedLink] Connected straight to the host."); }
                 }
             }
             yield return new WaitForSecondsRealtime(Direct || Time.unscaledTime - mStartTime < 30f ? 1f : 5f); // quick tries at first
@@ -208,7 +208,7 @@ public class CameraFeedLink : MonoBehaviour
 
         foreach (var attempt in attempts)
         {
-            if (attempt.client == winner) continue;
+            if (attempt.client == winner) { continue; }
             attempt.task.ContinueWith(_ => { }); // its refusal isn't an unobserved exception
             attempt.client.Close();
         }
@@ -224,7 +224,7 @@ public class CameraFeedLink : MonoBehaviour
         try
         {
             foreach (Windows.Networking.HostName host in Windows.Networking.Connectivity.NetworkInformation.GetHostNames())
-                if (host.Type == Windows.Networking.HostNameType.Ipv4) addresses.Add(host.CanonicalName);
+                if (host.Type == Windows.Networking.HostNameType.Ipv4) { addresses.Add(host.CanonicalName); }
         }
         catch (Exception e)
         {
@@ -235,16 +235,16 @@ public class CameraFeedLink : MonoBehaviour
         {
             foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (adapter.OperationalStatus != OperationalStatus.Up || adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                if (adapter.OperationalStatus != OperationalStatus.Up || adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback) { continue; }
                 foreach (UnicastIPAddressInformation address in adapter.GetIPProperties().UnicastAddresses)
-                    if (address.Address.AddressFamily == AddressFamily.InterNetwork) addresses.Add(address.Address.ToString());
+                    if (address.Address.AddressFamily == AddressFamily.InterNetwork) { addresses.Add(address.Address.ToString()); }
             }
         }
         catch (Exception e)
         {
             Debug.LogWarning("[CameraFeedLink] Couldn't list network addresses: " + e.Message);
         }
-        if (addresses.Count == 1) Debug.LogWarning("[CameraFeedLink] Found no network address; only another window on this PC can connect directly.");
+        if (addresses.Count == 1) { Debug.LogWarning("[CameraFeedLink] Found no network address; only another window on this PC can connect directly."); }
         return addresses.Distinct().ToList();
     }
 
@@ -257,7 +257,7 @@ public class CameraFeedLink : MonoBehaviour
         var fields = new Dictionary<string, object> { ["jpg"] = Convert.ToBase64String(jpeg), ["ms"] = now };
         RtdbRest.Result result = null;
         yield return RtdbRest.Patch(FramePath(mLocalSeat), fields, new[] { "jpg", "ms" }, r => result = r);
-        if (result.succeeded) mLastFrameMs = now;
+        if (result.succeeded) { mLastFrameMs = now; }
         mUploading = false;
     }
 
@@ -288,7 +288,7 @@ public class CameraFeedLink : MonoBehaviour
     void OnFallbackChange(string changed, JToken value)
     {
         JToken jpg = changed == "/" || changed == "" ? (value as JObject)?["jpg"] : changed == "/jpg" ? value : null;
-        if (jpg == null || jpg.Type != JTokenType.String) return;
+        if (jpg == null || jpg.Type != JTokenType.String) { return; }
         try { mFallbackFrame = Convert.FromBase64String((string)jpg); }
         catch (FormatException) { }
     }
@@ -300,16 +300,16 @@ public class CameraFeedLink : MonoBehaviour
         while (true)
         {
             yield return new WaitForSecondsRealtime(fallbackPollSeconds);
-            if (!UsingFallback) continue;
+            if (!UsingFallback) { continue; }
 
             RtdbRest.Result stamp = null;
             yield return RtdbRest.Get(path + "/ms", r => stamp = r);
             // A single number comes back as the read's version, not as fields
-            if (!stamp.succeeded || !long.TryParse(stamp.version, out long ms) || ms == lastSeen) continue;
+            if (!stamp.succeeded || !long.TryParse(stamp.version, out long ms) || ms == lastSeen) { continue; }
 
             RtdbRest.Result frame = null;
             yield return RtdbRest.Get(path, r => frame = r);
-            if (!frame.succeeded) continue;
+            if (!frame.succeeded) { continue; }
 
             lastSeen = frame.fields.GetLong("ms");
             try { mFallbackFrame = Convert.FromBase64String(frame.fields.GetString("jpg") ?? ""); }
@@ -375,7 +375,7 @@ public class CameraFeedLink : MonoBehaviour
         {
             try
             {
-                if (!Read().SequenceEqual(mHello)) throw new InvalidOperationException("wrong room");
+                if (!Read().SequenceEqual(mHello)) { throw new InvalidOperationException("wrong room"); }
                 Verified = true;
                 while (!Closed)
                 {
@@ -397,11 +397,11 @@ public class CameraFeedLink : MonoBehaviour
                     mWake.WaitOne(500);
                     byte[] data;
                     lock (mLock) data = mOutgoing;
-                    if (data == null) continue;
+                    if (data == null) { continue; }
 
                     Write(data);
                     lock (mLock)
-                        if (mOutgoing == data) mOutgoing = null;
+                        if (mOutgoing == data) { mOutgoing = null; }
                 }
             }
             catch (Exception) { }
@@ -412,7 +412,7 @@ public class CameraFeedLink : MonoBehaviour
         {
             byte[] header = ReadExactly(4);
             int length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3];
-            if (length < 0 || length > MaxMessage) throw new InvalidOperationException("bad length");
+            if (length < 0 || length > MaxMessage) { throw new InvalidOperationException("bad length"); }
             return ReadExactly(length);
         }
 
@@ -422,7 +422,7 @@ public class CameraFeedLink : MonoBehaviour
             for (int read = 0; read < count;)
             {
                 int n = mStream.Read(data, read, count - read);
-                if (n <= 0) throw new InvalidOperationException("closed");
+                if (n <= 0) { throw new InvalidOperationException("closed"); }
                 read += n;
             }
             return data;

@@ -18,7 +18,11 @@ public partial class ZoneHighlighter : MonoBehaviour
         public Image glow;
         public Image[] edges;
         public Ripple ripple;
+        public float since; // when it came on, for its pop-in
     }
+
+    const float PopSeconds = 0.35f;
+    float mReplayAt = -100f; // Undo: every highlight pops in again from here
 
     readonly List<Highlight> mHighlights = new List<Highlight>();
     readonly List<BoardArrow> mArrows = new List<BoardArrow>();
@@ -30,12 +34,26 @@ public partial class ZoneHighlighter : MonoBehaviour
     RulesEngine mRules;
     BoardLayout mBoard;
 
-    void Start() => BuildCanvas();
+    void Start()
+    {
+        BuildCanvas();
+        RulesEngine.OnUndone += Replay;
+    }
+
+    void OnDestroy() => RulesEngine.OnUndone -= Replay;
+
+    // Undo: zones, ripples and arrows start again, as when they first came on
+    void Replay()
+    {
+        mReplayAt = Time.unscaledTime;
+        Ripple.Replay();
+        BoardArrow.Replay();
+    }
 
     void Update()
     {
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
         Camera cam = Camera.main;
         mZones.Clear();
         int arrows = 0;
@@ -45,11 +63,11 @@ public partial class ZoneHighlighter : MonoBehaviour
         {
             Rect px = cam.pixelRect;
             foreach ((PlayerState owner, string zone) in mRules.AttentionZones())
-                if (Shown(owner)) mZones[Key(owner, zone)] = zoneColor;
+                if (Shown(owner)) { mZones[Key(owner, zone)] = zoneColor; }
 
             foreach ((PlayerState owner, string from, string to, RulesEngine.ArrowKind kind) in mRules.AttentionArrows())
             {
-                if (!Shown(owner)) continue;
+                if (!Shown(owner)) { continue; }
                 string toKey = Key(owner, to);
                 // To the drop zone: it lights in the arrow's colour. A ride: the ride deck does, and the vanguard circle in yellow
                 if (kind == RulesEngine.ArrowKind.Ride)
@@ -57,11 +75,11 @@ public partial class ZoneHighlighter : MonoBehaviour
                     mZones[Key(owner, from)] = arrowColor;
                     mZones[toKey] = zoneColor;
                 }
-                else if (kind == RulesEngine.ArrowKind.ToDrop) mZones[toKey] = arrowColor;
+                else if (kind == RulesEngine.ArrowKind.ToDrop) { mZones[toKey] = arrowColor; }
                 // A skill's (a paid cost, a chosen unit): its zones stay lit as they are, and the drop zone lights if it isn't
-                else mZones.TryAdd(toKey, zoneColor);
-                if (!mBoard.TryGetZoneViewRect(Key(owner, from), cam, out Rect fromView) || !mBoard.TryGetZoneViewRect(toKey, cam, out Rect toView)) continue;
-                if (arrows == mArrows.Count) mArrows.Add(BoardArrow.Add(mCanvas, BoardArrow.Style.Pulse, arrowColor));
+                else { mZones.TryAdd(toKey, zoneColor); }
+                if (!mBoard.TryGetZoneViewRect(Key(owner, from), cam, out Rect fromView) || !mBoard.TryGetZoneViewRect(toKey, cam, out Rect toView)) { continue; }
+                if (arrows == mArrows.Count) { mArrows.Add(BoardArrow.Add(mCanvas, BoardArrow.Style.Pulse, arrowColor)); }
                 mArrows[arrows].color = kind == RulesEngine.ArrowKind.Check ? zoneColor : arrowColor;
                 mArrows[arrows++].Show(ToPixels(px, fromView), ToPixels(px, toView));
             }
@@ -71,7 +89,7 @@ public partial class ZoneHighlighter : MonoBehaviour
                 mBoard.TryGetZoneViewRect(Key(boost.Value.owner, boost.Value.from), cam, out Rect boosterView) &&
                 mBoard.TryGetZoneViewRect(Key(boost.Value.owner, boost.Value.to), cam, out Rect boostedView))
             {
-                if (mBoost == null) mBoost = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, boostColor);
+                if (mBoost == null) { mBoost = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, boostColor); }
                 mBoost.color = boostColor;
                 mBoost.Show(ToPixels(px, boosterView), ToPixels(px, boostedView));
                 boosting = true;
@@ -82,7 +100,7 @@ public partial class ZoneHighlighter : MonoBehaviour
                 mBoard.TryGetZoneViewRect(Key(guard.Value.owner, guard.Value.from), cam, out Rect guardianView) &&
                 mBoard.TryGetZoneViewRect(Key(guard.Value.owner, guard.Value.to), cam, out Rect guardedView))
             {
-                if (mGuard == null) mGuard = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, guardColor);
+                if (mGuard == null) { mGuard = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, guardColor); }
                 mGuard.color = guardColor;
                 mGuard.Show(ToPixels(px, guardianView), ToPixels(px, guardedView));
                 guarding = true;
@@ -94,7 +112,7 @@ public partial class ZoneHighlighter : MonoBehaviour
                 TryGetScreenRect(mBoard, attack.Value.attacker, attack.Value.from, out Rect attackerRect) &&
                 TryGetScreenRect(mBoard, attack.Value.defender, attack.Value.to, out Rect targetRect))
             {
-                if (mAttack == null) mAttack = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, attackColor, attackArrowSize);
+                if (mAttack == null) { mAttack = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, attackColor, attackArrowSize); }
                 mAttack.color = attackColor;
                 mAttack.Show(attackerRect, targetRect);
                 attacking = true;
@@ -103,18 +121,18 @@ public partial class ZoneHighlighter : MonoBehaviour
             int used = 0;
             foreach (KeyValuePair<string, Color> zone in mZones)
             {
-                if (!mBoard.TryGetZoneViewRect(zone.Key, cam, out Rect view)) continue;
-                if (used == mHighlights.Count) mHighlights.Add(BuildHighlight());
+                if (!mBoard.TryGetZoneViewRect(zone.Key, cam, out Rect view)) { continue; }
+                if (used == mHighlights.Count) { mHighlights.Add(BuildHighlight()); }
                 ShowHighlight(mHighlights[used++], ToPixels(px, view), zone.Value);
             }
             Hide(mHighlights, used);
         }
-        else Hide(mHighlights, 0);
+        else { Hide(mHighlights, 0); }
 
         for (int i = arrows; i < mArrows.Count; i++) mArrows[i].Hide();
-        if (!boosting && mBoost != null) mBoost.Hide();
-        if (!guarding && mGuard != null) mGuard.Hide();
-        if (!attacking && mAttack != null) mAttack.Hide();
+        if (!boosting && mBoost != null) { mBoost.Hide(); }
+        if (!guarding && mGuard != null) { mGuard.Hide(); }
+        if (!attacking && mAttack != null) { mAttack.Hide(); }
     }
 
     static bool Shown(PlayerState owner) => owner != null && (!MatchSession.IsOnline || MatchSession.IsLocal(owner));
@@ -127,17 +145,17 @@ public partial class ZoneHighlighter : MonoBehaviour
     {
         box = default;
         Camera cam = Camera.main;
-        if (board == null || cam == null || owner == null) return false;
+        if (board == null || cam == null || owner == null) { return false; }
 
         if (!MatchSession.IsOnline || MatchSession.IsLocal(owner))
         {
-            if (!board.TryGetZoneViewRect(Key(owner, zone), cam, out Rect view)) return false;
+            if (!board.TryGetZoneViewRect(Key(owner, zone), cam, out Rect view)) { return false; }
             box = ToPixels(cam.pixelRect, view);
             return true;
         }
 
         Rect? shown = SplitScreenView.OpponentView;
-        if (shown == null || !board.TryGetZoneViewRect("P1_" + zone, cam, out Rect theirs)) return false;
+        if (shown == null || !board.TryGetZoneViewRect("P1_" + zone, cam, out Rect theirs)) { return false; }
         Rect o = shown.Value; // their picture is turned round
         box = new Rect((o.x + (1f - theirs.xMax) * o.width) * Screen.width, (o.y + (1f - theirs.yMax) * o.height) * Screen.height,
             theirs.width * o.width * Screen.width, theirs.height * o.height * Screen.height);
@@ -150,19 +168,27 @@ public partial class ZoneHighlighter : MonoBehaviour
     static void Hide(List<Highlight> highlights, int from)
     {
         for (int i = from; i < highlights.Count; i++)
-            if (highlights[i].root.activeSelf) highlights[i].root.SetActive(false);
+            if (highlights[i].root.activeSelf) { highlights[i].root.SetActive(false); }
     }
 
     // Over the zone: a pulsing glow, its border and ripples, all in its colour
     void ShowHighlight(Highlight h, Rect rect, Color color)
     {
-        if (!h.root.activeSelf) h.root.SetActive(true);
+        if (!h.root.activeSelf)
+        {
+            h.root.SetActive(true);
+            h.since = Time.unscaledTime;
+        }
         RectTransform root = (RectTransform)h.root.transform;
         root.anchoredPosition = rect.center;
         root.sizeDelta = rect.size;
 
-        float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime / h.ripple.seconds * 2f * Mathf.PI);
-        h.glow.color = new Color(color.r, color.g, color.b, 0.16f + 0.14f * pulse);
+        // Pops in a little big and bright, then settles to its pulse
+        float age = Time.unscaledTime - Mathf.Max(h.since, mReplayAt);
+        float pop = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / PopSeconds));
+        root.localScale = Vector3.one * (1f + 0.2f * pop);
+        float pulse = 0.5f + 0.5f * Mathf.Sin(age / h.ripple.seconds * 2f * Mathf.PI);
+        h.glow.color = new Color(color.r, color.g, color.b, 0.16f + 0.14f * pulse + 0.4f * pop);
         foreach (Image edge in h.edges) edge.color = color;
         h.ripple.color = color;
     }

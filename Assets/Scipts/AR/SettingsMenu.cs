@@ -67,15 +67,17 @@ public class SettingsMenu : MonoBehaviour
         if (mBrightnessMovedAt >= 0f && Time.unscaledTime - mBrightnessMovedAt >= BrightnessDelay)
         {
             mBrightnessMovedAt = -1f;
-            if (BuildWebcamDriver.AdjustsBrightness) GameSettings.CameraBrightness = brightnessSlider.value;
+            if (BuildWebcamDriver.AdjustsBrightness) { GameSettings.CameraBrightness = brightnessSlider.value; }
             else if (!WebcamAutoFocus.TrySetBrightness(CameraChoice.Current, brightnessSlider.value))
+            {
                 Debug.LogWarning("[SettingsMenu] Couldn't set the brightness of " + CameraChoice.Current);
+            }
         }
 
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            if (overlay.activeSelf) Close();
-            else Open();
+            if (overlay.activeSelf) { Close(); }
+            else { Open(); }
         }
 
         // Every frame while open, so muting with M or F11 shows straight away
@@ -128,13 +130,15 @@ public class SettingsMenu : MonoBehaviour
     {
         float scale = GameSettings.FontScale;
         fontLabel.text = "Text size: " + Mathf.RoundToInt(scale * 100f) + "%";
-        if (scaledRoot == null) return;
+        if (scaledRoot == null) { return; }
 
         foreach (TMP_Text text in scaledRoot.GetComponentsInChildren<TMP_Text>(true))
         {
-            if (text.transform.IsChildOf(overlay.transform)) continue; // the menu keeps its size, so it always fits its box
+            if (text.transform.IsChildOf(overlay.transform)) { continue; } // the menu keeps its size, so it always fits its box
             if (!mBaseSizes.TryGetValue(text, out Vector3 size))
+            {
                 mBaseSizes[text] = size = new Vector3(text.fontSize, text.fontSizeMin, text.fontSizeMax);
+            }
 
             text.fontSize = size.x * scale;
             text.fontSizeMin = size.y * scale;
@@ -152,14 +156,14 @@ public class SettingsMenu : MonoBehaviour
     {
         Close();
         BoardCalibrator calibrator = FindFirstObjectByType<BoardCalibrator>();
-        if (calibrator != null) calibrator.ToggleCalibration();
-        else Debug.LogWarning("[SettingsMenu] No BoardCalibrator in the scene.");
+        if (calibrator != null) { calibrator.ToggleCalibration(); }
+        else { Debug.LogWarning("[SettingsMenu] No BoardCalibrator in the scene."); }
     }
 
     // Off and on again, so camera settings take effect; runs on the Settings button, which stays active when the menu closes
     public void RefreshCamera()
     {
-        if (!CameraChoice.Refreshing) StartCoroutine(CameraChoice.Refresh());
+        if (!CameraChoice.Refreshing) { StartCoroutine(CameraChoice.Refresh()); }
     }
 
     // The webcams, read again each time the menu opens (one may have been plugged in)
@@ -177,25 +181,25 @@ public class SettingsMenu : MonoBehaviour
     {
         cameraDropdown.interactable = mCameras.Length > 1 && !CameraChoice.Refreshing;
         string inUse = CameraChoice.InUse;
-        if (inUse == mShownCamera && CameraChoice.SwitchFailed == mShownFailed) return;
-        if (CameraChoice.Refreshing) return; // shows the picked one until the switch is done
+        if (inUse == mShownCamera && CameraChoice.SwitchFailed == mShownFailed) { return; }
+        if (CameraChoice.Refreshing) { return; } // shows the picked one until the switch is done
         mShownCamera = inUse;
         mShownFailed = CameraChoice.SwitchFailed;
         cameraDropdown.SetValueWithoutNotify(Mathf.Max(0, System.Array.IndexOf(mCameras, inUse)));
-        if (mShownFailed) cameraDropdown.captionText.text = inUse + " (other had no picture)";
+        if (mShownFailed) { cameraDropdown.captionText.text = inUse + " (other had no picture)"; }
     }
 
     // A webcam picked in the dropdown (this window's, saved for later matches too)
     void OnCameraPicked(int index)
     {
-        if (index < 0 || index >= mCameras.Length || CameraChoice.Refreshing) return;
+        if (index < 0 || index >= mCameras.Length || CameraChoice.Refreshing) { return; }
         StartCoroutine(CameraChoice.SwitchTo(mCameras[index]));
     }
 
     // Flip Camera for an upside-down webcam (builds only)
     public void ToggleFlip()
     {
-        if (BuildWebcamDriver.CanFlip) GameSettings.CameraUpsideDown = !GameSettings.CameraUpsideDown;
+        if (BuildWebcamDriver.CanFlip) { GameSettings.CameraUpsideDown = !GameSettings.CameraUpsideDown; }
     }
 
     public void Leave()
@@ -220,7 +224,7 @@ public class SettingsMenu : MonoBehaviour
 
     void ResetLeave()
     {
-        if (mConfirmTimeout != null) StopCoroutine(mConfirmTimeout);
+        if (mConfirmTimeout != null) { StopCoroutine(mConfirmTimeout); }
         mConfirmTimeout = null;
         mConfirmingLeave = false;
         leaveLabel.text = LeaveText;

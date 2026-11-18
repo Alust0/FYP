@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Init()
     {
-        if (GameSettings.HasFullScreen) Apply();
+        if (GameSettings.HasFullScreen) { Apply(); }
 
         GameObject obj = new GameObject("WindowMode");
         DontDestroyOnLoad(obj);
@@ -18,7 +18,7 @@ using UnityEngine.InputSystem;
 
     void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.f11Key.wasPressedThisFrame) Toggle();
+        if (Keyboard.current != null && Keyboard.current.f11Key.wasPressedThisFrame) { Toggle(); }
     }
 
     public static string Label => GameSettings.FullScreen ? "Display: Full screen" : "Display: Windowed";
@@ -33,10 +33,10 @@ using UnityEngine.InputSystem;
     static void Apply()
     {
         bool full = GameSettings.FullScreen;
-        if (Screen.fullScreen == full) return;
+        if (Screen.fullScreen == full) { return; }
 
         int width = Display.main.systemWidth, height = Display.main.systemHeight;
-        if (full) Screen.SetResolution(width, height, FullScreenMode.FullScreenWindow);
-        else Screen.SetResolution(Mathf.RoundToInt(width * WindowedSize), Mathf.RoundToInt(height * WindowedSize), FullScreenMode.Windowed);
+        if (full) { Screen.SetResolution(width, height, FullScreenMode.FullScreenWindow); }
+        else { Screen.SetResolution(Mathf.RoundToInt(width * WindowedSize), Mathf.RoundToInt(height * WindowedSize), FullScreenMode.Windowed); }
     }
 }

@@ -16,12 +16,12 @@ public class CostStep : Step
 
     public override bool Begin(SkillFrame f)
     {
-        if (!(Cost is ChoiceCost choice)) return Pay(f, Cost);
+        if (!(Cost is ChoiceCost choice)) { return Pay(f, Cost); }
 
         int payable = -1, count = 0;
         for (int i = 0; i < choice.Options.Count; i++)
             if (choice.Options[i].CanPay(f.Owner, f.Card)) { payable = i; count++; }
-        if (count == 1) f.Choice = payable;
+        if (count == 1) { f.Choice = payable; }
         return Recheck(f);
     }
 
@@ -32,7 +32,7 @@ public class CostStep : Step
     // Done without picking: the first option that can be paid
     public override void Confirm(SkillFrame f)
     {
-        if (Cost is ChoiceCost choice) Pay(f, choice.Options.FirstOrDefault(o => o.CanPay(f.Owner, f.Card)) ?? choice.Options[0]);
+        if (Cost is ChoiceCost choice) { Pay(f, choice.Options.FirstOrDefault(o => o.CanPay(f.Owner, f.Card)) ?? choice.Options[0]); }
     }
 
     public override System.Collections.Generic.IEnumerable<string> Zones(SkillFrame f) => Cost.Zones(f.Card);

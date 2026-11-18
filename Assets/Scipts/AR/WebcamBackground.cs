@@ -65,7 +65,9 @@ public class WebcamBackground : MonoBehaviour
         // Use the name chosen in the Inspector dropdown; fall back to device 0
         string deviceName = selectedDeviceName;
         if (string.IsNullOrEmpty(deviceName) || System.Array.FindIndex(devices, d => d.name == deviceName) < 0)
+        {
             deviceName = devices[0].name;
+        }
 
         Debug.Log("[Webcam] Using: " + deviceName);
 
@@ -83,8 +85,8 @@ public class WebcamBackground : MonoBehaviour
                 canvas = canvasObj.AddComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = -100;
-                if (canvasObj.GetComponent<CanvasScaler>() == null) canvasObj.AddComponent<CanvasScaler>();
-                if (canvasObj.GetComponent<GraphicRaycaster>() == null) canvasObj.AddComponent<GraphicRaycaster>();
+                if (canvasObj.GetComponent<CanvasScaler>() == null) { canvasObj.AddComponent<CanvasScaler>(); }
+                if (canvasObj.GetComponent<GraphicRaycaster>() == null) { canvasObj.AddComponent<GraphicRaycaster>(); }
             }
         }
         else

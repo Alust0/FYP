@@ -52,7 +52,7 @@ public class AccountLock : MonoBehaviour
     // On logout: frees the account for other copies straight away
     public static void Release()
     {
-        if (sInstance == null) return;
+        if (sInstance == null) { return; }
         sInstance.ReleaseOwn();
         Destroy(sInstance.gameObject);
         sInstance = null;
@@ -67,7 +67,7 @@ public class AccountLock : MonoBehaviour
         RtdbRest.Result failed = null;
         for (int attempt = 0; attempt < 4; attempt++)
         {
-            if (attempt > 0) yield return new WaitForSecondsRealtime(1f);
+            if (attempt > 0) { yield return new WaitForSecondsRealtime(1f); }
 
             RtdbRest.Result session = null;
             yield return RtdbRest.Get(path, r => session = r);
@@ -81,7 +81,7 @@ public class AccountLock : MonoBehaviour
             {
                 Debug.LogWarning("[AccountLock] Reading " + path + " failed (" + session.status + "): " + session.error);
                 failed = session;
-                if (session.status == 0) continue; // dropped: try again
+                if (session.status == 0) { continue; } // dropped: try again
                 done.SetResult(Problem(session));
                 yield break;
             }
@@ -133,7 +133,7 @@ public class AccountLock : MonoBehaviour
                 yield return RtdbRest.Create(Sessions, mPlayerId, Claim(), null);
                 continue; // if another copy got it first, the next beat sees that
             }
-            if (!session.succeeded) continue; // a dropped read; the next beat tries again
+            if (!session.succeeded) { continue; } // a dropped read; the next beat tries again
 
             if (session.fields.GetString("clientId") != MatchSession.ClientId)
             {
@@ -161,14 +161,14 @@ public class AccountLock : MonoBehaviour
 
     void StopHeartbeat()
     {
-        if (mHeartbeat != null) StopCoroutine(mHeartbeat);
+        if (mHeartbeat != null) { StopCoroutine(mHeartbeat); }
         mHeartbeat = null;
         mPlayerId = null;
     }
 
     void ReleaseOwn()
     {
-        if (mPlayerId == null) return;
+        if (mPlayerId == null) { return; }
         RtdbRest.DeleteWithoutWaiting(SessionPath(mPlayerId));
         StopHeartbeat();
     }
@@ -178,8 +178,8 @@ public class AccountLock : MonoBehaviour
 
     static string Problem(RtdbRest.Result result)
     {
-        if (result == null || result.status == 0) return "Couldn't reach the game database. Check your internet connection.";
-        if (result.status == 403) return "The database refused the login check: its Realtime Database rules don't allow sessions yet.";
+        if (result == null || result.status == 0) { return "Couldn't reach the game database. Check your internet connection."; }
+        if (result.status == 403) { return "The database refused the login check: its Realtime Database rules don't allow sessions yet."; }
         return "The game database answered " + result.status + ". Please try again.";
     }
 }

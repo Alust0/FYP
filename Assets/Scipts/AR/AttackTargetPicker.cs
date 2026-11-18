@@ -40,19 +40,19 @@ public partial class AttackTargetPicker : MonoBehaviour
 
     void OnDestroy()
     {
-        if (mCanvasObj != null) Destroy(mCanvasObj);
+        if (mCanvasObj != null) { Destroy(mCanvasObj); }
     }
 
     void Update()
     {
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
         GameState gs = GameState.Instance;
         Camera cam = Camera.main;
 
         bool show = mRules != null && gs != null && cam != null && mRules.IsChoosingTarget && MatchSession.IsLocal(gs.CurrentPlayer);
-        if (mCanvasObj.activeSelf != show) mCanvasObj.SetActive(show);
-        if (!show) return;
+        if (mCanvasObj.activeSelf != show) { mCanvasObj.SetActive(show); }
+        if (!show) { return; }
 
         PlayerState defender = gs.Opponent;
         for (int i = 0; i < mMarkers.Length; i++)
@@ -71,7 +71,9 @@ public partial class AttackTargetPicker : MonoBehaviour
             marker.fill.localScale = new Vector3(hold, 1f, 1f);
 
             if (canPick && Keyboard.current != null && Keyboard.current[PickKeys[i]].wasPressedThisFrame)
+            {
                 mRules.ChooseTarget(zone);
+            }
         }
     }
 
@@ -84,11 +86,15 @@ public partial class AttackTargetPicker : MonoBehaviour
         {
             string key = "P" + (defender.playerIndex + 1) + "_" + zone;
             if (mBoard != null && mBoard.TryGetZoneViewRect(key, cam, out Rect view))
+            {
                 return new Rect(px.x + view.x * px.width, px.y + view.y * px.height, view.width * px.width, view.height * px.height);
+            }
         }
         // Online: on your own front-row circle facing the target
         else if (mBoard != null && mBoard.TryGetZoneViewRect("P1_" + Facing(zone), cam, out Rect yours))
+        {
             return new Rect(px.x + yours.x * px.width, px.y + yours.y * px.height, yours.width * px.width, yours.height * px.height);
+        }
 
         // Their circles aren't on screen: a row across the middle of this camera's view, below the hand buttons
         float boxW = px.width * 0.18f, boxH = px.height * 0.2f;

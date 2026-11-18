@@ -34,8 +34,8 @@ public class SkillGate
                 return owner.dropZone.Count(c => c.data.grade == 1) + System.Math.Max(0, owner.Untracked("Drop")) >= Amount;
             default:
                 CardInstance vanguard = owner.vanguardCircle;
-                if (vanguard == null || !CardFilter.Has(vanguard.data.cardName, "アレスティエル") && !CardFilter.Has(vanguard.data.cardNameEn, "Arestiel")) return false;
-                if (owner.Untracked("Bind") > 0) return true;
+                if (vanguard == null || !CardFilter.Has(vanguard.data.cardName, "アレスティエル") && !CardFilter.Has(vanguard.data.cardNameEn, "Arestiel")) { return false; }
+                if (owner.Untracked("Bind") > 0) { return true; }
                 var faceUp = owner.bindZone.Where(c => c.facing == CardFacing.FaceUp).ToList();
                 int odd = What == Kind.WhiteWings ? 1 : 0;
                 return faceUp.Count > 0 && faceUp.All(c => c.data.grade % 2 == odd);

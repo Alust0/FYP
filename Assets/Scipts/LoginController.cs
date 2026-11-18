@@ -62,11 +62,11 @@ public partial class LoginController : MonoBehaviour
         mStatusColor = statusText.color;
         AddTitle();
         mSignUpPage = SceneManager.GetActiveScene().name == signUpSceneName;
-        if (mSignUpPage && emailInput == null) emailInput = MakeEmailInput();
-        if (!mSignUpPage) SetPlaceholder(usernameInput, "Username or email");
+        if (mSignUpPage && emailInput == null) { emailInput = MakeEmailInput(); }
+        if (!mSignUpPage) { SetPlaceholder(usernameInput, "Username or email"); }
         // Typed text grows from the middle, like the placeholders
         foreach (TMP_InputField input in new[] { usernameInput, passwordInput, emailInput, confirmPasswordInput })
-            if (input != null && input.textComponent != null) input.textComponent.alignment = TextAlignmentOptions.Center;
+            if (input != null && input.textComponent != null) { input.textComponent.alignment = TextAlignmentOptions.Center; }
 
         passwordInput.contentType = TMP_InputField.ContentType.Password;
         passwordInput.ForceLabelUpdate();
@@ -108,7 +108,7 @@ public partial class LoginController : MonoBehaviour
 
     async void OnLoginClicked()
     {
-        if (!ReadInputs(out string username, out string password)) return;
+        if (!ReadInputs(out string username, out string password)) { return; }
 
         await Run("Wrong username/email or password.", async () =>
         {
@@ -118,21 +118,31 @@ public partial class LoginController : MonoBehaviour
             if (EmailRule.IsMatch(username))
             {
                 RtdbRest.Result entry = await Rtdb(done => RtdbRest.Get(EmailPath(username), done));
-                if (entry.succeeded) username = entry.fields.GetString("username");
-                else if (entry.status != 404) Debug.LogWarning("[LoginController] Email lookup failed: " + entry.error);
+                if (entry.succeeded) { username = entry.fields.GetString("username"); }
+                else if (entry.status != 404) { Debug.LogWarning("[LoginController] Email lookup failed: " + entry.error); }
             }
 
             SignOutIfOtherAccount(username);
             // Unity login already done if only the Firebase step failed last time
             if (!AuthenticationService.Instance.IsSignedIn)
-                await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
+            {
+                try
+                {
+                    await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
+                }
+                catch (RequestFailedException e) when (e.ErrorCode != CommonErrorCodes.TransportError)
+                {
+                    FlagWrongPassword();
+                    throw;
+                }
+            }
             await FinishLoginAsync();
         });
     }
 
     async void OnSignUpClicked()
     {
-        if (!ReadInputs(out string username, out string password)) return;
+        if (!ReadInputs(out string username, out string password)) { return; }
         string email = emailInput.text.Trim().ToLowerInvariant();
 
         if (!EmailRule.IsMatch(email))
@@ -181,7 +191,7 @@ public partial class LoginController : MonoBehaviour
             // Not proved yet: mail a code (unless one is still good) and wait for the panel's Verify
             if (requireEmailCode && email != mVerifiedEmail)
             {
-                if (mOtp == null || mOtp.email != email) mOtp = new EmailOtp(email);
+                if (mOtp == null || mOtp.email != email) { mOtp = new EmailOtp(email); }
                 if (!mOtp.Live)
                 {
                     SetBusy(true, "Sending a code to " + email + "...");
@@ -209,7 +219,7 @@ public partial class LoginController : MonoBehaviour
             if (!await ClaimEmailAsync(email, username))
             {
                 // Undone so the username isn't used up by an account without its email
-                if (created) await AuthenticationService.Instance.DeleteAccountAsync();
+                if (created) { await AuthenticationService.Instance.DeleteAccountAsync(); }
                 return;
             }
             await FinishLoginAsync();
@@ -241,7 +251,7 @@ public partial class LoginController : MonoBehaviour
         mResendButton.interactable = false;
         mCodeMessage.text = "Sending a new code...";
         string problem = await mOtp.SendAsync();
-        if (this == null) return; // scene left while sending
+        if (this == null) { return; } // scene left while sending
         mResendButton.interactable = true;
         mCodeMessage.text = problem ?? CodeSentText();
     }
@@ -334,14 +344,14 @@ public partial class LoginController : MonoBehaviour
 
     static void SetPlaceholder(TMP_InputField input, string text)
     {
-        if (input.placeholder is TMP_Text placeholder) placeholder.text = text;
+        if (input.placeholder is TMP_Text placeholder) { placeholder.text = text; }
     }
 
     bool ReadInputs(out string username, out string password)
     {
         username = usernameInput.text.Trim();
         password = passwordInput.text;
-        if (username.Length > 0 && password.Length > 0 && (!mSignUpPage || emailInput.text.Trim().Length > 0)) return true;
+        if (username.Length > 0 && password.Length > 0 && (!mSignUpPage || emailInput.text.Trim().Length > 0)) { return true; }
 
         SetBusy(false, mSignUpPage ? "Enter your email, username and password." : "Enter your username or email and your password.");
         return false;
@@ -352,14 +362,16 @@ public partial class LoginController : MonoBehaviour
     {
         var auth = AuthenticationService.Instance;
         if (auth.IsSignedIn && !string.Equals(auth.PlayerInfo?.Username, username, StringComparison.OrdinalIgnoreCase))
+        {
             auth.SignOut();
+        }
     }
 
     async Task FinishLoginAsync()
     {
         SetBusy(true, "Connecting...");
         await SyncPlayerNameAsync();
-        if (!await SignInFirebaseAsync()) return;
+        if (!await SignInFirebaseAsync()) { return; }
 
         // One running copy per account: refused while another copy is logged in
         string problem = await AccountLock.ClaimAsync(PlayerSession.Id);
@@ -372,7 +384,7 @@ public partial class LoginController : MonoBehaviour
 
         SetBusy(true, $"Connected!\nWelcome, {PlayerSession.Name}", SuccessColor);
         await Awaitable.WaitForSecondsAsync(welcomeSeconds);
-        if (this == null) return; // scene left while waiting
+        if (this == null) { return; } // scene left while waiting
         SceneManager.LoadScene(menuSceneName);
     }
 
@@ -383,15 +395,19 @@ public partial class LoginController : MonoBehaviour
         try
         {
             if (string.IsNullOrEmpty(auth.PlayerInfo?.Username))
+            {
                 await auth.GetPlayerInfoAsync();
+            }
 
             string username = auth.PlayerInfo?.Username;
-            if (string.IsNullOrEmpty(username)) return;
+            if (string.IsNullOrEmpty(username)) { return; }
 
             // Unity appends "#1234" to player names
             string current = await auth.GetPlayerNameAsync(false);
             if (!string.Equals(PlayerSession.StripSuffix(current), username, StringComparison.Ordinal))
+            {
                 await auth.UpdatePlayerNameAsync(username);
+            }
         }
         catch (Exception e) when (e is AuthenticationException || e is RequestFailedException)
         {
@@ -415,7 +431,9 @@ public partial class LoginController : MonoBehaviour
 
         FirebaseAuth auth = FirebaseAuth.DefaultInstance;
         if (auth.CurrentUser == null)
+        {
             await auth.SignInAnonymouslyAsync();
+        }
         return true;
     }
 #endif
@@ -464,7 +482,7 @@ public partial class LoginController : MonoBehaviour
     // A message shown while not busy is a problem (wrong password, taken username...), so it's red
     void SetBusy(bool busy, string status, Color? color = null)
     {
-        if (this == null) return; // scene already unloaded
+        if (this == null) { return; } // scene already unloaded
         loginButton.interactable = !busy;
         signUpButton.interactable = !busy;
         statusText.text = status;

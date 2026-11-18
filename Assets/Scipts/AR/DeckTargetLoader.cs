@@ -49,13 +49,13 @@ public class DeckTargetLoader : MonoBehaviour
 
     void OnVuforiaInitialized(VuforiaInitError error)
     {
-        if (error == VuforiaInitError.NONE) return;
+        if (error == VuforiaInitError.NONE) { return; }
         mCameraFailed = true;
         CameraChoice.EndCameraTurn();
 
         foreach (DefaultInitializationErrorHandler handler in FindObjectsByType<DefaultInitializationErrorHandler>(FindObjectsSortMode.None))
             handler.enabled = false;
-        if (loadingPanel != null) loadingPanel.SetActive(false);
+        if (loadingPanel != null) { loadingPanel.SetActive(false); }
 
         Debug.LogWarning("[DeckTargetLoader] Vuforia couldn't start (" + error + "); playing without card scanning.");
         GameState.OnRuleNotice?.Invoke("No camera", "The camera couldn't start (" + error + "), so cards won't be scanned here." +
@@ -70,7 +70,7 @@ public class DeckTargetLoader : MonoBehaviour
             yield break;
         }
 
-        if (loadingPanel != null) loadingPanel.SetActive(true);
+        if (loadingPanel != null) { loadingPanel.SetActive(true); }
         SetText("Loading decks...");
 
         int playerCount = board.boardMode == BoardLayout.BoardMode.OverTheBoard ? 2 : 1;
@@ -105,7 +105,7 @@ public class DeckTargetLoader : MonoBehaviour
 
         SetText("Starting camera...");
         yield return new WaitUntil(() => VuforiaApplication.Instance.IsRunning || mCameraFailed);
-        if (mCameraFailed) yield break;
+        if (mCameraFailed) { yield break; }
         StartCoroutine(CameraChoice.CheckVuforiaCamera()); // editor: makes sure this window got its own webcam
 
         var missing = new List<string>();
@@ -114,7 +114,7 @@ public class DeckTargetLoader : MonoBehaviour
             SetText("Preparing cards " + (i + 1) + " / " + cardNumbers.Count + "...");
             for (int copy = 0; copy < copiesPerCard; copy++)
             {
-                if (CreateTarget(cardNumbers[i], copy)) continue;
+                if (CreateTarget(cardNumbers[i], copy)) { continue; }
                 missing.Add(cardNumbers[i]);
                 break;
             }
@@ -122,14 +122,16 @@ public class DeckTargetLoader : MonoBehaviour
         }
 
         if (missing.Count > 0)
+        {
             Debug.LogWarning("[DeckTargetLoader] No picture or target for: " + string.Join(", ", missing));
+        }
         // A card that's never seen on the mat may just not be in this list, or be another printing of it
         MatchLogger.Action("Cards the camera knows: " + string.Join(", ", cardNumbers.Except(missing)) +
             (missing.Count > 0 ? ". No picture for: " + string.Join(", ", missing) : ""));
         Debug.Log("[DeckTargetLoader] " + (cardNumbers.Count - missing.Count) + " cards ready (" + copiesPerCard + " targets each), from " + string.Join(" + ", deckNames) +
             ". Only these cards are recognised.");
 
-        if (loadingPanel != null) loadingPanel.SetActive(false);
+        if (loadingPanel != null) { loadingPanel.SetActive(false); }
         SetText("");
         IsReady = true;
         onReady?.Invoke();
@@ -139,12 +141,12 @@ public class DeckTargetLoader : MonoBehaviour
     bool CreateTarget(string cardNumber, int copy)
     {
         string path = CardImageLibrary.GetPath(cardNumber);
-        if (path == null) return false;
+        if (path == null) { return false; }
 
         // Sideways pictures are as wide as a card is tall
         float width = CardImageLibrary.IsLandscape(path) ? cardHeight : cardWidth;
         ImageTargetBehaviour target = VuforiaBehaviour.Instance.ObserverFactory.CreateImageTarget(path, width, cardNumber + "#" + copy);
-        if (target == null) return false;
+        if (target == null) { return false; }
 
         overlayManager.AddDeckTarget(target, cardNumber, copy);
         return true;
@@ -152,6 +154,6 @@ public class DeckTargetLoader : MonoBehaviour
 
     void SetText(string text)
     {
-        if (loadingText != null) loadingText.text = text;
+        if (loadingText != null) { loadingText.text = text; }
     }
 }

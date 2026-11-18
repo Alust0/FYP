@@ -16,15 +16,15 @@ public partial class CounterBlastPicker : MonoBehaviour
 
     void OnDestroy()
     {
-        if (mCanvasObj != null) Destroy(mCanvasObj);
+        if (mCanvasObj != null) { Destroy(mCanvasObj); }
     }
 
     void Update()
     {
         PlayerState owner = DamageSlots.FlipOwner;
         bool show = owner != null && DamageSlots.FlipsDue != 0;
-        if (mCanvasObj.activeSelf != show) mCanvasObj.SetActive(show);
-        if (!show) return;
+        if (mCanvasObj.activeSelf != show) { mCanvasObj.SetActive(show); }
+        if (!show) { return; }
 
         int need = Mathf.Abs(DamageSlots.FlipsDue);
         bool down = DamageSlots.FlipsDue > 0;
@@ -41,8 +41,8 @@ public partial class CounterBlastPicker : MonoBehaviour
         for (int i = 0; i < mRows.Count; i++)
         {
             bool used = i < slots.Count;
-            if (mRows[i].button.gameObject.activeSelf != used) mRows[i].button.gameObject.SetActive(used);
-            if (!used) continue;
+            if (mRows[i].button.gameObject.activeSelf != used) { mRows[i].button.gameObject.SetActive(used); }
+            if (!used) { continue; }
 
             DamageSlots.Slot slot = slots[i];
             bool isPicked = DamageSlots.Picked.Contains(slot);
@@ -57,7 +57,7 @@ public partial class CounterBlastPicker : MonoBehaviour
     void Pick(int index)
     {
         PlayerState owner = DamageSlots.FlipOwner;
-        if (owner == null || index >= DamageSlots.Of(owner).Count) return;
+        if (owner == null || index >= DamageSlots.Of(owner).Count) { return; }
         DamageSlots.TogglePick(DamageSlots.Of(owner)[index]);
         GameState.Instance?.BroadcastState(); // the bars show the pick
     }

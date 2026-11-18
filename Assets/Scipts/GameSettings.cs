@@ -88,7 +88,7 @@ public static class GameSettings
         get => sEnergyEnabled;
         set
         {
-            if (sEnergyEnabled == value) return;
+            if (sEnergyEnabled == value) { return; }
             sEnergyEnabled = value;
             Changed?.Invoke();
         }

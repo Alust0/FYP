@@ -16,7 +16,6 @@ public class MatchSetup
     readonly Stage[] mStage = new Stage[2];
     readonly bool[] mHere = new bool[2]; // this PC does that player's setup
     readonly List<CardInstance>[] mHand = { new List<CardInstance>(), new List<CardInstance>() }; // as first laid out
-    readonly bool[] mMulliganWarned = new bool[2];
 
     // The camera checks the hand; false face to face on one PC
     public bool CameraChecks { get; }
@@ -41,27 +40,27 @@ public class MatchSetup
             mHere[i] = MatchSession.IsSolo ? i == 0 : MatchSession.IsLocalSeat(i);
             mStage[i] = CameraChecks ? Stage.LayOut : Stage.Mulligan;
         }
-        if (MatchSession.IsSolo) mStage[1] = Stage.Ready; // no opponent
+        if (MatchSession.IsSolo) { mStage[1] = Stage.Ready; } // no opponent
         gs.handOnCircles = CameraChecks;
 
         // Online the host tosses and the guest hears it through the seat sync (ApplyRemote)
-        if (MatchSession.IsSolo) FirstPlayer = 0;
-        else if (!MatchSession.IsOnline || MatchSession.LocalSeat == 0) FirstPlayer = Random.Range(0, 2);
-        if (FirstPlayer >= 0 && !MatchSession.IsSolo) AnnounceFirst();
+        if (MatchSession.IsSolo) { FirstPlayer = 0; }
+        else if (!MatchSession.IsOnline || MatchSession.LocalSeat == 0) { FirstPlayer = Random.Range(0, 2); }
+        if (FirstPlayer >= 0 && !MatchSession.IsSolo) { AnnounceFirst(); }
 
-        for (int i = 0; i < 2; i++) if (mHere[i]) Ask(i);
+        for (int i = 0; i < 2; i++) if (mHere[i]) { Ask(i); }
     }
 
     // Each frame until Done: the camera's view of the hand on the circles
     public void Update()
     {
-        if (!CameraChecks) return;
+        if (!CameraChecks) { return; }
         for (int i = 0; i < 2; i++)
         {
-            if (!mHere[i]) continue;
+            if (!mHere[i]) { continue; }
             int seen = OnCircles(i).Count;
-            if (mStage[i] == Stage.LayOut && seen >= 5) LaidOut(i);
-            else if (mStage[i] == Stage.PickUp && seen == 0) SetStage(i, Stage.Ready);
+            if (mStage[i] == Stage.LayOut && seen >= 5) { LaidOut(i); }
+            else if (mStage[i] == Stage.PickUp && seen == 0) { SetStage(i, Stage.Ready); }
         }
     }
 
@@ -87,15 +86,16 @@ public class MatchSetup
         switch (stage)
         {
             case Stage.LayOut:
-                mToDo("Opening hand", name + ": put your grade 0 starting vanguard face down on the vanguard circle and shuffle your deck. " +
-                    "Then draw 5 cards and lay them face up on your 5 rear-guard circles.", still);
+                // One to-do for laying out and the mulligan, so it stays up while the hand is swapped
+                mToDo("Opening hand", name + ": put your grade 0 starting vanguard face down on the vanguard circle, shuffle your deck and draw 5.\n" +
+                    "Mulligan (optional, once): put the cards you don't want back in your deck, draw that many, then shuffle.\n" +
+                    "Press Keep hand when your hand is final.",
+                    () => mStage[seat] == Stage.LayOut || mStage[seat] == Stage.Mulligan);
                 break;
             case Stage.Mulligan:
-                mToDo(CameraChecks ? "Mulligan" : "Opening hand", CameraChecks
-                    ? name + ": keep your hand, or mulligan once: put the cards you don't want back in your deck, draw that many onto the empty circles, then shuffle. " +
-                      "Then press Keep hand or Mulligan done."
-                    : name + ": put your grade 0 starting vanguard face down on the vanguard circle, shuffle your deck and draw 5. " +
-                      "You may mulligan once: put any cards back in your deck, draw that many, then shuffle. Then press Ready.", still);
+                if (CameraChecks) { break; } // the lay-out to-do already explains it
+                mToDo("Opening hand", name + ": put your grade 0 starting vanguard face down on the vanguard circle, shuffle your deck and draw 5. " +
+                    "You may mulligan once: put any cards back in your deck, draw that many, then shuffle. Then press Ready.", still);
                 break;
             case Stage.PickUp:
                 mToDo("Opening hand", name + ": pick your hand up off the rear-guard circles.", still);
@@ -109,9 +109,9 @@ public class MatchSetup
 
     void SetStage(int seat, Stage stage)
     {
-        if (mStage[seat] == stage) return;
+        if (mStage[seat] == stage) { return; }
         mStage[seat] = stage;
-        if (mHere[seat] || stage == Stage.Ready) Ask(seat); // the opponent's own to-dos are on their PC
+        if (mHere[seat] || stage == Stage.Ready) { Ask(seat); } // the opponent's own to-dos are on their PC
     }
 
     // The hand as laid out, from which a mulligan's swaps are counted
@@ -122,26 +122,24 @@ public class MatchSetup
         SetStage(seat, Stage.Mulligan);
     }
 
-    void Mulligan(int seat)
+    // Keep hand: the hand is final; cards seen swapped since it was laid out were a mulligan
+    void KeepHand(int seat)
     {
         List<CardInstance> now = OnCircles(seat);
         int returned = mHand[seat].Count(c => !now.Contains(c));
         int drawn = now.Count(c => !mHand[seat].Contains(c));
-
-        // The camera saw no swap, or fewer new cards than went back: once, in case the player isn't done
-        if (!mMulliganWarned[seat] && (returned + drawn == 0 || drawn < returned))
-        {
-            mMulliganWarned[seat] = true;
-            mNotice("Mulligan", returned + drawn == 0
-                ? Name(seat) + ": no cards were seen swapped. Swap them on the circles, or press Mulligan done again if the camera missed it."
-                : Name(seat) + ": " + returned + " card(s) went back but only " + drawn + " new one(s) were seen. Draw the rest onto the circles, or press Mulligan done again.");
-            return;
-        }
-
         int count = Mathf.Max(returned, drawn);
-        MatchLogger.Action(Name(seat) + " mulliganed " + (count > 0 ? count + ": " + string.Join(", ", mHand[seat].Where(c => !now.Contains(c)).Select(c => c.data.DisplayName)) +
-            " for " + string.Join(", ", now.Where(c => !mHand[seat].Contains(c)).Select(c => c.data.DisplayName)) : "(swaps not seen)"));
-        mNotice("Mulligan", Name(seat) + (count > 0 ? " put back and redrew " + count + " card(s)." : " mulliganed.") + " Shuffle your deck.");
+        if (count > 0)
+        {
+            MatchLogger.Action(Name(seat) + " mulliganed " + count + ": " + string.Join(", ", mHand[seat].Where(c => !now.Contains(c)).Select(c => c.data.DisplayName)) +
+                " for " + string.Join(", ", now.Where(c => !mHand[seat].Contains(c)).Select(c => c.data.DisplayName)));
+            mNotice("Mulligan", Name(seat) + " put back and redrew " + count + " card(s). Make sure your deck is shuffled.");
+        }
+        else
+        {
+            MatchLogger.Action(Name(seat) + " kept their hand");
+            mNotice("Opening hand", Name(seat) + " kept their hand.");
+        }
         SetStage(seat, Stage.PickUp);
     }
 
@@ -152,18 +150,14 @@ public class MatchSetup
         bool names = !MatchSession.IsOneSide; // one PC: whose button it is
         for (int seat = 0; seat < 2; seat++)
         {
-            if (!mHere[seat]) continue;
+            if (!mHere[seat]) { continue; }
             string who = names ? Name(seat) + ":\n" : "";
             switch (mStage[seat])
             {
                 case Stage.LayOut: // not all 5 seen yet: the same buttons
                 case Stage.Mulligan:
-                    if (!CameraChecks) buttons.Add((who + "Ready", PhrasePrefix + "ready " + seat));
-                    else
-                    {
-                        buttons.Add((who + "Keep hand", PhrasePrefix + "keep " + seat));
-                        buttons.Add((who + "Mulligan done", PhrasePrefix + "mulligan " + seat));
-                    }
+                    if (!CameraChecks) { buttons.Add((who + "Ready", PhrasePrefix + "ready " + seat)); }
+                    else { buttons.Add((who + "Keep hand", PhrasePrefix + "keep " + seat)); }
                     break;
                 case Stage.PickUp: buttons.Add((who + "Hand picked up", PhrasePrefix + "up " + seat)); break;
             }
@@ -175,36 +169,23 @@ public class MatchSetup
     public void Press(string phrase)
     {
         string[] parts = phrase.Substring(PhrasePrefix.Length).Split(' ');
-        if (parts.Length != 2 || !int.TryParse(parts[1], out int seat) || seat < 0 || seat > 1 || !mHere[seat]) return;
+        if (parts.Length != 2 || !int.TryParse(parts[1], out int seat) || seat < 0 || seat > 1 || !mHere[seat]) { return; }
 
         switch (parts[0])
         {
             case "keep":
-                if (mStage[seat] == Stage.LayOut) LaidOut(seat);
-                if (mStage[seat] != Stage.Mulligan) return;
-                MatchLogger.Action(Name(seat) + " kept their hand");
-                mNotice("Mulligan", Name(seat) + " kept their hand.");
-                SetStage(seat, Stage.PickUp);
-                break;
-            case "mulligan":
-                if (mStage[seat] == Stage.Mulligan) Mulligan(seat);
-                else if (mStage[seat] == Stage.LayOut) // hand never seen laid out: no swaps to count
-                {
-                    LaidOut(seat);
-                    MatchLogger.Action(Name(seat) + " mulliganed (swaps not seen)");
-                    mNotice("Mulligan", Name(seat) + " mulliganed. Shuffle your deck.");
-                    SetStage(seat, Stage.PickUp);
-                }
+                if (mStage[seat] == Stage.LayOut) { LaidOut(seat); }
+                if (mStage[seat] == Stage.Mulligan) { KeepHand(seat); }
                 break;
             case "up":
-                if (mStage[seat] != Stage.PickUp) return;
+                if (mStage[seat] != Stage.PickUp) { return; }
                 // Still seen there: the camera holding on to them. Off the board, and seen again only once moved
                 foreach (CardInstance card in OnCircles(seat)) gs.PutBackQuietly(card, null, null);
                 gs.BroadcastState();
                 SetStage(seat, Stage.Ready);
                 break;
             case "ready":
-                if (mStage[seat] != Stage.Mulligan) return;
+                if (mStage[seat] != Stage.Mulligan) { return; }
                 MatchLogger.Action(Name(seat) + " is ready");
                 SetStage(seat, Stage.Ready);
                 break;
@@ -218,17 +199,17 @@ public class MatchSetup
         {
             for (int seat = 0; seat < 2; seat++)
             {
-                if (!mHere[seat]) continue;
+                if (!mHere[seat]) { continue; }
                 string who = MatchSession.IsOneSide ? "" : Name(seat) + ": ";
                 switch (mStage[seat])
                 {
-                    case Stage.LayOut: return who + "draw 5 and lay them on your rear-guard circles";
-                    case Stage.Mulligan: return who + (CameraChecks ? "keep your hand or mulligan" : "draw 5, mulligan if you want, then Ready");
+                    case Stage.LayOut: return who + "draw 5, mulligan if you want, then Keep hand";
+                    case Stage.Mulligan: return who + (CameraChecks ? "mulligan if you want, then Keep hand" : "draw 5, mulligan if you want, then Ready");
                     case Stage.PickUp: return who + "pick your hand up";
                 }
             }
             for (int seat = 0; seat < 2; seat++)
-                if (mStage[seat] != Stage.Ready) return Name(seat) + " to finish their opening hand";
+                if (mStage[seat] != Stage.Ready) { return Name(seat) + " to finish their opening hand"; }
             return FirstPlayer < 0 ? "the coin toss" : null;
         }
     }
@@ -237,14 +218,14 @@ public class MatchSetup
     public Dictionary<string, object> SeatField()
     {
         var field = new Dictionary<string, object> { ["stage"] = (long)mStage[MatchSession.LocalSeat] };
-        if (MatchSession.LocalSeat == 0 && FirstPlayer >= 0) field["first"] = (long)FirstPlayer;
+        if (MatchSession.LocalSeat == 0 && FirstPlayer >= 0) { field["first"] = (long)FirstPlayer; }
         return field;
     }
 
     // The opponent's stage, and on the guest's PC the host's toss
     public void ApplyRemote(Dictionary<string, object> field)
     {
-        if (field == null || Done) return;
+        if (field == null || Done) { return; }
         int remote = MatchSession.RemoteSeat;
         if (FirstPlayer < 0 && remote == 0 && field.ContainsKey("first"))
         {
@@ -252,14 +233,14 @@ public class MatchSetup
             AnnounceFirst();
         }
         Stage stage = (Stage)Mathf.Clamp((int)field.GetLong("stage"), 0, (int)Stage.Ready);
-        if (stage == Stage.Ready && mStage[remote] != Stage.Ready) MatchLogger.Action(Name(remote) + " is ready");
+        if (stage == Stage.Ready && mStage[remote] != Stage.Ready) { MatchLogger.Action(Name(remote) + " is ready"); }
         SetStage(remote, stage);
     }
 
     // Online: the opponent started turn 1, so their toss stands even if this PC hasn't heard it
     public void TakeFirst(int seat)
     {
-        if (FirstPlayer >= 0 || seat < 0 || seat > 1) return;
+        if (FirstPlayer >= 0 || seat < 0 || seat > 1) { return; }
         FirstPlayer = seat;
         AnnounceFirst();
     }

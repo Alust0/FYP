@@ -17,7 +17,7 @@ public static class SleeveLibrary
     // Every sleeve, in number order
     public static List<string> AllIds()
     {
-        if (sIds != null) return sIds;
+        if (sIds != null) { return sIds; }
         sIds = Directory.Exists(FolderPath)
             ? Directory.GetFiles(FolderPath, "*.png").Select(Path.GetFileNameWithoutExtension).Where(IsSleeve)
                 .OrderBy(id => int.Parse(id.Substring(1))).ToList()
@@ -28,7 +28,7 @@ public static class SleeveLibrary
     // Full path to the sleeve's picture, or null if there isn't one
     public static string GetPath(string id)
     {
-        if (!IsSleeve(id)) return null;
+        if (!IsSleeve(id)) { return null; }
         string path = Path.Combine(FolderPath, id.ToLowerInvariant() + ".png");
         return File.Exists(path) ? path : null;
     }

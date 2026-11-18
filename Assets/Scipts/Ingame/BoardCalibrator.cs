@@ -34,7 +34,7 @@ public class BoardCalibrator : MonoBehaviour
     }
 
     static readonly Color SelectedColor = new Color(1f, 0.85f, 0f, 0.35f);
-    const float PanelWidth = 380f, PanelHeight = 352f; // IMGUI space (y down), before GuiScale
+    const float PanelWidth = 380f, PanelHeight = 430f; // IMGUI space (y down), before GuiScale
     const float PanelScale = 1.7f; // at 1080p; IMGUI ignores canvas scaling, so it's sized by hand
     static float GuiScale => PanelScale * Screen.height / 1080f;
 
@@ -45,6 +45,7 @@ public class BoardCalibrator : MonoBehaviour
         10f, PanelWidth, PanelHeight);
 
     bool mCalibrating;
+    string mAutoStatus = "Auto: lay out your deck, face-down starter on the Vanguard circle and ride deck first.";
     Vector3 mSpawnScale;
     string mSelectedZone;
     string mDragZone; // zone being dragged, or null when dragging the whole board
@@ -59,7 +60,7 @@ public class BoardCalibrator : MonoBehaviour
 
     void Awake()
     {
-        if (board != null) mSpawnScale = board.transform.localScale; // before BoardLayout fits it
+        if (board != null) { mSpawnScale = board.transform.localScale; } // before BoardLayout fits it
     }
 
     IEnumerator Start()
@@ -69,7 +70,7 @@ public class BoardCalibrator : MonoBehaviour
             Debug.LogError("[BoardCalibrator] Drag the Board into the Board slot.", this);
             yield break;
         }
-        if (calibrateButton != null) calibrateButton.gameObject.SetActive(false);
+        if (calibrateButton != null) { calibrateButton.gameObject.SetActive(false); }
 
         yield return null; // after BoardLayout.Start has spawned the zones
         LoadSaved();
@@ -77,12 +78,12 @@ public class BoardCalibrator : MonoBehaviour
 
     void Update()
     {
-        if (board == null) return;
-        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) ToggleCalibration();
-        if (!mCalibrating) return;
+        if (board == null) { return; }
+        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) { ToggleCalibration(); }
+        if (!mCalibrating) { return; }
 
         Camera cam = Camera.main;
-        if (cam == null || Mouse.current == null || Keyboard.current == null) return;
+        if (cam == null || Mouse.current == null || Keyboard.current == null) { return; }
 
         Vector2 mouse = Mouse.current.position.ReadValue();
         HandleDrag(cam, mouse);
@@ -93,8 +94,8 @@ public class BoardCalibrator : MonoBehaviour
     public void ToggleCalibration()
     {
         mCalibrating = !mCalibrating;
-        if (mCalibrating) board.fitToCamera = false; // so it doesn't re-fit over the manual layout
-        else Select(null);
+        if (mCalibrating) { board.fitToCamera = false; } // so it doesn't re-fit over the manual layout
+        else { Select(null); }
     }
 
     void HandleDrag(Camera cam, Vector2 mouse)
@@ -118,7 +119,7 @@ public class BoardCalibrator : MonoBehaviour
         {
             if (mDragZone != null)
             {
-                if (!board.TryScreenToBoard(mouse, cam, out Vector2 point)) return;
+                if (!board.TryScreenToBoard(mouse, cam, out Vector2 point)) { return; }
                 Rect rect = mDragStartRect;
                 rect.center += point - mDragStartBoard;
                 board.SetZoneLayout(mDragZone, rect);
@@ -134,7 +135,7 @@ public class BoardCalibrator : MonoBehaviour
     void HandleScroll(Camera cam, Vector2 mouse)
     {
         float scroll = Mouse.current.scroll.ReadValue().y;
-        if (Mathf.Approximately(scroll, 0f) || OverPanel(mouse)) return;
+        if (Mathf.Approximately(scroll, 0f) || OverPanel(mouse)) { return; }
 
         float factor = scroll > 0f ? 1.03f : 1f / 1.03f;
         Vector3 axes = Keyboard.current.shiftKey.isPressed ? new Vector3(factor, 1f, 1f)
@@ -155,12 +156,16 @@ public class BoardCalibrator : MonoBehaviour
 
         float turn = (keys.eKey.isPressed ? 1f : 0f) - (keys.qKey.isPressed ? 1f : 0f);
         if (turn != 0f)
+        {
             board.transform.RotateAround(board.transform.position, cam.transform.forward, -turn * 20f * Time.deltaTime);
+        }
 
-        if (mSelectedZone == null) return;
+        if (mSelectedZone == null) { return; }
 
         if (keys.hKey.wasPressedThisFrame)
+        {
             board.SetZoneHidden(mSelectedZone, !board.IsZoneHidden(mSelectedZone));
+        }
 
         // [ / ] resize; with Shift only the width, with Ctrl only the height
         float grow = keys.rightBracketKey.wasPressedThisFrame ? 1.05f : keys.leftBracketKey.wasPressedThisFrame ? 1f / 1.05f : 1f;
@@ -177,9 +182,9 @@ public class BoardCalibrator : MonoBehaviour
 
     void Select(string key)
     {
-        if (mSelectedZone != null) board.ResetCircleColor(mSelectedZone);
+        if (mSelectedZone != null) { board.ResetCircleColor(mSelectedZone); }
         mSelectedZone = key;
-        if (key != null) board.HighlightCircle(key, SelectedColor);
+        if (key != null) { board.HighlightCircle(key, SelectedColor); }
     }
 
     bool TryPlanePoint(Camera cam, Vector2 screen, out Vector3 world)
@@ -199,7 +204,9 @@ public class BoardCalibrator : MonoBehaviour
         var layout = new SavedLayout { version = LayoutVersion, position = t.localPosition, rotation = t.localRotation, scale = t.localScale };
         foreach (string key in board.circles.Keys)
             if (board.TryGetZoneLayout(key, out Rect rect))
+            {
                 layout.zones.Add(new SavedZone { key = key, rect = rect, hidden = board.IsZoneHidden(key) });
+            }
 
         PlayerPrefs.SetString(PrefsKey, JsonUtility.ToJson(layout));
         PlayerPrefs.Save();
@@ -210,13 +217,15 @@ public class BoardCalibrator : MonoBehaviour
     void LoadSaved()
     {
         if (!PlayerPrefs.HasKey(PrefsKey) || !ApplyLayout(PlayerPrefs.GetString(PrefsKey), "Saved"))
+        {
             ApplyLayout(Resources.Load<TextAsset>("BoardLayouts/" + board.boardMode)?.text, "Default");
+        }
     }
 
     bool ApplyLayout(string json, string source)
     {
         SavedLayout layout = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<SavedLayout>(json);
-        if (layout == null) return false;
+        if (layout == null) { return false; }
         if (layout.version != LayoutVersion)
         {
             Debug.Log("[BoardCalibrator] " + source + " " + board.boardMode + " layout is from older zone shapes, so it's ignored. Press C to calibrate again.");
@@ -252,7 +261,7 @@ public class BoardCalibrator : MonoBehaviour
 
     void OnGUI()
     {
-        if (!mCalibrating) return;
+        if (!mCalibrating) { return; }
 
         Matrix4x4 matrix = GUI.matrix;
         GUI.matrix = Matrix4x4.Scale(new Vector3(GuiScale, GuiScale, 1f));
@@ -264,11 +273,19 @@ public class BoardCalibrator : MonoBehaviour
                         "  Shift+[ / ]: narrower/wider   Ctrl+[ / ]: shorter/taller");
         GUILayout.Label("Selected: " + (mSelectedZone ?? "none"));
 
-        if (GUILayout.Button(sPanelRight ? "Move this panel left" : "Move this panel right")) sPanelRight = !sPanelRight;
+        if (GUILayout.Button("Auto: fit to deck, starter and ride deck"))
+        {
+            Select(null);
+            BoardAutoFit.Fit(board, Camera.main, out mAutoStatus);
+        }
+        GUILayout.Label(mAutoStatus, new GUIStyle(GUI.skin.label) { wordWrap = true });
+        if (GUILayout.Button(sPanelRight ? "Move this panel left" : "Move this panel right")) { sPanelRight = !sPanelRight; }
         if (GUILayout.Button("Save and close")) { Save(); ToggleCalibration(); }
         if (GUILayout.Button("Cancel (back to last save)")) { ToggleCalibration(); RestoreDefaults(); LoadSaved(); }
         if (GUILayout.Button("Show all hidden zones"))
+        {
             foreach (string key in new List<string>(board.circles.Keys)) board.SetZoneHidden(key, false);
+        }
         if (GUILayout.Button("Reset to default (deletes save)")) { PlayerPrefs.DeleteKey(PrefsKey); RestoreDefaults(); LoadSaved(); }
         GUILayout.EndArea();
         GUI.matrix = matrix;

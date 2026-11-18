@@ -120,11 +120,11 @@ public partial class VuforiaCardOverlayManager
     // Scale so the overlay is as wide as the card
     static float OverlayScale(Transform target, float canvasWidth)
     {
-        if (!(target.GetComponent<ObserverBehaviour>() is ImageTargetBehaviour image)) return 0.001f;
+        if (!(target.GetComponent<ObserverBehaviour>() is ImageTargetBehaviour image)) { return 0.001f; }
 
         float cardWidth = image.GetSize().x;
         float targetScale = target.lossyScale.x;
-        if (cardWidth <= 0f || targetScale <= 0f) return 0.001f;
+        if (cardWidth <= 0f || targetScale <= 0f) { return 0.001f; }
         return cardWidth / (canvasWidth * targetScale);
     }
 

@@ -32,14 +32,14 @@ public class BattleOverlay : MonoBehaviour
     // Shows the battle panel with power comparison and HIT or NO HIT result
     public void ShowBattleComparison(int attackPower, int defendPower)
     {
-        if (battlePanel == null) return;
+        if (battlePanel == null) { return; }
 
         battlePanel.SetActive(true);
 
-        if (attackerPowerText != null) attackerPowerText.text = "ATK: " + attackPower;
-        if (defenderPowerText != null) defenderPowerText.text = "DEF: " + defendPower;
+        if (attackerPowerText != null) { attackerPowerText.text = "ATK: " + attackPower; }
+        if (defenderPowerText != null) { defenderPowerText.text = "DEF: " + defendPower; }
 
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
         bool guarded = mRules != null && mRules.TargetCantBeHit; // a perfect guard
         bool hits = attackPower >= defendPower && !guarded; // attacker must meet or exceed
 
@@ -54,6 +54,8 @@ public class BattleOverlay : MonoBehaviour
     public void HideBattleComparison()
     {
         if (battlePanel != null)
+        {
             battlePanel.SetActive(false);
+        }
     }
 }

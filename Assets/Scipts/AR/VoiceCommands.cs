@@ -108,12 +108,12 @@ public partial class VoiceCommands : MonoBehaviour
 
     void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance == this) { Instance = null; }
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_WSA
         PhraseRecognitionSystem.OnError -= OnSpeechError;
         if (mRecognizer != null)
         {
-            if (mRecognizer.IsRunning) mRecognizer.Stop();
+            if (mRecognizer.IsRunning) { mRecognizer.Stop(); }
             mRecognizer.Dispose();
         }
 #endif
@@ -134,7 +134,7 @@ public partial class VoiceCommands : MonoBehaviour
         mRecognizer.OnPhraseRecognized += args =>
         {
             // Two editor windows on one PC hear the same microphone; only the one in front acts
-            if (!mMuted && Application.isFocused) Heard(args.text);
+            if (!mMuted && Application.isFocused) { Heard(args.text); }
         };
         mRecognizer.Start();
         mStatus = "Voice: listening";
@@ -153,12 +153,12 @@ public partial class VoiceCommands : MonoBehaviour
 
     void Update()
     {
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
 
-        if (Keyboard.current != null && Keyboard.current[muteKey].wasPressedThisFrame) mMuted = !mMuted;
+        if (Keyboard.current != null && Keyboard.current[muteKey].wasPressedThisFrame) { mMuted = !mMuted; }
 
         Camera cam = Camera.main;
-        if (cam != null) PlaceUI(cam.pixelRect);
+        if (cam != null) { PlaceUI(cam.pixelRect); }
 
         float left = mToastUntil - Time.time;
         mToastGroup.alpha = Mathf.Clamp01(left / 0.5f); // fades over its last half second
@@ -171,7 +171,7 @@ public partial class VoiceCommands : MonoBehaviour
     void Heard(string phrase, bool pressed = false)
     {
         GameState gs = GameState.Instance;
-        if (gs == null || gs.players[0] == null || !Phrases.TryGetValue(phrase, out Command command)) return;
+        if (gs == null || gs.players[0] == null || !Phrases.TryGetValue(phrase, out Command command)) { return; }
 
         PlayerState who = Speaker(gs, command);
         LastSaid = phrase;
@@ -184,32 +184,34 @@ public partial class VoiceCommands : MonoBehaviour
     // Online: the opponent's keyword, only battle declarations used
     public void HeardRemote(string phrase, PlayerState who)
     {
-        if (phrase == null || who == null || !Phrases.TryGetValue(phrase, out Command command)) return;
+        if (phrase == null || who == null || !Phrases.TryGetValue(phrase, out Command command)) { return; }
 
         ShowToast(who, phrase);
         MatchLogger.Action(who.playerName + " said \"" + phrase + "\" (on their PC)");
-        if (TryDeclaration(command, out RulesEngine.Declaration declaration)) mRules?.Declare(declaration, who);
-        else if (TryTrigger(command, out TriggerIcon icon)) mRules?.UnscannedCheck(who, icon);
-        else if (command == Command.SkillDone) mRules?.Skills?.OpponentDone(); // their part of this PC's skill (OpponentStep)
-        else if (command == Command.PersonaRide) mRules?.DeclarePersonaRide(who, true); // its power, for this PC's battle maths
+        if (TryDeclaration(command, out RulesEngine.Declaration declaration)) { mRules?.Declare(declaration, who); }
+        else if (TryTrigger(command, out TriggerIcon icon)) { mRules?.UnscannedCheck(who, icon); }
+        else if (command == Command.SkillDone) { mRules?.Skills?.OpponentDone(); } // their part of this PC's skill (OpponentStep)
+        else if (command == Command.PersonaRide) { mRules?.DeclarePersonaRide(who, true); } // its power, for this PC's battle maths
     }
 
     // Which player said the keyword
     PlayerState Speaker(GameState gs, Command command)
     {
-        if (MatchSession.IsOnline) return gs.players[MatchSession.LocalSeat];
+        if (MatchSession.IsOnline) { return gs.players[MatchSession.LocalSeat]; }
         // Answering an [AUTO] or a skill's step: its owner, who may be the defender
         bool skillAnswer = command == Command.ActivateSkill || command == Command.SkipSkill || command >= Command.SkillDone;
         if (skillAnswer && mRules?.Skills?.PromptOwner != null)
+        {
             return mRules.Skills.PromptOwner;
-        if (TryTrigger(command, out _) && mRules?.CheckingPlayer != null) return mRules.CheckingPlayer; // whoever's check it is
+        }
+        if (TryTrigger(command, out _) && mRules?.CheckingPlayer != null) { return mRules.CheckingPlayer; } // whoever's check it is
         bool defending = command == Command.Guard || command == Command.NoGuard || command == Command.DamageCheck || command == Command.PerfectGuard;
         return defending ? gs.Opponent : gs.CurrentPlayer;
     }
 
     void Run(Command command, PlayerState who, GameState gs)
     {
-        if (mRules == null) return;
+        if (mRules == null) { return; }
 
         if (TryDeclaration(command, out RulesEngine.Declaration declaration))
         {
@@ -249,9 +251,13 @@ public partial class VoiceCommands : MonoBehaviour
             case Command.AttackVanguard:
             case Command.AttackRight:
                 if (!mRules.IsChoosingTarget || who != gs.CurrentPlayer)
+                {
                     Notice("Attack", "Rest a front-row unit to attack first, then say which unit it attacks.");
+                }
                 else
+                {
                     mRules.ChooseTarget(RulesEngine.FrontRow[command - Command.AttackLeft]);
+                }
                 break;
 
             case Command.ActivateSkill: mRules.Skills?.ActivateSkill(); break;

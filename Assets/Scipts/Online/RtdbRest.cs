@@ -37,14 +37,14 @@ public static class RtdbRest
     // Reads the database URL from google-services.json; false if it's missing
     public static bool Init()
     {
-        if (sBaseUrl != null) return true;
+        if (sBaseUrl != null) { return true; }
         try
         {
             string path = Path.Combine(Application.streamingAssetsPath, "google-services.json");
             JToken project = JObject.Parse(File.ReadAllText(path))["project_info"];
             // Listed in a google-services.json downloaded after the database was made; otherwise the default (us-central1) one
             string url = (string)project["firebase_url"];
-            if (string.IsNullOrEmpty(url)) url = "https://" + (string)project["project_id"] + "-default-rtdb.firebaseio.com";
+            if (string.IsNullOrEmpty(url)) { url = "https://" + (string)project["project_id"] + "-default-rtdb.firebaseio.com"; }
             sBaseUrl = url.TrimEnd('/');
             return true;
         }
@@ -79,7 +79,7 @@ public static class RtdbRest
         // Only if it's still empty: 412 means another copy wrote it in between
         Response write = null;
         yield return Send("PUT", path, null, ToToken(fields), read.etag, false, r => write = r);
-        if (write.status == 412) write.status = 409;
+        if (write.status == 412) { write.status = 409; }
         done(ToResult(write, path, false));
     }
 
@@ -120,7 +120,7 @@ public static class RtdbRest
     // For OnDestroy/quit, where a coroutine can't run: sent without waiting for the answer
     public static void PatchWithoutWaiting(string path, Dictionary<string, object> fields, IEnumerable<string> updateMask)
     {
-        if (sBaseUrl == null) return;
+        if (sBaseUrl == null) { return; }
         UnityWebRequest request = new UnityWebRequest(Url(path), "PATCH")
         {
             uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(Updates(fields, updateMask).ToString(Formatting.None))),
@@ -131,7 +131,7 @@ public static class RtdbRest
 
     public static void DeleteWithoutWaiting(string path)
     {
-        if (sBaseUrl == null) return;
+        if (sBaseUrl == null) { return; }
         UnityWebRequest request = UnityWebRequest.Delete(Url(path));
         request.SendWebRequest().completed += _ => request.Dispose();
     }
@@ -157,8 +157,8 @@ public static class RtdbRest
             {
                 foreach (JProperty child in children.Properties())
                 {
-                    if (!(child.Value is JObject value)) continue;
-                    if (!equalTo.All(pair => JToken.DeepEquals(value[pair.Key], ToToken(pair.Value)))) continue;
+                    if (!(child.Value is JObject value)) { continue; }
+                    if (!equalTo.All(pair => JToken.DeepEquals(value[pair.Key], ToToken(pair.Value)))) { continue; }
                     results.Add(new Result
                     {
                         succeeded = true,
@@ -195,16 +195,16 @@ public static class RtdbRest
                 // Handed over here, on the main thread, whichever thread the bytes came in on
                 foreach ((string name, string data) in events.Take())
                 {
-                    if (name != "put" && name != "patch") continue; // keep-alive, cancel, auth_revoked
+                    if (name != "put" && name != "patch") { continue; } // keep-alive, cancel, auth_revoked
                     JObject change;
                     try { change = Parse(data) as JObject; }
                     catch (JsonException) { continue; }
-                    if (change != null) onChange((string)change["path"] ?? "/", change["data"]);
+                    if (change != null) { onChange((string)change["path"] ?? "/", change["data"]); }
                 }
-                if (sending.isDone || stop()) break;
+                if (sending.isDone || stop()) { break; }
                 yield return null;
             }
-            if (!sending.isDone) request.Abort();
+            if (!sending.isDone) { request.Abort(); }
             done(events.AnyEvent);
         }
     }
@@ -235,15 +235,17 @@ public static class RtdbRest
                 string name = null, value = null;
                 foreach (string line in text.Substring(0, end).Split('\n'))
                 {
-                    if (line.StartsWith("event:")) name = line.Substring(6).Trim();
-                    else if (line.StartsWith("data:")) value = line.Substring(5).Trim();
+                    if (line.StartsWith("event:")) { name = line.Substring(6).Trim(); }
+                    else if (line.StartsWith("data:")) { value = line.Substring(5).Trim(); }
                 }
                 if (name != null)
+                {
                     lock (mLock)
                     {
                         mReady.Add((name, value));
                         AnyEvent = true;
                     }
+                }
                 text = text.Substring(end + 2);
             }
             mText.Clear().Append(text);
@@ -281,8 +283,8 @@ public static class RtdbRest
                 request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body.ToString(Formatting.None)));
                 request.SetRequestHeader("Content-Type", "application/json");
             }
-            if (wantEtag) request.SetRequestHeader("X-Firebase-ETag", "true");
-            if (ifMatch != null) request.SetRequestHeader("if-match", ifMatch);
+            if (wantEtag) { request.SetRequestHeader("X-Firebase-ETag", "true"); }
+            if (ifMatch != null) { request.SetRequestHeader("if-match", ifMatch); }
             request.downloadHandler = new DownloadHandlerBuffer();
             request.timeout = 10;
 
@@ -346,14 +348,14 @@ public static class RtdbRest
             }
             target = inner;
         }
-        if (value.Type == JTokenType.Null) target.Remove(keys[keys.Length - 1]);
-        else target[keys[keys.Length - 1]] = value;
+        if (value.Type == JTokenType.Null) { target.Remove(keys[keys.Length - 1]); }
+        else { target[keys[keys.Length - 1]] = value; }
     }
 
     // Leaves strings that look like dates as strings
     static JToken Parse(string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return JValue.CreateNull();
+        if (string.IsNullOrWhiteSpace(text)) { return JValue.CreateNull(); }
         using (JsonTextReader reader = new JsonTextReader(new StringReader(text)) { DateParseHandling = DateParseHandling.None })
             return JToken.ReadFrom(reader);
     }

@@ -18,17 +18,17 @@ public class DrawStep : Step
     public override bool Recheck(SkillFrame f)
     {
         int deck = f.Owner.CountInZone("Deck");
-        if (deck >= f.Mark) return false;
+        if (deck >= f.Mark) { return false; }
 
         f.Left -= f.Mark - deck;
         f.Mark = deck;
-        if (f.Left > 0) f.Rules.StepNotice(f, "Drew 1 card. " + f.Left + " more to draw.");
+        if (f.Left > 0) { f.Rules.StepNotice(f, "Drew 1 card. " + f.Left + " more to draw."); }
         return f.Left <= 0;
     }
 
     public override void Confirm(SkillFrame f)
     {
-        if (f.Left > 0) GameState.Instance.AdjustCount(f.Owner, "Deck", -f.Left);
+        if (f.Left > 0) { GameState.Instance.AdjustCount(f.Owner, "Deck", -f.Left); }
     }
 
     public override string Summary => "draw " + Amount;

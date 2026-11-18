@@ -29,7 +29,9 @@ public class ScanningIndicatorUI : MonoBehaviour
     void Start()
     {
         if (cloudReco == null)
+        {
             cloudReco = GetComponent<CloudRecoBehaviour>();
+        }
 
         cloudReco.RegisterOnInitializedEventHandler(OnCloudRecoInitialized);
         cloudReco.RegisterOnNewSearchResultEventHandler(OnNewSearchResult);
@@ -39,7 +41,7 @@ public class ScanningIndicatorUI : MonoBehaviour
 
     void Update()
     {
-        if (!isInitialized || scanFrameImage == null) return;
+        if (!isInitialized || scanFrameImage == null) { return; }
 
         if (foundFlashTimer > 0f)
         {
@@ -68,7 +70,9 @@ public class ScanningIndicatorUI : MonoBehaviour
         SetStatus("Scanning for card...");
 
         if (scanFrameImage != null)
+        {
             scanFrameImage.color = scanningColor;
+        }
     }
 
     private void OnNewSearchResult(CloudRecoBehaviour.CloudRecoSearchResult result)
@@ -88,6 +92,8 @@ public class ScanningIndicatorUI : MonoBehaviour
     private void SetStatus(string text)
     {
         if (statusText != null)
+        {
             statusText.text = text;
+        }
     }
 }

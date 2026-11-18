@@ -33,8 +33,8 @@ public static class DeckRepository
     // The account's saved decks; empty when not logged in. Throws if Cloud Save can't be reached
     public static async Task<List<Deck>> LoadSavedAsync()
     {
-        if (!IsLoggedIn) return new List<Deck>();
-        if (sSaved != null && sSavedFor == PlayerSession.Id) return sSaved;
+        if (!IsLoggedIn) { return new List<Deck>(); }
+        if (sSaved != null && sSavedFor == PlayerSession.Id) { return sSaved; }
 
         Dictionary<string, Item> items = await CloudSaveService.Instance.Data.Player.LoadAsync(new HashSet<string> { Key });
         SavedDecks saved = items.TryGetValue(Key, out Item item) ? JsonUtility.FromJson<SavedDecks>(item.Value.GetAsString()) : null;
@@ -47,12 +47,12 @@ public static class DeckRepository
     // Adds the deck, or replaces the saved one with its id. A new deck gets an id here
     public static async Task SaveAsync(Deck deck)
     {
-        if (string.IsNullOrEmpty(deck.id)) deck.id = Guid.NewGuid().ToString("N");
+        if (string.IsNullOrEmpty(deck.id)) { deck.id = Guid.NewGuid().ToString("N"); }
 
         var decks = new List<Deck>(await LoadSavedAsync());
         int index = decks.FindIndex(d => d.id == deck.id);
-        if (index >= 0) decks[index] = deck;
-        else decks.Add(deck);
+        if (index >= 0) { decks[index] = deck; }
+        else { decks.Add(deck); }
 
         await WriteAsync(decks);
     }
@@ -60,13 +60,13 @@ public static class DeckRepository
     public static async Task DeleteAsync(string id)
     {
         var decks = new List<Deck>(await LoadSavedAsync());
-        if (decks.RemoveAll(d => d.id == id) > 0) await WriteAsync(decks);
+        if (decks.RemoveAll(d => d.id == id) > 0) { await WriteAsync(decks); }
     }
 
     // The cache only changes once Cloud Save has the new list
     static async Task WriteAsync(List<Deck> decks)
     {
-        if (!IsLoggedIn) throw new InvalidOperationException("Log in to save decks.");
+        if (!IsLoggedIn) { throw new InvalidOperationException("Log in to save decks."); }
 
         string json = JsonUtility.ToJson(new SavedDecks { decks = decks });
         await CloudSaveService.Instance.Data.Player.SaveAsync(new Dictionary<string, object> { [Key] = json });
@@ -77,8 +77,8 @@ public static class DeckRepository
     // A starter or saved deck by id; null if there's none
     public static async Task<Deck> FindAsync(string id)
     {
-        if (string.IsNullOrEmpty(id)) return null;
-        if (IsStarter(id)) return Starter(id);
+        if (string.IsNullOrEmpty(id)) { return null; }
+        if (IsStarter(id)) { return Starter(id); }
         return (await LoadSavedAsync()).FirstOrDefault(d => d.id == id);
     }
 

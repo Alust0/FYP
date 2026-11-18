@@ -45,13 +45,13 @@ public class CardSightingReceiver : MonoBehaviour
 
     void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance == this) { Instance = null; }
     }
 
     // trackId: one physical card; screenPoint: pixels; angle: 0 stand, 90 rest
     public void ReportSighting(int seatIndex, string trackId, string cardNumber, Vector2 screenPoint, float angleFromUpright)
     {
-        if (seatIndex < 0 || seatIndex >= seats.Count || seats[seatIndex].camera == null) return;
+        if (seatIndex < 0 || seatIndex >= seats.Count || seats[seatIndex].camera == null) { return; }
         CameraSeat seat = seats[seatIndex];
 
         string key = seatIndex + "_" + trackId;
@@ -66,17 +66,17 @@ public class CardSightingReceiver : MonoBehaviour
         sighting.lastSeenTime = Time.time;
 
         GameState gs = GameState.Instance;
-        if (sighting.instance == null || gs == null) return; // data still resolving
+        if (sighting.instance == null || gs == null) { return; } // data still resolving
 
         gs.SetFacing(sighting.instance, CardFacing.FaceUp);
 
         CardOrientation orientation = sighting.instance.orientation; // kept between the two thresholds
-        if (angleFromUpright > restAngle) orientation = CardOrientation.Rest;
-        else if (angleFromUpright < standAngle) orientation = CardOrientation.Stand;
+        if (angleFromUpright > restAngle) { orientation = CardOrientation.Rest; }
+        else if (angleFromUpright < standAngle) { orientation = CardOrientation.Stand; }
         gs.SetOrientation(sighting.instance, orientation);
 
         string zone = board != null ? board.ZoneAtScreenPoint(screenPoint, seat.camera, sighting.zoneKey) : null;
-        if (zone != null && !SeatCovers(seat, zone)) zone = null;
+        if (zone != null && !SeatCovers(seat, zone)) { zone = null; }
 
         if (zone != sighting.pendingZoneKey)
         {
@@ -84,25 +84,31 @@ public class CardSightingReceiver : MonoBehaviour
             sighting.pendingSince = Time.time;
         }
         if (Time.time - sighting.pendingSince >= zoneSettleSeconds)
+        {
             SetZone(sighting, zone);
+        }
     }
 
     public void ReportLost(int seatIndex, string trackId)
     {
         if (mSightings.TryGetValue(seatIndex + "_" + trackId, out Sighting sighting))
+        {
             sighting.visible = false;
+        }
     }
 
     // A damage-zone card that stays unseen counts as flipped face down (Counter Blast)
     void Update()
     {
         GameState gs = GameState.Instance;
-        if (gs == null) return;
+        if (gs == null) { return; }
 
         foreach (Sighting sighting in mSightings.Values)
             if (!sighting.visible && sighting.instance != null && sighting.instance.zone == "Damage" &&
                 Time.time - sighting.lastSeenTime > faceDownAfterSeconds)
+            {
                 gs.SetFacing(sighting.instance, CardFacing.FaceDown);
+            }
     }
 
     static bool SeatCovers(CameraSeat seat, string zoneKey) =>
@@ -112,7 +118,7 @@ public class CardSightingReceiver : MonoBehaviour
 
     void SetZone(Sighting sighting, string zoneKey)
     {
-        if (zoneKey == sighting.zoneKey) return;
+        if (zoneKey == sighting.zoneKey) { return; }
         sighting.zoneKey = zoneKey;
 
         GameState gs = GameState.Instance;
@@ -125,14 +131,18 @@ public class CardSightingReceiver : MonoBehaviour
     {
         void Apply(CardData data)
         {
-            if (data == null) Debug.LogWarning("[CardSightingReceiver] No CardData found for " + cardNumber);
-            else sighting.instance = new CardInstance(data);
+            if (data == null) { Debug.LogWarning("[CardSightingReceiver] No CardData found for " + cardNumber); }
+            else { sighting.instance = new CardInstance(data); }
         }
         CardData FromLocalCache() => ApiCardDatabase.Instance != null ? ApiCardDatabase.Instance.GetByNumber(cardNumber) : null;
 
         if (CardFirestoreDatabase.Instance != null)
+        {
             CardFirestoreDatabase.Instance.GetCardByNumber(cardNumber, Apply, _ => Apply(FromLocalCache()));
+        }
         else
+        {
             Apply(FromLocalCache());
+        }
     }
 }

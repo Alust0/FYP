@@ -40,7 +40,7 @@ public static class DamageSlots
     // After any count change: adds or takes away cards to match, then flips to match
     public static void Reconcile(GameState gs, PlayerState player)
     {
-        if (player == null) return;
+        if (player == null) { return; }
         List<Slot> slots = sSlots[player.playerIndex];
         int damage = player.CountInZone("Damage");
         int faceDown = damage - player.FaceUpDamage;
@@ -62,17 +62,17 @@ public static class DamageSlots
         int need = faceDown - slots.Count(s => s.faceDown);
         if (need == 0)
         {
-            if (FlipOwner == player) EndPicking();
+            if (FlipOwner == player) { EndPicking(); }
             return;
         }
         if (Quiet || !MatchSession.IsLocal(player) || gs.gameOver)
         {
             Flip(slots, need);
-            if (FlipOwner == player) EndPicking();
+            if (FlipOwner == player) { EndPicking(); }
             return;
         }
         // This PC's player picks which (CounterBlastPicker); the bars show the count until then
-        if (FlipOwner != player) sPicked[player.playerIndex].Clear();
+        if (FlipOwner != player) { sPicked[player.playerIndex].Clear(); }
         FlipOwner = player;
         FlipsDue = need;
     }
@@ -83,13 +83,13 @@ public static class DamageSlots
         for (; need > 0; need--)
         {
             Slot slot = slots.FirstOrDefault(s => !s.faceDown);
-            if (slot == null) break;
+            if (slot == null) { break; }
             slot.faceDown = true;
         }
         for (; need < 0; need++)
         {
             Slot slot = slots.LastOrDefault(s => s.faceDown);
-            if (slot == null) break;
+            if (slot == null) { break; }
             slot.faceDown = false;
         }
     }
@@ -99,16 +99,16 @@ public static class DamageSlots
 
     public static void TogglePick(Slot slot)
     {
-        if (FlipOwner == null) return;
+        if (FlipOwner == null) { return; }
         List<Slot> picked = sPicked[FlipOwner.playerIndex];
-        if (picked.Contains(slot)) picked.Remove(slot);
-        else if (CanPick(slot) && picked.Count < System.Math.Abs(FlipsDue)) picked.Add(slot);
+        if (picked.Contains(slot)) { picked.Remove(slot); }
+        else if (CanPick(slot) && picked.Count < System.Math.Abs(FlipsDue)) { picked.Add(slot); }
     }
 
     // Done: the picked cards flip; any not picked are taken in order
     public static void FinishPicking()
     {
-        if (FlipOwner == null) return;
+        if (FlipOwner == null) { return; }
         List<Slot> slots = sSlots[FlipOwner.playerIndex];
         foreach (Slot slot in sPicked[FlipOwner.playerIndex]) slot.faceDown = FlipsDue > 0;
         int left = FlipsDue - System.Math.Sign(FlipsDue) * sPicked[FlipOwner.playerIndex].Count;
@@ -118,7 +118,7 @@ public static class DamageSlots
 
     static void EndPicking()
     {
-        if (FlipOwner != null) sPicked[FlipOwner.playerIndex].Clear();
+        if (FlipOwner != null) { sPicked[FlipOwner.playerIndex].Clear(); }
         FlipOwner = null;
         FlipsDue = 0;
     }

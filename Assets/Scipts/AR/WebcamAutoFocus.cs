@@ -72,7 +72,7 @@ public static class WebcamAutoFocus
         float result = 0f;
         bool ok = ForEachCamera(camera, (filter, name) => WithProcAmp(filter, (procAmp, min, max, step) =>
         {
-            if (Method<GetFn>(procAmp, SlotGet)(procAmp, ProcAmpBrightness, out int value, out _) != 0) return false;
+            if (Method<GetFn>(procAmp, SlotGet)(procAmp, ProcAmpBrightness, out int value, out _) != 0) { return false; }
             result = Mathf.InverseLerp(min, max, value);
             return true;
         }));
@@ -96,8 +96,8 @@ public static class WebcamAutoFocus
         IntPtr procAmp = IntPtr.Zero;
         try
         {
-            if (Method<QueryInterfaceFn>(filter, SlotQueryInterface)(filter, ref procAmpId, out procAmp) != 0 || procAmp == IntPtr.Zero) return false;
-            if (Method<GetRangeFn>(procAmp, SlotGetRange)(procAmp, ProcAmpBrightness, out int min, out int max, out int step, out _, out _) != 0 || max <= min) return false;
+            if (Method<QueryInterfaceFn>(filter, SlotQueryInterface)(filter, ref procAmpId, out procAmp) != 0 || procAmp == IntPtr.Zero) { return false; }
+            if (Method<GetRangeFn>(procAmp, SlotGetRange)(procAmp, ProcAmpBrightness, out int min, out int max, out int step, out _, out _) != 0 || max <= min) { return false; }
             return action(procAmp, min, max, step);
         }
         finally
@@ -139,7 +139,7 @@ public static class WebcamAutoFocus
                 try
                 {
                     string cameraName = ReadCameraName(moniker);
-                    if (onlyCamera == null || cameraName == onlyCamera) any |= WithFilter(moniker, cameraName, action);
+                    if (onlyCamera == null || cameraName == onlyCamera) { any |= WithFilter(moniker, cameraName, action); }
                 }
                 catch (Exception e)
                 {
@@ -160,7 +160,9 @@ public static class WebcamAutoFocus
             Release(monikers);
             Release(deviceEnum);
             if (comInit == 0 || comInit == 1)
+            {
                 CoUninitialize();
+            }
         }
         return any;
     }
@@ -172,7 +174,7 @@ public static class WebcamAutoFocus
         IntPtr filter = IntPtr.Zero;
         try
         {
-            if (Method<BindFn>(moniker, SlotBindToObject)(moniker, IntPtr.Zero, IntPtr.Zero, ref baseFilterId, out filter) != 0 || filter == IntPtr.Zero) return false;
+            if (Method<BindFn>(moniker, SlotBindToObject)(moniker, IntPtr.Zero, IntPtr.Zero, ref baseFilterId, out filter) != 0 || filter == IntPtr.Zero) { return false; }
             return action(filter, cameraName);
         }
         finally
@@ -213,7 +215,9 @@ public static class WebcamAutoFocus
         string cameraName = "Unknown webcam";
 
         if (Method<BindFn>(moniker, SlotBindToStorage)(moniker, IntPtr.Zero, IntPtr.Zero, ref propertyBagId, out IntPtr bag) != 0 || bag == IntPtr.Zero)
+        {
             return cameraName;
+        }
 
         // A VARIANT is 24 bytes on 64-bit: the type tag at offset 0, the string pointer at offset 8
         IntPtr variant = Marshal.AllocCoTaskMem(24);
@@ -223,7 +227,9 @@ public static class WebcamAutoFocus
                 Marshal.WriteByte(variant, i, 0);
 
             if (Method<ReadFn>(bag, SlotRead)(bag, "FriendlyName", variant, IntPtr.Zero) == 0 && Marshal.ReadInt16(variant) == VariantTypeString)
+            {
                 cameraName = Marshal.PtrToStringBSTR(Marshal.ReadIntPtr(variant, 8));
+            }
 
             VariantClear(variant);
         }
@@ -245,7 +251,9 @@ public static class WebcamAutoFocus
     static void Release(IntPtr comObject)
     {
         if (comObject != IntPtr.Zero)
+        {
             Method<ReleaseFn>(comObject, SlotRelease)(comObject);
+        }
     }
 #else
     public static void Enable(string onlyCamera = null) { }

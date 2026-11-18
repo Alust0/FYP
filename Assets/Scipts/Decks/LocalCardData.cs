@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
 using CardFields = System.Collections.Generic.Dictionary<string, object>;
@@ -18,9 +19,26 @@ public static class LocalCardData
 
     static Index sIndex;
     static List<string> sSetsByLengthDesc;
-    static readonly Dictionary<string, Dictionary<string, CardFields>> sSets = new Dictionary<string, Dictionary<string, CardFields>>();
+    static readonly Dictionary<string, Dictionary<string, CardFields>> sSets = new Dictionary<string, Dictionary<string, CardFields>>(); // locked: Preload fills it on a worker thread
+    static Task sPreload;
+    static string sFolder;
 
-    static string Folder => Path.Combine(Application.streamingAssetsPath, "Deck");
+    static string Folder => sFolder ??= Path.Combine(Application.streamingAssetsPath, "Deck");
+
+    // Reads every set on a worker thread, so filtering every set doesn't freeze the screen
+    public static void Preload()
+    {
+        if (sPreload != null) { return; }
+        string folder = Folder;
+        List<string> sets = LoadIndex().sets.ToList();
+        sPreload = Task.Run(() =>
+        {
+            foreach (string set in sets) LoadSet(set, folder);
+        });
+    }
+
+    // Every set is read (Preload done)
+    public static bool Ready => sPreload != null && sPreload.IsCompleted;
 
     // Every nation of every card here, dual nations already split
     public static List<string> Nations() => LoadIndex().nations;
@@ -34,7 +52,7 @@ public static class LocalCardData
         string key = CardFirestoreDatabase.CardKey(cardNumber);
         // Longest first, so "D-BT1" can't take a "D-BT13" card
         string set = SetsByLengthDesc().FirstOrDefault(code => key.StartsWith(code + "-"));
-        return set != null && LoadSet(set).TryGetValue(key, out fields);
+        return set != null && LoadSet(set, Folder).TryGetValue(key, out fields);
     }
 
     public static bool TryGetCard(string cardNumber, out CardData card)
@@ -48,16 +66,20 @@ public static class LocalCardData
 
     static Index LoadIndex()
     {
-        if (sIndex != null) return sIndex;
+        if (sIndex != null) { return sIndex; }
         sIndex = Read<Index>(Path.Combine(Folder, "index.json")) ?? new Index();
         return sIndex;
     }
 
-    static Dictionary<string, CardFields> LoadSet(string set)
+    static Dictionary<string, CardFields> LoadSet(string set, string folder)
     {
-        if (!sSets.TryGetValue(set, out var cards))
+        lock (sSets)
+            if (sSets.TryGetValue(set, out var loaded)) { return loaded; }
+
+        var cards = Read<Dictionary<string, CardFields>>(Path.Combine(folder, set + ".json")) ?? new Dictionary<string, CardFields>();
+        lock (sSets)
         {
-            cards = Read<Dictionary<string, CardFields>>(Path.Combine(Folder, set + ".json")) ?? new Dictionary<string, CardFields>();
+            if (sSets.TryGetValue(set, out var first)) { return first; } // the other thread read it meanwhile
             sSets[set] = cards;
         }
         return cards;

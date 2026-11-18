@@ -42,12 +42,14 @@ public class CardScanner : MonoBehaviour
     {
         foreach (Database database in databases)
         {
-            if (database.cloudReco == null) continue;
-            if (database.use) mCloudReco.Add(database.cloudReco);
-            else database.cloudReco.enabled = false;
+            if (database.cloudReco == null) { continue; }
+            if (database.use) { mCloudReco.Add(database.cloudReco); }
+            else { database.cloudReco.enabled = false; }
         }
         if (databases.Count == 0)
+        {
             mCloudReco.AddRange(FindObjectsByType<CloudRecoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None));
+        }
 
         // Left inactive in the scene so Vuforia doesn't slow the scene's loading
         mArCamera = FindFirstObjectByType<VuforiaBehaviour>(FindObjectsInactive.Include);
@@ -57,12 +59,12 @@ public class CardScanner : MonoBehaviour
     // The first scan turns on the AR Camera and the Cloud Reco objects
     void TurnOnScanningObjects()
     {
-        if (mObjectsOn) return;
+        if (mObjectsOn) { return; }
         mObjectsOn = true;
         // URP: a second screen camera would clear over the AR camera's picture
         Camera screen = Camera.main;
         mArCamera.gameObject.SetActive(true);
-        if (screen != null && screen.gameObject != mArCamera.gameObject) screen.gameObject.SetActive(false);
+        if (screen != null && screen.gameObject != mArCamera.gameObject) { screen.gameObject.SetActive(false); }
 
         foreach (CloudRecoBehaviour cloudReco in mCloudReco)
         {
@@ -78,7 +80,7 @@ public class CardScanner : MonoBehaviour
             captured.RegisterOnUpdateErrorEventHandler(onQueryError);
             mUnregister.Add(() =>
             {
-                if (captured == null) return;
+                if (captured == null) { return; }
                 captured.UnregisterOnNewSearchResultEventHandler(onResult);
                 captured.UnregisterOnInitErrorEventHandler(onInitError);
                 captured.UnregisterOnUpdateErrorEventHandler(onQueryError);
@@ -90,15 +92,15 @@ public class CardScanner : MonoBehaviour
     // Editor: lists every CloudRecoBehaviour in this scene, new ones ticked
     public void FindDatabases()
     {
-        if (Application.isPlaying || !gameObject.scene.IsValid()) return;
+        if (Application.isPlaying || !gameObject.scene.IsValid()) { return; }
         bool changed = databases.RemoveAll(database => database.cloudReco == null) > 0;
         foreach (CloudRecoBehaviour cloudReco in FindObjectsByType<CloudRecoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (cloudReco.gameObject.scene != gameObject.scene || databases.Exists(database => database.cloudReco == cloudReco)) continue;
+            if (cloudReco.gameObject.scene != gameObject.scene || databases.Exists(database => database.cloudReco == cloudReco)) { continue; }
             databases.Add(new Database { cloudReco = cloudReco });
             changed = true;
         }
-        if (!changed) return;
+        if (!changed) { return; }
         databases.Sort((a, b) => string.CompareOrdinal(a.cloudReco.name, b.cloudReco.name));
         UnityEditor.EditorUtility.SetDirty(this);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
@@ -113,14 +115,14 @@ public class CardScanner : MonoBehaviour
 
     public void StartScanning()
     {
-        if (mScanning || !CanScan) return;
+        if (mScanning || !CanScan) { return; }
         mScanning = true;
         mSteps = StartCoroutine(StartSteps());
     }
 
     public void StopScanning()
     {
-        if (mSteps != null) StopCoroutine(mSteps);
+        if (mSteps != null) { StopCoroutine(mSteps); }
         mSteps = null;
         mScanning = false;
         Search(false);
@@ -156,13 +158,13 @@ public class CardScanner : MonoBehaviour
     void Search(bool on)
     {
         foreach (CloudRecoBehaviour cloudReco in mCloudReco)
-            if (cloudReco != null) cloudReco.enabled = on;
-        if (on) StatusChanged?.Invoke("Hold one card up to the camera...");
+            if (cloudReco != null) { cloudReco.enabled = on; }
+        if (on) { StatusChanged?.Invoke("Hold one card up to the camera..."); }
     }
 
     void OnResult(CloudRecoBehaviour.CloudRecoSearchResult result)
     {
-        if (!mScanning) return;
+        if (!mScanning) { return; }
         Search(false); // one card at a time; also saves the databases' recognition allowance
 
         Debug.Log("[CardScanner] Scanned '" + result.TargetName + "', metadata '" + result.MetaData + "'.");
@@ -170,22 +172,22 @@ public class CardScanner : MonoBehaviour
         StatusChanged?.Invoke(number == null
             ? "Found \"" + result.TargetName + "\", but there's no picture of it in the game."
             : "Found " + number + ". Move it away; the next scan starts in a moment.");
-        if (number != null) CardScanned?.Invoke(number);
+        if (number != null) { CardScanned?.Invoke(number); }
 
-        if (mSteps != null) StopCoroutine(mSteps);
+        if (mSteps != null) { StopCoroutine(mSteps); }
         mSteps = StartCoroutine(ScanAgainSoon());
     }
 
     IEnumerator ScanAgainSoon()
     {
         yield return new WaitForSeconds(pauseSeconds);
-        if (mScanning) Search(true);
+        if (mScanning) { Search(true); }
     }
 
     // The card number in a scan's metadata or target name, if the game has its picture
     static string CardNumber(string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return null;
+        if (string.IsNullOrWhiteSpace(text)) { return null; }
         string number = text.Trim().Replace('/', '-');
         return CardImageLibrary.GetPath(number) != null ? number : null;
     }

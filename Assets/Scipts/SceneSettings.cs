@@ -22,7 +22,9 @@ public partial class SceneSettings : MonoBehaviour
     static SceneSettings Ensure()
     {
         if (sCurrent == null || sCurrent.gameObject.scene != SceneManager.GetActiveScene())
+        {
             sCurrent = new GameObject("SceneSettings").AddComponent<SceneSettings>();
+        }
         return sCurrent;
     }
 
@@ -43,24 +45,24 @@ public partial class SceneSettings : MonoBehaviour
             Destroy(gameObject); // a match: its own menu has the gear and Esc
             yield break;
         }
-        if (!mHasButton) BuildCornerButton();
+        if (!mHasButton) { BuildCornerButton(); }
     }
 
     void Update()
     {
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            if (mOverlay != null && mOverlay.activeSelf) Close();
-            else Open();
+            if (mOverlay != null && mOverlay.activeSelf) { Close(); }
+            else { Open(); }
         }
 
         // Every frame while open, so F11 shows straight away
-        if (mOverlay != null && mOverlay.activeSelf) mWindowLabel.text = WindowMode.Label;
+        if (mOverlay != null && mOverlay.activeSelf) { mWindowLabel.text = WindowMode.Label; }
     }
 
     public void Open()
     {
-        if (mOverlay == null) BuildMenu();
+        if (mOverlay == null) { BuildMenu(); }
         mOverlay.SetActive(true);
         mFontSlider.SetValueWithoutNotify(GameSettings.FontScale);
         ShowFontScale();
@@ -68,7 +70,7 @@ public partial class SceneSettings : MonoBehaviour
 
     public void Close()
     {
-        if (mOverlay != null) mOverlay.SetActive(false);
+        if (mOverlay != null) { mOverlay.SetActive(false); }
     }
 
     void OnFontScaleChanged(float scale)

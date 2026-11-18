@@ -37,7 +37,7 @@ public class OpponentFieldOverlay : MonoBehaviour
     void Refresh(GameState gs)
     {
         PlayerState opponent = gs != null ? gs.players[MatchSession.RemoteSeat] : null;
-        if (fieldText == null || opponent == null) return;
+        if (fieldText == null || opponent == null) { return; }
 
         StringBuilder text = new StringBuilder();
         text.AppendLine("<b>" + opponent.playerName + "'s field</b>");
@@ -49,11 +49,17 @@ public class OpponentFieldOverlay : MonoBehaviour
         }
 
         if (opponent.guardianCircle.Count > 0)
+        {
             text.AppendLine("Guard: " + opponent.guardianCircle.Count + " (shield " + opponent.guardianCircle.Sum(c => c.data.shield) + ")");
+        }
         if (opponent.orderZone.Any(c => c.data.isOrderCard))
+        {
             text.AppendLine("Orders: " + string.Join(", ", opponent.orderZone.Where(c => c.data.isOrderCard).Select(c => c.data.DisplayName)));
+        }
         if (Prison.Imprisoned(opponent) > 0)
+        {
             text.AppendLine("Imprisoned: " + Prison.Imprisoned(opponent));
+        }
         text.Append("Soul " + opponent.CountInZone("Soul") + "   Damage " + opponent.CountInZone("Damage") + " (CB " + opponent.FaceUpDamage + ")");
 
         fieldText.text = text.ToString();
@@ -64,7 +70,7 @@ public class OpponentFieldOverlay : MonoBehaviour
     // A boosted attacker or a guarded unit also shows the battle's power, e.g. "10000 (boosted 18000)"
     string Describe(CardInstance card)
     {
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
         CardInstance booster = mRules != null && mRules.Attacker == card ? mRules.Booster : null;
         int shield = mRules != null ? mRules.GuardShield(card) : 0;
         return card.data.DisplayName + " <color=#ff8>" + card.TotalPower +

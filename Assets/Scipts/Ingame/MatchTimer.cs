@@ -12,7 +12,7 @@ public class MatchTimer : MonoBehaviour
     {
         get
         {
-            if (sStart < 0) return 0;
+            if (sStart < 0) { return 0; }
             return (sEnd >= 0 ? sEnd : Time.realtimeSinceStartupAsDouble) - sStart;
         }
     }
@@ -41,21 +41,23 @@ public class MatchTimer : MonoBehaviour
 
     void HandleGameOver()
     {
-        if (sStart >= 0 && sEnd < 0) sEnd = Time.realtimeSinceStartupAsDouble;
+        if (sStart >= 0 && sEnd < 0) { sEnd = Time.realtimeSinceStartupAsDouble; }
     }
 
     void Update()
     {
         GameState gs = GameState.Instance;
-        if (gs == null || gs.gameOver) return;
+        if (gs == null || gs.gameOver) { return; }
 
         if (sStart < 0)
         {
-            if (gs.turnNumber > 0) sStart = Time.realtimeSinceStartupAsDouble;
+            if (gs.turnNumber > 0) { sStart = Time.realtimeSinceStartupAsDouble; }
             return;
         }
 
         if (HasLimit && Remaining <= 0)
+        {
             gs.EndGame(null, "time ran out after " + MatchSession.TimerMinutes + " minutes");
+        }
     }
 }

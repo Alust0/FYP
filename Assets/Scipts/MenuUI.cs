@@ -21,7 +21,9 @@ public static class MenuUI
     public static RectTransform BuildCanvas(string name)
     {
         if (Object.FindFirstObjectByType<EventSystem>() == null)
+        {
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        }
 
         GameObject canvasObj = new GameObject(name, typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         canvasObj.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -129,7 +131,7 @@ public static class MenuUI
     static Sprite LoadIcon(string name)
     {
         string path = Path.Combine(Application.streamingAssetsPath, "Icons", name + ".png");
-        if (!File.Exists(path)) return null;
+        if (!File.Exists(path)) { return null; }
 
         Texture2D texture = new Texture2D(2, 2);
         if (!texture.LoadImage(File.ReadAllBytes(path)))
@@ -197,17 +199,17 @@ public static class MenuUI
         dropdown.itemText.color = DarkText;
 
         Transform arrow = dropdown.transform.Find("Arrow");
-        if (arrow != null) arrow.gameObject.SetActive(false); // no sprite for it without the default UI resources
+        if (arrow != null) { arrow.gameObject.SetActive(false); } // no sprite for it without the default UI resources
 
         RectTransform template = dropdown.template;
         template.sizeDelta = new Vector2(template.sizeDelta.x, 420f);
-        if (template.GetComponent<DropdownScrollToChosen>() == null) template.gameObject.AddComponent<DropdownScrollToChosen>();
+        if (template.GetComponent<DropdownScrollToChosen>() == null) { template.gameObject.AddComponent<DropdownScrollToChosen>(); }
         ScrollRect scroll = template.GetComponent<ScrollRect>();
-        if (scroll != null) scroll.scrollSensitivity = 15f; // a wheel notch moves about two options
+        if (scroll != null) { scroll.scrollSensitivity = 15f; } // a wheel notch moves about two options
         Transform checkmark = template.Find("Viewport/Content/Item/Item Checkmark");
-        if (checkmark != null) checkmark.GetComponent<Image>().color = Accent;
+        if (checkmark != null) { checkmark.GetComponent<Image>().color = Accent; }
         RectTransform item = template.Find("Viewport/Content/Item") as RectTransform;
-        if (item != null) item.sizeDelta = new Vector2(item.sizeDelta.x, 44f);
+        if (item != null) { item.sizeDelta = new Vector2(item.sizeDelta.x, 44f); }
     }
 
     // Makes the box scroll vertically and returns the content

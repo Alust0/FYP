@@ -81,7 +81,9 @@ public partial class SceneSettings
     static Transform AddCanvas(string name, int sortingOrder)
     {
         if (FindFirstObjectByType<EventSystem>() == null)
+        {
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        }
 
         GameObject obj = new GameObject(name, typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         Canvas canvas = obj.GetComponent<Canvas>();

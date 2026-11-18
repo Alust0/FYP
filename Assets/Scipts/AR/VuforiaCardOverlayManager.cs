@@ -76,7 +76,11 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         public bool reportedOutside; // logged once as seen but outside every zone
         public bool waitForLift; // put back by Undo: not reported again until lifted or moved
         public string liftZoneKey; // the zone it sat in then
+        public string lastZoneKey; // the zone it last left
+        public float leftAt = float.NegativeInfinity; // Time.time it left that zone
     }
+
+    const float CopySwapSeconds = 20f; // an identical copy back on the circle it left this recently keeps its card
 
     // Matches no zone, so wherever a card put back by Undo is seen next counts as a move
     const string PutBackKey = "(put back)";
@@ -92,19 +96,23 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     void Awake()
     {
         if (cloudRecoBehaviours == null || cloudRecoBehaviours.Count == 0)
+        {
             cloudRecoBehaviours = new List<CloudRecoBehaviour>(GetComponentsInChildren<CloudRecoBehaviour>(true));
+        }
 
         // A disabled CloudRecoBehaviour stops querying the cloud
         if (!useCloudReco)
+        {
             foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
-                if (cloudReco != null) cloudReco.enabled = false;
+                if (cloudReco != null) { cloudReco.enabled = false; }
+        }
     }
 
     void OnEnable()
     {
         sAll.Add(this);
         GameState.OnCardPutBack += OnCardPutBack;
-        if (!useCloudReco) return;
+        if (!useCloudReco) { return; }
 
         foreach (CloudRecoBehaviour cloudReco in cloudRecoBehaviours)
         {
@@ -139,7 +147,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
     void OnQueryError(CloudRecoBehaviour source, CloudRecoBehaviour.QueryError error)
     {
-        if (mLastQueryError.TryGetValue(source, out CloudRecoBehaviour.QueryError last) && last == error) return;
+        if (mLastQueryError.TryGetValue(source, out CloudRecoBehaviour.QueryError last) && last == error) { return; }
         mLastQueryError[source] = error;
         Debug.LogError("[CloudReco] " + Describe(source) + " query failed: " + error);
     }
@@ -153,7 +161,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
     void OnNewSearchResult(CloudRecoBehaviour source, CloudRecoBehaviour.CloudRecoSearchResult result)
     {
-        if (mTrackedCards.ContainsKey(result.UniqueTargetId)) return; // tracking physical card
+        if (mTrackedCards.ContainsKey(result.UniqueTargetId)) { return; } // tracking physical card
 
         Debug.Log("[CloudReco] " + Describe(source) + " matched '" + result.TargetName + "', metadata: '" + result.MetaData + "'");
 
@@ -172,7 +180,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     public void AddDeckTarget(ObserverBehaviour target, string cardNumber, int copy = 0)
     {
         string key = "Deck_" + cardNumber + "#" + copy;
-        if (mTrackedCards.ContainsKey(key)) return;
+        if (mTrackedCards.ContainsKey(key)) { return; }
         RegisterTarget(key, target, cardNumber);
         mTrackedCards[key].isDeckCopy = true;
     }
@@ -210,12 +218,12 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
         foreach (TrackedCard tracked in mTrackedCards.Values)
         {
-            if (!tracked.awaitingFirstPose || !tracked.hasPose || !tracked.insideBorder || tracked.target == null) continue;
+            if (!tracked.awaitingFirstPose || !tracked.hasPose || !tracked.insideBorder || tracked.target == null) { continue; }
 
             TrackedCard original = cam != null ? FindCardCovering(cam, tracked) : null;
 
             // A spare copy waits until it's on another card
-            if (original != null && tracked.isDeckCopy) continue;
+            if (original != null && tracked.isDeckCopy) { continue; }
 
             tracked.awaitingFirstPose = false;
             if (original != null)
@@ -235,10 +243,10 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     {
         foreach (TrackedCard other in mTrackedCards.Values)
         {
-            if (other == tracked || other.retired || other.target == null) continue;
-            if (other.awaitingFirstPose) continue; // two new matches in one frame: the first checked is kept
-            if (Time.time - other.lastSeenTime > duplicateGraceSeconds) continue;
-            if (CoversSameCard(cam, other, tracked)) return other;
+            if (other == tracked || other.retired || other.target == null) { continue; }
+            if (other.awaitingFirstPose) { continue; } // two new matches in one frame: the first checked is kept
+            if (Time.time - other.lastSeenTime > duplicateGraceSeconds) { continue; }
+            if (CoversSameCard(cam, other, tracked)) { return other; }
         }
 
         return null;
@@ -300,7 +308,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         Camera cam = Camera.main;
         foreach (TrackedCard tracked in mTrackedCards.Values)
         {
-            if (tracked.hasPose) tracked.lastSeenTime = Time.time;
+            if (tracked.hasPose) { tracked.lastSeenTime = Time.time; }
             tracked.insideBorder = tracked.hasPose && tracked.target != null && IsInsideBorder(tracked, cam);
 
             // Seen by Vuforia but never picked up: says why, as nothing else would
@@ -317,25 +325,25 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         ResolveDuplicates();
         foreach (TrackedCard tracked in mTrackedCards.Values) RefreshOverlayVisibility(tracked); // a card leaving the zones, or tilted too far
 
-        if (board == null || cam == null) return;
+        if (board == null || cam == null) { return; }
 
         foreach (TrackedCard tracked in mTrackedCards.Values)
         {
-            if (tracked.target == null || tracked.instance == null) continue; // instance pending resolution
-            if (tracked.duplicateOf != null) continue; // another target is already standing for this physical card
+            if (tracked.target == null || tracked.instance == null) { continue; } // instance pending resolution
+            if (tracked.duplicateOf != null) { continue; } // another target is already standing for this physical card
 
             UpdateFacing(tracked, cam);
             if (!tracked.hasPose)
             {
-                if (tracked.waitForLift && Time.time - tracked.lastSeenTime >= LiftSeconds) tracked.waitForLift = false;
+                if (tracked.waitForLift && Time.time - tracked.lastSeenTime >= LiftSeconds) { tracked.waitForLift = false; }
                 LeaveIfGone(tracked);
                 continue;
             }
 
-            if (tracked.insideBorder) UpdateOrientation(tracked, cam); // a card in hand isn't standing or resting
+            if (tracked.insideBorder) { UpdateOrientation(tracked, cam); } // a card in hand isn't standing or resting
             if (tracked.waitForLift)
             {
-                if (ZoneUnder(tracked, cam) == tracked.liftZoneKey) continue; // still lying where it was
+                if (ZoneUnder(tracked, cam) == tracked.liftZoneKey) { continue; } // still lying where it was
                 tracked.waitForLift = false;
             }
             UpdateZone(tracked, cam); // also takes it off the board once it has left
@@ -346,29 +354,31 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     void UpdateFacing(TrackedCard tracked, Camera cam)
     {
         GameState gs = GameState.Instance;
-        if (gs == null) return;
+        if (gs == null) { return; }
 
         if (tracked.hasPose)
         {
             gs.SetFacing(tracked.instance, CardFacing.FaceUp);
             return;
         }
-        if (tracked.instance.zone != "Damage" || tracked.instance.facing == CardFacing.FaceDown) return;
+        if (tracked.instance.zone != "Damage" || tracked.instance.facing == CardFacing.FaceDown) { return; }
 
         float unseen = Time.time - tracked.lastSeenTime;
         if (unseen > faceDownAfterSeconds || (unseen > faceDownWithBackSeconds && CardBackWhereItWas(tracked, cam)))
+        {
             gs.SetFacing(tracked.instance, CardFacing.FaceDown);
+        }
     }
 
     // Rear-guard/check card unseen for goneAfterSeconds leaves its zone
     void LeaveIfGone(TrackedCard tracked)
     {
         string zone = tracked.instance.zone;
-        if (zone == null || Time.time - tracked.lastSeenTime < goneAfterSeconds) return;
+        if (zone == null || Time.time - tracked.lastSeenTime < goneAfterSeconds) { return; }
         if (zone != "LeftFront" && zone != "RightFront" && zone != "LeftBack" && zone != "RightBack" && zone != "CenterBack" && zone != "Trigger")
         {
-            if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
-            if (mRules == null || !mRules.ExpectsMove(tracked.instance)) return;
+            if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
+            if (mRules == null || !mRules.ExpectsMove(tracked.instance)) { return; }
         }
 
         Debug.Log("[VuforiaCardOverlayManager] " + tracked.cardNumber + " out of view for " + goneAfterSeconds + " s: taken off " + zone + ".");
@@ -379,17 +389,17 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     // Vuforia leaves a lost target at its last pose, so that's where the card was
     bool CardBackWhereItWas(TrackedCard tracked, Camera cam)
     {
-        if (CardBackTracker.Instance == null || cam == null) return false;
+        if (CardBackTracker.Instance == null || cam == null) { return false; }
         Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
-        if (screen.z <= 0f) return false;
+        if (screen.z <= 0f) { return false; }
         return CardBackTracker.Instance.IsBackAt(cam, screen, 0.5f * ScreenExtent(cam, tracked.target, screen));
     }
 
     void RefreshOverlayVisibility(TrackedCard tracked)
     {
-        if (tracked.overlay == null) return;
+        if (tracked.overlay == null) { return; }
         bool shown = tracked.hasPose && tracked.insideBorder && tracked.instance != null && tracked.duplicateOf == null && !TooTilted(tracked);
-        if (tracked.overlay.activeSelf != shown) tracked.overlay.SetActive(shown);
+        if (tracked.overlay.activeSelf != shown) { tracked.overlay.SetActive(shown); }
     }
 
     bool TooTilted(TrackedCard tracked)
@@ -405,21 +415,23 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     // The mat's facing: average of the cards seen, outliers dropped
     public static Vector3 MatNormal(Camera cam)
     {
-        if (sNormalFrame == Time.frameCount) return sNormal;
+        if (sNormalFrame == Time.frameCount) { return sNormal; }
         sNormalFrame = Time.frameCount;
 
         Vector3 view = -cam.transform.forward;
         Vector3 rough = view;
         foreach (VuforiaCardOverlayManager manager in sAll)
             foreach (TrackedCard tracked in manager.mTrackedCards.Values)
-                if (tracked.hasPose && tracked.insideBorder && tracked.target != null) rough += tracked.target.transform.up;
+                if (tracked.hasPose && tracked.insideBorder && tracked.target != null) { rough += tracked.target.transform.up; }
         rough.Normalize();
 
         sNormal = view;
         foreach (VuforiaCardOverlayManager manager in sAll)
             foreach (TrackedCard tracked in manager.mTrackedCards.Values)
                 if (tracked.hasPose && tracked.insideBorder && tracked.target != null && Vector3.Angle(tracked.target.transform.up, rough) < 30f)
+                {
                     sNormal += tracked.target.transform.up;
+                }
         sNormal.Normalize();
         return sNormal;
     }
@@ -435,11 +447,24 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     // Whether the card's on-screen center is inside one of the board's zone borders
     bool IsInsideBorder(TrackedCard tracked, Camera cam)
     {
-        if (!scanOnlyInsideZones || board == null) return true;
-        if (cam == null) return false;
+        if (!scanOnlyInsideZones || board == null) { return true; }
+        if (cam == null) { return false; }
 
         Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
         return screen.z > 0f && board.ZoneAtScreenPoint(screen, cam, tracked.currentZoneKey) != null;
+    }
+
+    // Screen points of the face-up cards in view, one per card, for auto calibration
+    public List<Vector2> CardsOnScreen(Camera cam)
+    {
+        var points = new List<Vector2>();
+        foreach (TrackedCard tracked in mLiveCards)
+        {
+            if (tracked.target == null || !tracked.hasPose) { continue; }
+            Vector3 screen = cam.WorldToScreenPoint(tracked.target.transform.position);
+            if (screen.z > 0f) { points.Add(screen); }
+        }
+        return points;
     }
 
     // Several targets on one card: only the first is shown
@@ -450,29 +475,31 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
         foreach (TrackedCard tracked in mResolvedCards)
         {
-            if (tracked.target == null || !tracked.hasPose) continue; // keeps its last verdict until it's back in view
+            if (tracked.target == null || !tracked.hasPose) { continue; } // keeps its last verdict until it's back in view
 
             TrackedCard coveredBy = null;
             if (cam != null)
             {
                 foreach (TrackedCard live in mLiveCards)
                 {
-                    if (!CoversSameCard(cam, live, tracked)) continue;
+                    if (!CoversSameCard(cam, live, tracked)) { continue; }
                     coveredBy = live;
                     break;
                 }
             }
 
-            if (coveredBy == null) mLiveCards.Add(tracked);
+            if (coveredBy == null) { mLiveCards.Add(tracked); }
 
             if (coveredBy != tracked.duplicateOf)
             {
                 // Taking over from a hidden target: remove the old one from the board
                 if (coveredBy == null && !tracked.duplicateOf.hasPose)
+                {
                     SetZone(tracked.duplicateOf, null);
+                }
 
                 tracked.duplicateOf = coveredBy;
-                if (coveredBy != null) SetZone(tracked, null);
+                if (coveredBy != null) { SetZone(tracked, null); }
             }
 
             RefreshOverlayVisibility(tracked);
@@ -484,7 +511,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     {
         Vector3 liveCenter = cam.WorldToScreenPoint(live.target.transform.position);
         Vector3 otherCenter = cam.WorldToScreenPoint(other.target.transform.position);
-        if (liveCenter.z <= 0f || otherCenter.z <= 0f) return false; // behind the camera
+        if (liveCenter.z <= 0f || otherCenter.z <= 0f) { return false; } // behind the camera
 
         float limit = duplicateOverlapFraction * ScreenExtent(cam, live.target, liveCenter);
         return Vector2.Distance(liveCenter, otherCenter) < limit;
@@ -519,8 +546,8 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         float fromUpright = Mathf.Min(angle, 180f - angle);
 
         CardOrientation orientation = tracked.instance.orientation; // kept between the two thresholds
-        if (fromUpright > restAngle) orientation = CardOrientation.Rest;
-        else if (fromUpright < standAngle) orientation = CardOrientation.Stand;
+        if (fromUpright > restAngle) { orientation = CardOrientation.Rest; }
+        else if (fromUpright < standAngle) { orientation = CardOrientation.Stand; }
 
         GameState.Instance?.SetOrientation(tracked.instance, orientation);
         tracked.overlayUI?.SetRestIndicator(orientation == CardOrientation.Rest);
@@ -538,8 +565,8 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     {
         foreach (TrackedCard tracked in mTrackedCards.Values)
         {
-            if (tracked.instance != card) continue;
-            if (!tracked.waitForLift) tracked.liftZoneKey = tracked.currentZoneKey; // a second Undo keeps the zone it lies in
+            if (tracked.instance != card) { continue; }
+            if (!tracked.waitForLift) { tracked.liftZoneKey = tracked.currentZoneKey; } // a second Undo keeps the zone it lies in
             tracked.waitForLift = true;
             tracked.currentZoneKey = PutBackKey;
             tracked.pendingZoneKey = PutBackKey;
@@ -566,20 +593,62 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         }
 
         if (Time.time - tracked.pendingSince >= zoneSettleSeconds)
+        {
             SetZone(tracked, key);
+        }
     }
 
     // Moves the card into the given board zone, or off the board entirely when key is null
     void SetZone(TrackedCard tracked, string key)
     {
-        if (key == tracked.currentZoneKey) return; // no change
+        if (key == tracked.currentZoneKey) { return; } // no change
+        if (key == null)
+        {
+            tracked.lastZoneKey = tracked.currentZoneKey;
+            tracked.leftAt = Time.time;
+        }
+        else
+        {
+            TakeOverCopy(tracked, key);
+            if (key == tracked.currentZoneKey) { return; }
+        }
         tracked.currentZoneKey = key;
 
         GameState gs = GameState.Instance;
-        if (gs == null) return;
+        if (gs == null) { return; }
 
         tracked.owner = key == null ? null : board.ZoneOwner(gs, key);
         gs.MoveCard(tracked.instance, tracked.owner, key?.Substring(3)); // suffix after "P1_"/"P2_"
+    }
+
+    // Identical copies' targets can swap cards under a hand: the card that just left this zone is the one coming back
+    void TakeOverCopy(TrackedCard tracked, string key)
+    {
+        if (!tracked.isDeckCopy || tracked.waitForLift) { return; }
+        if (tracked.currentZoneKey == null && tracked.lastZoneKey == key) { return; } // its own card coming back
+        // Its card was on the field just now (not a fresh card from the hand)
+        bool wasOnField = tracked.currentZoneKey != null || (tracked.lastZoneKey != null && Time.time - tracked.leftAt <= CopySwapSeconds);
+        Camera cam = Camera.main;
+        foreach (TrackedCard other in mTrackedCards.Values)
+        {
+            if (other == tracked || !other.isDeckCopy || other.cardNumber != tracked.cardNumber) { continue; }
+            if (other.instance == null || other.waitForLift || other.duplicateOf != null) { continue; }
+            // The copy that left this zone a moment ago, or the copy the rules still have here though its target is elsewhere
+            bool leftHere = other.currentZoneKey == null && !other.hasPose && other.lastZoneKey == key && Time.time - other.leftAt <= CopySwapSeconds;
+            bool heldHere = wasOnField && other.currentZoneKey == key &&
+                (!other.hasPose || (cam != null && other.target != null && ZoneUnder(other, cam) != key));
+            if (!leftHere && !heldHere) { continue; }
+
+            (tracked.instance, other.instance) = (other.instance, tracked.instance);
+            (tracked.owner, other.owner) = (other.owner, tracked.owner);
+            (tracked.currentZoneKey, other.currentZoneKey) = (other.currentZoneKey, tracked.currentZoneKey);
+            (tracked.lastZoneKey, other.lastZoneKey) = (other.lastZoneKey, tracked.lastZoneKey);
+            (tracked.leftAt, other.leftAt) = (other.leftAt, tracked.leftAt);
+            tracked.overlayUI?.Bind(tracked.instance);
+            other.overlayUI?.Bind(other.instance);
+            Debug.Log("[VuforiaCardOverlayManager] " + tracked.cardNumber + ": another copy's target found the card back on " + key + ", so they swapped cards.");
+            return;
+        }
     }
 
     // Called externally (e.g. by AROverlayEventBridge) to push a power update onto a card's overlay
@@ -587,13 +656,17 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     {
         foreach (TrackedCard tracked in mTrackedCards.Values)
             if (tracked.instance?.data.cardName == cardName)
+            {
                 tracked.overlayUI?.UpdatePower(basePower, modifier);
+            }
     }
 
     public void ShowRulePrompt(string cardName, string promptText)
     {
         foreach (TrackedCard tracked in mTrackedCards.Values)
             if (tracked.instance?.data.cardName == cardName && tracked.overlay.activeInHierarchy) // hidden overlays can't run the prompt's auto-hide coroutine; retired duplicates have no instance (or overlay)
+            {
                 tracked.overlayUI?.ShowRulePrompt(promptText);
+            }
     }
 }

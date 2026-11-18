@@ -53,7 +53,7 @@ public class CardFirestoreDatabase : MonoBehaviour
 
     void OnDestroy()
     {
-        if (Instance == this && mStoreChanged) SaveStore();
+        if (Instance == this && mStoreChanged) { SaveStore(); }
     }
 
     // Called by the backend once it can serve requests
@@ -97,7 +97,7 @@ public class CardFirestoreDatabase : MonoBehaviour
             // Firestore's scrape stopped at 24 cards in many sets, and its free quota can run out
             if ((fields == null || error != null) && LocalCardData.TryGet(key, out CardFields local))
             {
-                if (error != null) Debug.LogWarning("[CardFirestoreDatabase] " + error + " — using the deck builder's card data.");
+                if (error != null) { Debug.LogWarning("[CardFirestoreDatabase] " + error + " — using the deck builder's card data."); }
                 fields = local;
                 error = null;
             }
@@ -123,7 +123,7 @@ public class CardFirestoreDatabase : MonoBehaviour
                 mCache[key] = FromFields(fields);
                 cached++;
             }
-            else GetCardByNumber(number, null, null);
+            else { GetCardByNumber(number, null, null); }
         }
         Debug.Log("[CardFirestoreDatabase] Cached " + cached + " deck cards from the deck builder's data.");
     }
@@ -148,12 +148,12 @@ public class CardFirestoreDatabase : MonoBehaviour
             mCache[key] = card;
         }
 
-        if (!mWaiting.TryGetValue(key, out var waiting)) return;
+        if (!mWaiting.TryGetValue(key, out var waiting)) { return; }
         mWaiting.Remove(key);
         foreach (var (ok, fail) in waiting)
         {
-            if (card != null) ok?.Invoke(card);
-            else fail?.Invoke(error ?? "No card found for number: " + key);
+            if (card != null) { ok?.Invoke(card); }
+            else { fail?.Invoke(error ?? "No card found for number: " + key); }
         }
     }
 
@@ -182,7 +182,9 @@ public class CardFirestoreDatabase : MonoBehaviour
         try
         {
             if (File.Exists(StorePath))
+            {
                 return JsonConvert.DeserializeObject<Dictionary<string, CardFields>>(File.ReadAllText(StorePath)) ?? new Dictionary<string, CardFields>();
+            }
         }
         catch (Exception e)
         {
@@ -201,7 +203,7 @@ public class CardFirestoreDatabase : MonoBehaviour
 
             string temp = StorePath + ".tmp";
             File.WriteAllText(temp, JsonConvert.SerializeObject(merged));
-            if (File.Exists(StorePath)) File.Delete(StorePath);
+            if (File.Exists(StorePath)) { File.Delete(StorePath); }
             File.Move(temp, StorePath);
             mStoreChanged = false;
         }
@@ -228,7 +230,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         if (mSetIdsByLengthDesc != null) { onReady(); return; }
 
         mPendingOnSetIds.Add(onReady);
-        if (mSetIdsLoading) return;
+        if (mSetIdsLoading) { return; }
         mSetIdsLoading = true;
 
         LoadSetIds(ids =>
@@ -306,7 +308,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         foreach (string field in TextFields)
         {
             string value = getString(field);
-            if (value != null) fields[field] = value;
+            if (value != null) { fields[field] = value; }
         }
         foreach (string field in NumberFields) fields[field] = getInt(field);
         return fields;
@@ -420,8 +422,8 @@ public class CardFirestoreDatabase : MonoBehaviour
         field => doc.TryGetValue(field, out string value) ? value : null,
         field =>
         {
-            if (doc.TryGetValue(field, out long longValue)) return (int)longValue;
-            if (doc.TryGetValue(field, out double doubleValue)) return (int)doubleValue;
+            if (doc.TryGetValue(field, out long longValue)) { return (int)longValue; }
+            if (doc.TryGetValue(field, out double doubleValue)) { return (int)doubleValue; }
             return 0;
         });
 #else
@@ -568,8 +570,8 @@ public class CardFirestoreDatabase : MonoBehaviour
             field =>
             {
                 JToken value = fields?[field];
-                if (value?["integerValue"] != null) return (int)long.Parse((string)value["integerValue"]);
-                if (value?["doubleValue"] != null) return (int)(double)value["doubleValue"];
+                if (value?["integerValue"] != null) { return (int)long.Parse((string)value["integerValue"]); }
+                if (value?["doubleValue"] != null) { return (int)(double)value["doubleValue"]; }
                 return 0;
             });
     }

@@ -77,14 +77,14 @@ public class BoardLayout : MonoBehaviour
     // In Awake so DeckTargetLoader sees the mode, and the HUD and rules see Energy, in their Start
     void Awake()
     {
-        if (MatchSession.IsOneSide) boardMode = BoardMode.Multiplayer;
+        if (MatchSession.IsOneSide) { boardMode = BoardMode.Multiplayer; }
         GameSettings.EnergyEnabled = energy;
     }
 
     // Ticking Energy in the Inspector during Play Mode applies it straight away
     void OnValidate()
     {
-        if (Application.isPlaying) GameSettings.EnergyEnabled = energy;
+        if (Application.isPlaying) { GameSettings.EnergyEnabled = energy; }
     }
 
     // Online, this PC's own half is always drawn as P1, whichever seat it has in the match
@@ -100,7 +100,9 @@ public class BoardLayout : MonoBehaviour
         // Local offset, so it follows a parent target
         bool unparented = transform.parent == null;
         if (unparented && Camera.main != null)
+        {
             transform.SetParent(Camera.main.transform, false);
+        }
 
         transform.localPosition = unparented
             ? new Vector3(0f, 0f, distanceFromCameraIfUnparented)
@@ -110,19 +112,23 @@ public class BoardLayout : MonoBehaviour
         SpawnPlayerField(isOpponent: false); // P1 bottom half
 
         if (boardMode == BoardMode.OverTheBoard)
+        {
             SpawnPlayerField(isOpponent: true); // P2 top half flipped
+        }
 
         // Real AR-tracked zone markers take priority over the procedural quads above
         foreach (ArZoneMarker marker in arZoneMarkers)
         {
-            if (marker.trackedObject == null || string.IsNullOrEmpty(marker.key)) continue;
+            if (marker.trackedObject == null || string.IsNullOrEmpty(marker.key)) { continue; }
             circles[marker.key] = marker.trackedObject;
             hasCard[marker.key] = false;
             mZoneRects.Remove(marker.key); // its area now follows the marker, see TryGetZoneRect
         }
 
         if (fitToCamera)
+        {
             FitToCamera();
+        }
 
         GameState.OnGameStateUpdated += SyncFromGameState;
     }
@@ -132,10 +138,10 @@ public class BoardLayout : MonoBehaviour
 
     void Update()
     {
-        if (!fitToCamera) return;
+        if (!fitToCamera) { return; }
 
         Camera cam = Camera.main;
-        if (cam == null) return;
+        if (cam == null) { return; }
 
         if (!Mathf.Approximately(cam.fieldOfView, mLastFittedFov))
         {
@@ -148,9 +154,9 @@ public class BoardLayout : MonoBehaviour
     public void FitToCamera()
     {
         Camera cam = Camera.main;
-        if (cam == null) return;
+        if (cam == null) { return; }
 
-        if (!TryGetSpawnedBounds(out Bounds bounds)) return;
+        if (!TryGetSpawnedBounds(out Bounds bounds)) { return; }
 
         float distance = Vector3.Distance(cam.transform.position, transform.position);
         float visibleHeight = 2f * distance * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
@@ -161,7 +167,7 @@ public class BoardLayout : MonoBehaviour
         transform.localScale *= Mathf.Min(scaleX, scaleY);
 
         // Re-measure post-scale, then center the content on the camera's forward axis
-        if (!TryGetSpawnedBounds(out bounds)) return;
+        if (!TryGetSpawnedBounds(out bounds)) { return; }
 
         Vector3 localCenter = cam.transform.InverseTransformPoint(bounds.center);
         transform.position += cam.transform.TransformVector(new Vector3(-localCenter.x, -localCenter.y, 0f));
@@ -176,10 +182,10 @@ public class BoardLayout : MonoBehaviour
         foreach (GameObject obj in circles.Values)
         {
             Renderer rend = obj.GetComponent<Renderer>();
-            if (rend == null) continue;
+            if (rend == null) { continue; }
 
             if (!hasBounds) { bounds = rend.bounds; hasBounds = true; }
-            else bounds.Encapsulate(rend.bounds);
+            else { bounds.Encapsulate(rend.bounds); }
         }
 
         return hasBounds;
@@ -238,12 +244,12 @@ public class BoardLayout : MonoBehaviour
         // Third row: Guardian center, Trigger right of Guardian, Bind right of Trigger
         SpawnCircle(prefix + "_Guardian", Pos(centerCol, thirdRowDist), "Guardian", unitCircle);
         SpawnCircle(prefix + "_Trigger", Pos(rightCol, thirdRowDist), "Trigger", sideways);
-        if (showBind) SpawnCircle(prefix + "_Bind", Pos(rightSideCol, thirdRowDist), "Bind", cardArea);
+        if (showBind) { SpawnCircle(prefix + "_Bind", Pos(rightSideCol, thirdRowDist), "Bind", cardArea); }
 
         // Side zones
         SpawnZoneMarker(prefix + "_Damage", Pos(leftSideCol, backRowDist), "Damage", cardArea);
         SpawnZoneMarker(prefix + "_Order", Pos(leftSideCol, frontRowDist), "Order", smallArea);
-        if (showCrest) SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest", smallArea);
+        if (showCrest) { SpawnZoneMarker(prefix + "_Crest", Pos(leftSideCol, thirdRowDist), "Crest", smallArea); }
 
         SpawnZoneMarker(prefix + "_Drop", Pos(rightSideCol, backRowDist), "Drop", cardArea);
         SpawnZoneMarker(prefix + "_Deck", Pos(rightSideCol, frontRowDist), "Deck", cardArea);
@@ -300,8 +306,8 @@ public class BoardLayout : MonoBehaviour
     // Which player a card in this zone belongs to
     public PlayerState ZoneOwner(GameState gs, string key)
     {
-        if (key == null) return null;
-        if (boardMode == BoardMode.OverTheBoard && key.EndsWith("_Guardian")) return gs.Opponent;
+        if (key == null) { return null; }
+        if (boardMode == BoardMode.OverTheBoard && key.EndsWith("_Guardian")) { return gs.Opponent; }
         return gs.players[SeatOfZone(key)];
     }
 
@@ -312,7 +318,7 @@ public class BoardLayout : MonoBehaviour
     public bool TryGetZoneViewRect(string key, Camera cam, out Rect view)
     {
         view = Rect.zero;
-        if (key == null || cam == null || IsZoneHidden(key) || !mZoneRects.TryGetValue(key, out Rect zone)) return false;
+        if (key == null || cam == null || IsZoneHidden(key) || !mZoneRects.TryGetValue(key, out Rect zone)) { return false; }
 
         Vector2 min = Vector2.positiveInfinity, max = Vector2.negativeInfinity;
         foreach (Vector2 corner in new[] { zone.min, zone.max, new Vector2(zone.xMin, zone.yMax), new Vector2(zone.xMax, zone.yMin) })
@@ -328,7 +334,7 @@ public class BoardLayout : MonoBehaviour
     // Moves/resizes one zone (BoardCalibrator), keeping its drawn box and detection area in step
     public void SetZoneLayout(string key, Rect rect)
     {
-        if (!mZoneRects.ContainsKey(key) || !circles.TryGetValue(key, out GameObject obj)) return;
+        if (!mZoneRects.ContainsKey(key) || !circles.TryGetValue(key, out GameObject obj)) { return; }
 
         mZoneRects[key] = rect;
         obj.transform.localPosition = new Vector3(rect.center.x, rect.center.y, obj.transform.localPosition.z);
@@ -339,10 +345,10 @@ public class BoardLayout : MonoBehaviour
     // Hidden zones aren't drawn and never match a card, for zones the real playmat doesn't have
     public void SetZoneHidden(string key, bool hidden)
     {
-        if (!circles.TryGetValue(key, out GameObject obj)) return;
+        if (!circles.TryGetValue(key, out GameObject obj)) { return; }
 
-        if (hidden) mHiddenZones.Add(key);
-        else mHiddenZones.Remove(key);
+        if (hidden) { mHiddenZones.Add(key); }
+        else { mHiddenZones.Remove(key); }
         obj.SetActive(!hidden);
     }
 
@@ -364,18 +370,20 @@ public class BoardLayout : MonoBehaviour
     // Which zone a screen point is in
     public string ZoneAtScreenPoint(Vector2 screenPoint, Camera cam, string currentKey = null)
     {
-        if (!TryScreenToBoard(screenPoint, cam, out Vector2 point)) return null;
+        if (!TryScreenToBoard(screenPoint, cam, out Vector2 point)) { return null; }
 
         if (currentKey != null && !mHiddenZones.Contains(currentKey) && TryGetZoneRect(currentKey, cam, out Rect current))
         {
             Rect padded = new Rect(current.xMin - zoneStickMargin, current.yMin - zoneStickMargin,
                 current.width + 2f * zoneStickMargin, current.height + 2f * zoneStickMargin);
-            if (padded.Contains(point)) return currentKey;
+            if (padded.Contains(point)) { return currentKey; }
         }
 
         foreach (string key in circles.Keys)
             if (!mHiddenZones.Contains(key) && TryGetZoneRect(key, cam, out Rect rect) && rect.Contains(point))
+            {
                 return key;
+            }
 
         return null;
     }
@@ -386,7 +394,7 @@ public class BoardLayout : MonoBehaviour
         boardPoint = default;
         Plane boardPlane = new Plane(transform.forward, transform.position); // zones lie in local XY
         Ray ray = cam.ScreenPointToRay(screenPoint);
-        if (!boardPlane.Raycast(ray, out float enter)) return false;
+        if (!boardPlane.Raycast(ray, out float enter)) { return false; }
 
         boardPoint = transform.InverseTransformPoint(ray.GetPoint(enter));
         return true;
@@ -395,11 +403,11 @@ public class BoardLayout : MonoBehaviour
     // An AR marker zone has no fixed rect: it's a card-sized area wherever the marker shows on the board
     bool TryGetZoneRect(string key, Camera cam, out Rect rect)
     {
-        if (mZoneRects.TryGetValue(key, out rect)) return true;
-        if (!circles.TryGetValue(key, out GameObject obj) || obj == null) return false;
+        if (mZoneRects.TryGetValue(key, out rect)) { return true; }
+        if (!circles.TryGetValue(key, out GameObject obj) || obj == null) { return false; }
 
         Vector3 screen = cam.WorldToScreenPoint(obj.transform.position);
-        if (screen.z <= 0f || !TryScreenToBoard(screen, cam, out Vector2 center)) return false;
+        if (screen.z <= 0f || !TryScreenToBoard(screen, cam, out Vector2 center)) { return false; }
 
         Vector2 size = ZoneSize(cardWidth, cardHeight);
         rect = new Rect(center - size * 0.5f, size);
@@ -414,7 +422,9 @@ public class BoardLayout : MonoBehaviour
         {
             // Sprites/Default is in Always Included Shaders, so Shader.Find still finds it in a build
             if (sZoneFillMaterialTemplate == null)
+            {
                 sZoneFillMaterialTemplate = new Material(Shader.Find("Sprites/Default"));
+            }
 
             Material mat = new Material(sZoneFillMaterialTemplate) { color = fillColor };
             rend.material = mat;
@@ -465,7 +475,7 @@ public class BoardLayout : MonoBehaviour
     // Fits the label to its box, turned by LabelAngle
     void FitLabel(GameObject zone)
     {
-        if (!(zone.transform.Find("Label") is RectTransform label)) return;
+        if (!(zone.transform.Find("Label") is RectTransform label)) { return; }
 
         Vector3 zoneScale = zone.transform.localScale;
         bool across = Mathf.Abs(mLabelAngle) % 180 == 90;
@@ -481,11 +491,11 @@ public class BoardLayout : MonoBehaviour
     // Turns every zone's label
     public void SetLabelAngle(int degrees)
     {
-        if (degrees == mLabelAngle) return;
+        if (degrees == mLabelAngle) { return; }
         mLabelAngle = degrees;
         foreach (GameObject zone in circles.Values)
         {
-            if (zone == null) continue;
+            if (zone == null) { continue; }
             FitLabel(zone);
             zone.transform.Find("Label")?.GetComponent<TextMeshPro>().ForceMeshUpdate();
         }
@@ -494,25 +504,25 @@ public class BoardLayout : MonoBehaviour
     // Call this when a card is placed on a circle — hides the label
     public void PlaceCardOnCircle(string key)
     {
-        if (!circles.TryGetValue(key, out GameObject obj)) return;
+        if (!circles.TryGetValue(key, out GameObject obj)) { return; }
 
         hasCard[key] = true;
 
         // Hide the label
         Transform label = obj.transform.Find("Label");
-        if (label != null) label.gameObject.SetActive(false);
+        if (label != null) { label.gameObject.SetActive(false); }
     }
 
     // Call this when a card is removed from a circle — shows the label again
     public void RemoveCardFromCircle(string key)
     {
-        if (!circles.TryGetValue(key, out GameObject obj)) return;
+        if (!circles.TryGetValue(key, out GameObject obj)) { return; }
 
         hasCard[key] = false;
 
         // Show the label again
         Transform label = obj.transform.Find("Label");
-        if (label != null) label.gameObject.SetActive(true);
+        if (label != null) { label.gameObject.SetActive(true); }
     }
 
     // Returns whether a circle currently has a card on it
@@ -524,7 +534,7 @@ public class BoardLayout : MonoBehaviour
     // Returns the world position of a named circle
     public Vector3 GetCirclePosition(string key)
     {
-        if (circles.TryGetValue(key, out GameObject obj)) return obj.transform.position;
+        if (circles.TryGetValue(key, out GameObject obj)) { return obj.transform.position; }
         Debug.LogWarning("Circle not found: " + key);
         return Vector3.zero;
     }
@@ -539,9 +549,9 @@ public class BoardLayout : MonoBehaviour
     // Tints a circle
     public void HighlightCircle(string key, Color color)
     {
-        if (!circles.TryGetValue(key, out GameObject obj)) return;
+        if (!circles.TryGetValue(key, out GameObject obj)) { return; }
         Renderer rend = obj.GetComponent<Renderer>();
-        if (rend == null) return;
+        if (rend == null) { return; }
 
         rend.material.color = color;
         rend.enabled = color.a > 0.001f;
@@ -607,7 +617,7 @@ public class BoardLayout : MonoBehaviour
         foreach (string key in new List<string>(circles.Keys))
         {
             PlayerState ps = gs.players[SeatOfZone(key)];
-            if (ps == null) continue;
+            if (ps == null) { continue; }
 
             SetCircleOccupied(key, ps.CountInZone(key.Substring(3)) > 0); // suffix after "P1_"/"P2_"
         }
@@ -615,7 +625,7 @@ public class BoardLayout : MonoBehaviour
 
     private void SetCircleOccupied(string key, bool occupied)
     {
-        if (occupied) PlaceCardOnCircle(key);
-        else RemoveCardFromCircle(key);
+        if (occupied) { PlaceCardOnCircle(key); }
+        else { RemoveCardFromCircle(key); }
     }
 }

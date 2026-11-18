@@ -94,7 +94,9 @@ namespace Vanguard.Api
                 {
                     card.isOrderCard = true;
                     if (type.Contains("ブリッツ") || type.Contains("Blitz"))
+                    {
                         card.isBlitzOrder = true;
+                    }
                 }
             }
 
@@ -146,12 +148,12 @@ namespace Vanguard.Api
 
         static TriggerIcon ParseTriggerIcon(string source)
         {
-            if (source.Contains("Critical") || source.Contains("クリティカル")) return TriggerIcon.Critical;
-            if (source.Contains("Draw") || source.Contains("ドロー")) return TriggerIcon.Draw;
-            if (source.Contains("Stand") || source.Contains("スタンド")) return TriggerIcon.Stand;
-            if (source.Contains("Heal") || source.Contains("ヒール")) return TriggerIcon.Heal;
-            if (source.Contains("Front") || source.Contains("フロント")) return TriggerIcon.Front;
-            if (source.Contains("Over") || source.Contains("オーバー")) return TriggerIcon.Over;
+            if (source.Contains("Critical") || source.Contains("クリティカル")) { return TriggerIcon.Critical; }
+            if (source.Contains("Draw") || source.Contains("ドロー")) { return TriggerIcon.Draw; }
+            if (source.Contains("Stand") || source.Contains("スタンド")) { return TriggerIcon.Stand; }
+            if (source.Contains("Heal") || source.Contains("ヒール")) { return TriggerIcon.Heal; }
+            if (source.Contains("Front") || source.Contains("フロント")) { return TriggerIcon.Front; }
+            if (source.Contains("Over") || source.Contains("オーバー")) { return TriggerIcon.Over; }
             return TriggerIcon.None;
         }
     }

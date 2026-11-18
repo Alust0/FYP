@@ -21,8 +21,8 @@ public class ConditionStep : Step
     public override bool Begin(SkillFrame f)
     {
         bool? met = Check(f);
-        if (met == null) return false; // the player says
-        if (met == false) f.Rules.Stop(f, "its condition isn't met, so it does nothing more.");
+        if (met == null) { return false; } // the player says
+        if (met == false) { f.Rules.Stop(f, "its condition isn't met, so it does nothing more."); }
         return true;
     }
 
@@ -45,9 +45,9 @@ public class ConditionStep : Step
         }
 
         Match imprisoned = ImprisonedRx.Match(Text);
-        if (imprisoned.Success) return Prison.Imprisoned(f.Owner) >= int.Parse(imprisoned.Groups[1].Value);
+        if (imprisoned.Success) { return Prison.Imprisoned(f.Owner) >= int.Parse(imprisoned.Groups[1].Value); }
 
-        if (Text == PersonaRodeText) return f.Rules.HasPersonaRode(f.Owner);
+        if (Text == PersonaRodeText) { return f.Rules.HasPersonaRode(f.Owner); }
         return null;
     }
 

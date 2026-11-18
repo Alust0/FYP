@@ -72,27 +72,27 @@ public partial class MatchLog : MonoBehaviour
         ClaimOldLogs();
         BuildUI();
         LoadFileList();
-        if (mFiles.Count > 0) Open(mFiles[0]);
-        else ShowLog();
+        if (mFiles.Count > 0) { Open(mFiles[0]); }
+        else { ShowLog(); }
     }
 
     // Moves old loose logs into this account's folder if the player name matches
     void ClaimOldLogs()
     {
         string me = PlayerSession.Name;
-        if (me == "Player") return; // not logged in
+        if (me == "Player") { return; } // not logged in
         try
         {
-            if (!Directory.Exists(MatchLogger.RootFolder)) return;
+            if (!Directory.Exists(MatchLogger.RootFolder)) { return; }
             foreach (string file in Directory.GetFiles(MatchLogger.RootFolder, "*.txt"))
             {
                 string first;
                 using (StreamReader reader = OpenReader(file)) first = reader.ReadLine() ?? "";
-                if (!string.Equals(LocalPlayer(file, first), me, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(LocalPlayer(file, first), me, StringComparison.OrdinalIgnoreCase)) { continue; }
 
                 Directory.CreateDirectory(mFolder);
                 string to = Path.Combine(mFolder, Path.GetFileName(file));
-                if (!File.Exists(to)) File.Move(file, to);
+                if (!File.Exists(to)) { File.Move(file, to); }
             }
         }
         catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
@@ -105,7 +105,7 @@ public partial class MatchLog : MonoBehaviour
     static string LocalPlayer(string file, string firstLine)
     {
         int at = firstLine.IndexOf(": ", StringComparison.Ordinal);
-        if (at < 0) return null;
+        if (at < 0) { return null; }
         string[] names = firstLine.Substring(at + 2).Split(new[] { " vs " }, StringSplitOptions.None);
         int seat = Path.GetFileNameWithoutExtension(file).EndsWith(" P2") ? 1 : 0;
         return names[Mathf.Min(seat, names.Length - 1)].Trim();
@@ -158,7 +158,9 @@ public partial class MatchLog : MonoBehaviour
     {
         string name = Path.GetFileNameWithoutExtension(file);
         if (name.Length < 23 || !DateTime.TryParseExact(name.Substring(6, 17), "yyyy-MM-dd HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime when))
+        {
             return Escape(name);
+        }
         string seat = name.Substring(23).Trim();
         return when.ToString("ddd d MMM, HH:mm") + (seat.Length > 0 ? " (" + seat + ")" : "");
     }
@@ -181,7 +183,7 @@ public partial class MatchLog : MonoBehaviour
         string players = comma >= 0 ? first.Substring(comma + 2) : first;
 
         Result result = FindResult(text);
-        if (result == null) return players;
+        if (result == null) { return players; }
         Match score = Regex.Match(result.score, @"\d+ - \d+");
         return result.outcome + (score.Success ? " " + score.Value : "") + ", " + players;
     }
@@ -190,7 +192,7 @@ public partial class MatchLog : MonoBehaviour
     static Result FindResult(string text)
     {
         MatchCollection matches = ResultPattern.Matches(text.Replace("\r", ""));
-        if (matches.Count == 0) return null;
+        if (matches.Count == 0) { return null; }
         Match match = matches[matches.Count - 1];
         return new Result { outcome = match.Groups[1].Value, score = match.Groups[2].Value, time = match.Groups[3].Value };
     }
@@ -246,7 +248,7 @@ public partial class MatchLog : MonoBehaviour
         var entries = new List<Entry>();
         foreach (string line in text.Split('\n').Select(l => l.TrimEnd('\r')))
         {
-            if (line.Length == 0) continue;
+            if (line.Length == 0) { continue; }
 
             Entry last = entries.Count > 0 ? entries[entries.Count - 1] : null;
             if (last != null && last.kind == Kind.Board && line.StartsWith(" "))
@@ -299,7 +301,7 @@ public partial class MatchLog : MonoBehaviour
 
         if (!open)
         {
-            if (mOpenFile == null) mMatchTitle.text = "No match picked";
+            if (mOpenFile == null) { mMatchTitle.text = "No match picked"; }
             AddLogHint(mFiles.Count == 0 ? "Play a match and its log shows up here." : "Pick a match on the left.");
             return;
         }
@@ -320,7 +322,7 @@ public partial class MatchLog : MonoBehaviour
                 AddLogBlock(sb.ToString());
                 sb.Clear();
             }
-            if (sb.Length > 0) sb.Append('\n');
+            if (sb.Length > 0) { sb.Append('\n'); }
             sb.Append(Format(entry));
         }
         AddLogBlock(sb.ToString());
@@ -351,7 +353,7 @@ public partial class MatchLog : MonoBehaviour
 
     void OnCopy()
     {
-        if (mRawText == null) return;
+        if (mRawText == null) { return; }
         GUIUtility.systemCopyBuffer = mRawText;
         SetStatus("Copied the whole log to the clipboard.");
     }
@@ -365,7 +367,7 @@ public partial class MatchLog : MonoBehaviour
     // Warns the first time and deletes the second
     void OnDelete()
     {
-        if (mOpenFile == null) return;
+        if (mOpenFile == null) { return; }
         if (mDeleteWarned != mOpenFile)
         {
             mDeleteWarned = mOpenFile;
@@ -388,8 +390,8 @@ public partial class MatchLog : MonoBehaviour
         mEntries.Clear();
         ShowResult();
         LoadFileList();
-        if (mFiles.Count > 0) Open(mFiles[0]);
-        else ShowLog();
+        if (mFiles.Count > 0) { Open(mFiles[0]); }
+        else { ShowLog(); }
         SetStatus("Log deleted.");
     }
 

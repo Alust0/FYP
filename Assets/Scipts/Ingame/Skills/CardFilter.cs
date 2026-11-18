@@ -11,11 +11,11 @@ public class CardFilter
 
     public bool Matches(CardData data)
     {
-        if (data == null) return false;
-        if (Grade >= 0 && (OrGreater ? data.grade < Grade : data.grade != Grade)) return false;
-        if (Race != null && !Has(data.race, Race) && !Has(data.raceJa, Race)) return false;
-        if (Name != null && !Has(data.cardName, Name) && !Has(data.cardNameEn, Name)) return false;
-        if (Keyword != null && !new[] { data.cardName, data.cardNameEn, data.race, data.raceJa, data.nation, data.clan, data.cardType }.Any(s => Has(s, Keyword))) return false;
+        if (data == null) { return false; }
+        if (Grade >= 0 && (OrGreater ? data.grade < Grade : data.grade != Grade)) { return false; }
+        if (Race != null && !Has(data.race, Race) && !Has(data.raceJa, Race)) { return false; }
+        if (Name != null && !Has(data.cardName, Name) && !Has(data.cardNameEn, Name)) { return false; }
+        if (Keyword != null && !new[] { data.cardName, data.cardNameEn, data.race, data.raceJa, data.nation, data.clan, data.cardType }.Any(s => Has(s, Keyword))) { return false; }
         return true;
     }
 

@@ -85,7 +85,7 @@ public partial class DeckBuilder
         PlaceTop((RectTransform)mSearchInput.transform, 0f, 1f, 86f, 60f, 100f, 28f);
         mSearchInput.onValueChanged.AddListener(_ =>
         {
-            if (scanner.IsScanning) StopScanning("");
+            if (scanner.IsScanning) { StopScanning(""); }
             ShowBrowser();
         });
 
@@ -155,7 +155,7 @@ public partial class DeckBuilder
     {
         string[] kinds = KindOptions;
         mKindDropdown.ClearOptions();
-        if (kinds != null) mKindDropdown.AddOptions(kinds.ToList());
+        if (kinds != null) { mKindDropdown.AddOptions(kinds.ToList()); }
         mKindDropdown.SetValueWithoutNotify(0);
 
         bool show = kinds != null;
@@ -230,7 +230,7 @@ public partial class DeckBuilder
         mNameInput.characterLimit = 40;
         mNameInput.onValueChanged.AddListener(text =>
         {
-            if (mDeck == null) return;
+            if (mDeck == null) { return; }
             mDeck.deckName = text;
             MarkDirty();
             ShowSummary();
@@ -240,7 +240,7 @@ public partial class DeckBuilder
         mDeckArrow = AddIconButton(panel, "Down", () => mDeckDropdown.Show(), InputColor);
         PlaceTop((RectTransform)mDeckArrow.transform, 1f, 1f, 86f, 60f, -292f, 232f);
         Transform icon = mDeckArrow.transform.Find("Icon");
-        if (icon != null) icon.GetComponent<Image>().color = DarkText;
+        if (icon != null) { icon.GetComponent<Image>().color = DarkText; }
 
         Button newDeck = AddButton(panel, "New Deck", OnNewDeck, Accent, DarkText, 26);
         PlaceTop((RectTransform)newDeck.transform, 1f, 1f, 86f, 60f, -220f, 28f);

@@ -9,7 +9,7 @@ public class AccountDeckSource : InspectorDeckSource
         if (playerIndex == 0 && MatchSession.IsOneSide && !string.IsNullOrEmpty(MatchSession.DeckId))
         {
             Deck deck = await DeckRepository.FindAsync(MatchSession.DeckId);
-            if (deck != null) return deck;
+            if (deck != null) { return deck; }
             Debug.LogWarning("[AccountDeckSource] No deck with id " + MatchSession.DeckId + "; using the Inspector test deck.");
         }
         return await base.LoadDeckAsync(playerIndex);

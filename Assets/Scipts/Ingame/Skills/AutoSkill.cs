@@ -10,8 +10,8 @@ public class AutoSkill : Skill
     // The other card has the name the skill asks for (any card, if it asks for none)
     public bool OtherFits(CardInstance other)
     {
-        if (Named == null) return true;
-        if (other == null) return false;
+        if (Named == null) { return true; }
+        if (other == null) { return false; }
         return CardFilter.Has(other.data.cardNameEn, Named) || CardFilter.Has(other.data.cardName, Named);
     }
 

@@ -104,8 +104,8 @@ public class MatchLogger : MonoBehaviour
 
     void OnDestroy()
     {
-        if (sInstance == this) sInstance = null;
-        if (!mLoggedResult && mTurn > 0) WriteResult(DamageLeader(), "left before the end, so whoever dealt more damage wins");
+        if (sInstance == this) { sInstance = null; }
+        if (!mLoggedResult && mTurn > 0) { WriteResult(DamageLeader(), "left before the end, so whoever dealt more damage wins"); }
         WriteLine("Match log closed.");
         mWriter?.Dispose();
         mWriter = null;
@@ -114,15 +114,15 @@ public class MatchLogger : MonoBehaviour
     // An action that isn't a card the tracker saw, e.g. a keyword, a button or a count fixed by hand
     public static void Action(string text)
     {
-        if (sInstance != null) sInstance.Write("Action", text);
-        else Debug.Log("[MatchLogger] Action  " + text);
+        if (sInstance != null) { sInstance.Write("Action", text); }
+        else { Debug.Log("[MatchLogger] Action  " + text); }
     }
 
     // Logs card changes before the rules react
     public static void CardMoved(CardInstance card, PlayerState fromOwner, string fromZone)
     {
         string text = CardName(card) + ": " + Where(fromOwner, fromZone) + " -> " + Where(card.zoneOwner, card.zone);
-        if (card.zone == "Vanguard" && card.zoneOwner.previousVanguard != null) text += " (over " + CardName(card.zoneOwner.previousVanguard) + ")";
+        if (card.zone == "Vanguard" && card.zoneOwner.previousVanguard != null) { text += " (over " + CardName(card.zoneOwner.previousVanguard) + ")"; }
         Action(text);
     }
 
@@ -136,15 +136,17 @@ public class MatchLogger : MonoBehaviour
     void HandlePhase(TurnPhase phase, string turnPlayer)
     {
         GameState gs = GameState.Instance;
-        if (gs == null || (gs.turnNumber == mTurn && phase == mPhase)) return;
+        if (gs == null || (gs.turnNumber == mTurn && phase == mPhase)) { return; }
 
         if (mTurn > 0 && (mPhase == TurnPhase.RidePhase || mPhase == TurnPhase.MainPhase || mPhase == TurnPhase.BattlePhase))
+        {
             WriteBoard("End of " + mTurnPlayer + "'s turn " + mTurn + " " + PhaseName(mPhase));
+        }
 
         mTurn = gs.turnNumber;
         mPhase = phase;
         mTurnPlayer = turnPlayer;
-        if (mTurn > 0) Write("Phase", "--- " + turnPlayer + "'s turn " + mTurn + ": " + PhaseName(phase) + " ---");
+        if (mTurn > 0) { Write("Phase", "--- " + turnPlayer + "'s turn " + mTurn + ": " + PhaseName(phase) + " ---"); }
     }
 
     // Notifications
@@ -161,7 +163,7 @@ public class MatchLogger : MonoBehaviour
     void AddNotification(string title, string body)
     {
         string entry = "[" + Stamp() + "] " + title + ": " + body;
-        if (Notifications.Count > 0 && Notifications[Notifications.Count - 1] == entry) return;
+        if (Notifications.Count > 0 && Notifications[Notifications.Count - 1] == entry) { return; }
 
         Notifications.Add(entry);
         Write("Notice", title + ": " + body);
@@ -174,7 +176,7 @@ public class MatchLogger : MonoBehaviour
     {
         for (int i = 0; i < 2; i++)
         {
-            if (gs.players[i] == null) continue;
+            if (gs.players[i] == null) { continue; }
             mDamage[i] = gs.players[i].CountInZone("Damage");
             mNames[i] = gs.players[i].playerName;
         }
@@ -242,7 +244,7 @@ public class MatchLogger : MonoBehaviour
     void WriteBoard(string heading)
     {
         GameState gs = GameState.Instance;
-        if (gs == null || gs.players[0] == null || gs.players[1] == null) return;
+        if (gs == null || gs.players[0] == null || gs.players[1] == null) { return; }
 
         var sb = new StringBuilder();
         sb.Append("=== Board: ").Append(heading).Append(" ===");
@@ -259,11 +261,11 @@ public class MatchLogger : MonoBehaviour
             {
                 int count = player.CountInZone(zone);
                 List<CardInstance> seen = player.ZoneList(zone);
-                if (count == 0 && seen.Count == 0) continue;
+                if (count == 0 && seen.Count == 0) { continue; }
 
                 sb.Append("\n    ").Append(zone.PadRight(11)).Append(count);
-                if (zone == "Damage") sb.Append(" (").Append(player.FaceUpDamage).Append(" face up)");
-                if (seen.Count > 0) sb.Append(": ").Append(string.Join(", ", seen.Select(c => CardName(c) + (c.facing == CardFacing.FaceDown ? " (face down)" : ""))));
+                if (zone == "Damage") { sb.Append(" (").Append(player.FaceUpDamage).Append(" face up)"); }
+                if (seen.Count > 0) { sb.Append(": ").Append(string.Join(", ", seen.Select(c => CardName(c) + (c.facing == CardFacing.FaceDown ? " (face down)" : "")))); }
             }
 
             sb.Append("\n    ").Append("Deck".PadRight(11)).Append(player.CountInZone("Deck"))
@@ -287,7 +289,7 @@ public class MatchLogger : MonoBehaviour
     // Nothing after the result: the game is over, and its log with it
     void Write(string category, string text)
     {
-        if (mLoggedResult) return;
+        if (mLoggedResult) { return; }
         WriteLine(DateTime.Now.ToString("HH:mm:ss") + " [" + Stamp() + "] " + category.PadRight(6) + " " + text);
     }
 
@@ -295,7 +297,7 @@ public class MatchLogger : MonoBehaviour
     {
         Debug.Log("[MatchLogger] " + line);
         mLog.AppendLine(line);
-        if (mWriter == null) return;
+        if (mWriter == null) { return; }
         try { mWriter.WriteLine(line); }
         catch (Exception e)
         {
@@ -308,7 +310,7 @@ public class MatchLogger : MonoBehaviour
     static string Stamp()
     {
         GameState gs = GameState.Instance;
-        if (gs == null || gs.turnNumber == 0) return "Setup";
+        if (gs == null || gs.turnNumber == 0) { return "Setup"; }
         return "T" + gs.turnNumber + " " + gs.currentPhase.ToString().Replace("Phase", "");
     }
 

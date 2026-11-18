@@ -50,13 +50,29 @@ public class ShieldBreak : MonoBehaviour
         mLiveShield = AddRaw(mLive, "Body", sShield);
         mLive.gameObject.SetActive(false);
         RulesEngine.OnHitDecided += Decided;
+        RulesEngine.OnUndone += Undone;
     }
 
     void OnDestroy()
     {
         RulesEngine.OnHitDecided -= Decided;
-        if (mCanvas != null) Destroy(mCanvas.gameObject);
+        RulesEngine.OnUndone -= Undone;
+        if (mCanvas != null) { Destroy(mCanvas.gameObject); }
     }
+
+    // Undo: the results shown go, and the live shield pops in again (RulesEngine replays a decided hit)
+    void Undone()
+    {
+        StopAllCoroutines();
+        foreach (GameObject result in mResults)
+        {
+            if (result != null) { Destroy(result); }
+        }
+        mResults.Clear();
+        mLiveKey = null;
+    }
+
+    readonly System.Collections.Generic.List<GameObject> mResults = new System.Collections.Generic.List<GameObject>(); // Break/Hold shields on screen
 
     bool Wanted(PlayerState defender) =>
         defender != null && (ownUnitsToo || !MatchSession.IsOnline || !MatchSession.IsLocal(defender));
@@ -70,14 +86,14 @@ public class ShieldBreak : MonoBehaviour
     // Follows the attack's target from the guard step until the hit is decided
     void Update()
     {
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
         var attack = mRules != null ? mRules.AttackArrow : null;
         if (attack == null || !Wanted(attack.Value.defender) ||
             !ZoneHighlighter.TryGetScreenRect(mBoard, attack.Value.defender, attack.Value.to, out Rect box))
         {
             mLiveKey = null;
-            if (mLive.gameObject.activeSelf) mLive.gameObject.SetActive(false);
+            if (mLive.gameObject.activeSelf) { mLive.gameObject.SetActive(false); }
             return;
         }
 
@@ -88,7 +104,7 @@ public class ShieldBreak : MonoBehaviour
             mLiveSince = Time.unscaledTime;
         }
         mLiveBox = box;
-        if (!mLive.gameObject.activeSelf) mLive.gameObject.SetActive(true);
+        if (!mLive.gameObject.activeSelf) { mLive.gameObject.SetActive(true); }
 
         // Pops in, then bobs gently with a pulsing glow
         float t = Time.unscaledTime - mLiveSince;
@@ -103,11 +119,11 @@ public class ShieldBreak : MonoBehaviour
 
     void Decided(PlayerState defender, string zone, bool hit)
     {
-        if (!Wanted(defender)) return;
+        if (!Wanted(defender)) { return; }
         string key = defender.playerIndex + "_" + zone;
         if (!ZoneHighlighter.TryGetScreenRect(mBoard, defender, zone, out Rect box))
         {
-            if (key != mLiveKey) return;
+            if (key != mLiveKey) { return; }
             box = mLiveBox;
         }
         mLiveKey = null;
@@ -125,7 +141,7 @@ public class ShieldBreak : MonoBehaviour
 
     bool Battle(RulesEngine.BattleStep step)
     {
-        if (mGame == null) mGame = FindFirstObjectByType<GameState>();
+        if (mGame == null) { mGame = FindFirstObjectByType<GameState>(); }
         return mRules != null && mRules.Step == step && mRules.AttackArrow == null && (mGame == null || !mGame.gameOver);
     }
 
@@ -134,6 +150,7 @@ public class ShieldBreak : MonoBehaviour
     {
         Vector2 shieldSize = ShieldSize(box);
         RectTransform root = AddRect(mCanvas, "ShieldBreak");
+        mResults.Add(root.gameObject);
         root.anchorMin = root.anchorMax = Vector2.zero;
         root.anchoredPosition = box.center;
         root.sizeDelta = shieldSize;
@@ -232,6 +249,7 @@ public class ShieldBreak : MonoBehaviour
             flash.color = new Color(hitColor.r, hitColor.g, hitColor.b, 0.5f * Mathf.Clamp01(1f - t / 0.4f));
             yield return null;
         }
+        mResults.Remove(root.gameObject);
         Destroy(root.gameObject);
     }
 
@@ -240,6 +258,7 @@ public class ShieldBreak : MonoBehaviour
     {
         Vector2 shieldSize = ShieldSize(box);
         RectTransform root = AddRect(mCanvas, "ShieldHold");
+        mResults.Add(root.gameObject);
         root.anchorMin = root.anchorMax = Vector2.zero;
         root.anchoredPosition = box.center;
         root.sizeDelta = shieldSize;
@@ -283,6 +302,7 @@ public class ShieldBreak : MonoBehaviour
             ring.color = Color.clear;
             yield return null;
         }
+        mResults.Remove(root.gameObject);
         Destroy(root.gameObject);
     }
 
@@ -319,9 +339,9 @@ public class ShieldBreak : MonoBehaviour
     // The shield, a cracked copy, its silhouette, its shards and a ring, made once
     static void MakeTextures()
     {
-        if (sShield != null) return;
+        if (sShield != null) { return; }
         Color32[] shield = ReadShield();
-        if (shield == null) return;
+        if (shield == null) { return; }
         var mask = new Color32[W * H];
         for (int p = 0; p < W * H; p++) mask[p] = new Color32(255, 255, 255, shield[p].a);
 
@@ -342,7 +362,7 @@ public class ShieldBreak : MonoBehaviour
                 float a = Mathf.Repeat(angle + 0.16f * Zigzag(r / 16f, sector, 0) * Mathf.Min(1f, r / 25f), 2f * Mathf.PI);
                 int wedge = Wedges - 1;
                 for (int i = 1; i < Wedges; i++) if (a < bounds[i]) { wedge = i - 1; break; }
-                if (a < bounds[0]) wedge = Wedges - 1;
+                if (a < bounds[0]) { wedge = Wedges - 1; }
                 float inner = 0.2f * H * (1f + 0.25f * Zigzag(angle / (2f * Mathf.PI) * 7f, 99, 7));
                 index[py * W + px] = r < inner ? Wedges + wedge / 2 : wedge;
             }
@@ -352,8 +372,8 @@ public class ShieldBreak : MonoBehaviour
             for (int px = 0; px < W - 1; px++)
             {
                 int p = py * W + px;
-                if (shield[p].a < 40) continue; // not the soft shadow round it
-                if (index[p] != index[p + 1] || index[p] != index[p + W]) crack[p] = crack[p + 1] = crack[p + W] = true;
+                if (shield[p].a < 40) { continue; } // not the soft shadow round it
+                if (index[p] != index[p + 1] || index[p] != index[p + W]) { crack[p] = crack[p + 1] = crack[p + W] = true; }
             }
 
         var cracked = (Color32[])shield.Clone();
@@ -362,7 +382,7 @@ public class ShieldBreak : MonoBehaviour
         for (int k = 0; k < shardCount; k++) pieces[k] = new Color32[W * H];
         for (int p = 0; p < W * H; p++)
         {
-            if (shield[p].a == 0) continue;
+            if (shield[p].a == 0) { continue; }
             if (crack[p])
             {
                 cracked[p] = new Color32(25, 28, 45, shield[p].a); // dark lines on the bright metal
@@ -377,12 +397,12 @@ public class ShieldBreak : MonoBehaviour
         sCracked = ToTexture(cracked, W, H);
         sMask = ToTexture(mask, W, H);
         int kept = 0;
-        for (int k = 0; k < shardCount; k++) if (sums[k].z > 0f) kept++;
+        for (int k = 0; k < shardCount; k++) if (sums[k].z > 0f) { kept++; }
         sShards = new Texture2D[kept];
         sCentroids = new Vector2[kept];
         for (int k = 0, n = 0; k < shardCount; k++)
         {
-            if (sums[k].z <= 0f) continue;
+            if (sums[k].z <= 0f) { continue; }
             sShards[n] = ToTexture(pieces[k], W, H);
             sCentroids[n++] = new Vector2(sums[k].x / sums[k].z, sums[k].y / sums[k].z);
         }

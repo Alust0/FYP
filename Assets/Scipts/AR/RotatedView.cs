@@ -31,8 +31,8 @@ public class RotatedView : MonoBehaviour
     // A canvas drawn over the camera view, e.g. the hand frames, turning with it
     public static void Follow(Canvas canvas)
     {
-        if (!sCanvases.Contains(canvas)) sCanvases.Add(canvas);
-        if (sInstance != null && sInstance.mTurned) sInstance.Attach(canvas);
+        if (!sCanvases.Contains(canvas)) { sCanvases.Add(canvas); }
+        if (sInstance != null && sInstance.mTurned) { sInstance.Attach(canvas); }
     }
 
     // A label filling its box (stretched, inset by its offsets) on a followed canvas
@@ -94,25 +94,25 @@ public class RotatedView : MonoBehaviour
 
     void OnDestroy()
     {
-        if (mTurned) TurnBack();
-        if (sInstance == this) sInstance = null;
+        if (mTurned) { TurnBack(); }
+        if (sInstance == this) { sInstance = null; }
     }
 
     void LateUpdate()
     {
-        if (mCamera == null) mCamera = Camera.main;
+        if (mCamera == null) { mCamera = Camera.main; }
         bool wanted = GameSettings.RotateView && mCamera != null;
         if (wanted != mTurned)
         {
-            if (wanted) Turn();
-            else TurnBack();
+            if (wanted) { Turn(); }
+            else { TurnBack(); }
         }
-        if (!mTurned) return;
+        if (!mTurned) { return; }
 
         sCanvases.RemoveAll(c => c == null);
         foreach (Canvas canvas in sCanvases) Attach(canvas); // e.g. one made since
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
-        if (mBoard != null) mBoard.SetLabelAngle(-90); // the view turns +90
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
+        if (mBoard != null) { mBoard.SetLabelAngle(-90); } // the view turns +90
         TurnLabels();
         UpdateTextures();
         RenderPicture();
@@ -170,14 +170,14 @@ public class RotatedView : MonoBehaviour
         mTurned = false;
         foreach (Canvas canvas in sCanvases) Detach(canvas);
         UnturnLabels();
-        if (mBoard != null) mBoard.SetLabelAngle(0);
+        if (mBoard != null) { mBoard.SetLabelAngle(0); }
         if (mPictureCanvas != null)
         {
             mPictureCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             mPictureCanvas.gameObject.SetActive(false);
         }
-        if (mDisplayCanvas != null) mDisplayCanvas.SetActive(false);
-        if (mUiCamera != null) Destroy(mUiCamera.gameObject);
+        if (mDisplayCanvas != null) { mDisplayCanvas.SetActive(false); }
+        if (mUiCamera != null) { Destroy(mUiCamera.gameObject); }
         mUiCamera = null;
         Release(ref mTexture);
         Release(ref mPicture);
@@ -185,7 +185,7 @@ public class RotatedView : MonoBehaviour
 
     static void Release(ref RenderTexture texture)
     {
-        if (texture != null) texture.Release();
+        if (texture != null) { texture.Release(); }
         texture = null;
     }
 
@@ -216,7 +216,9 @@ public class RotatedView : MonoBehaviour
         mCamera.rect = new Rect(0f, 0f, 1f, 1f);
         var request = new RenderPipeline.StandardRequest { destination = mPicture };
         if (RenderPipeline.SupportsRenderRequest(mCamera, request))
+        {
             RenderPipeline.SubmitRenderRequest(mCamera, request);
+        }
         else
         {
             RenderTexture target = mCamera.targetTexture;
@@ -229,7 +231,7 @@ public class RotatedView : MonoBehaviour
 
     void Attach(Canvas canvas)
     {
-        if (canvas == null || canvas.renderMode == RenderMode.ScreenSpaceCamera) return;
+        if (canvas == null || canvas.renderMode == RenderMode.ScreenSpaceCamera) { return; }
         mOriginal[canvas] = (canvas.gameObject.layer, canvas.sortingOrder);
         AttachCanvas(canvas);
     }
@@ -243,10 +245,10 @@ public class RotatedView : MonoBehaviour
 
     void Detach(Canvas canvas)
     {
-        if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceCamera) return;
+        if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceCamera) { return; }
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.worldCamera = null;
-        if (!mOriginal.TryGetValue(canvas, out var original)) return;
+        if (!mOriginal.TryGetValue(canvas, out var original)) { return; }
         SetLayer(canvas.transform, original.layer);
         canvas.sortingOrder = original.order; // set again so the overlays re-sort under the HUD
     }
@@ -288,10 +290,10 @@ public class RotatedView : MonoBehaviour
         public void OnPointerClick(PointerEventData eventData)
         {
             RectTransform rt = (RectTransform)transform;
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, eventData.position, null, out Vector2 local)) return;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, eventData.position, null, out Vector2 local)) { return; }
             Rect r = rt.rect;
             Vector2 n = new Vector2((local.x - r.x) / r.width, (local.y - r.y) / r.height); // 0-1 across the picture
-            if (n.x < 0f || n.x > 1f || n.y < 0f || n.y > 1f) return;
+            if (n.x < 0f || n.x > 1f || n.y < 0f || n.y > 1f) { return; }
 
             // The picture shows SplitScreenView.ViewsArea of the screen
             Rect source = SplitScreenView.ViewsArea;
@@ -305,9 +307,9 @@ public class RotatedView : MonoBehaviour
             EventSystem.current.RaycastAll(unturned, mHits);
             foreach (RaycastResult hit in mHits)
             {
-                if (hit.gameObject == gameObject) continue; // the picture itself, where it overlaps the spot
+                if (hit.gameObject == gameObject) { continue; } // the picture itself, where it overlaps the spot
                 GameObject target = ExecuteEvents.GetEventHandler<IPointerClickHandler>(hit.gameObject);
-                if (target == null) continue;
+                if (target == null) { continue; }
                 unturned.pointerCurrentRaycast = unturned.pointerPressRaycast = hit;
                 unturned.pointerPress = target;
                 ExecuteEvents.Execute(target, unturned, ExecuteEvents.pointerClickHandler);

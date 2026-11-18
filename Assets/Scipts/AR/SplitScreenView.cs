@@ -53,7 +53,7 @@ public partial class SplitScreenView : MonoBehaviour
     void Start()
     {
         mSplit = MatchSession.IsOnline;
-        if (!MatchSession.IsOnline) return;
+        if (!MatchSession.IsOnline) { return; }
 
         mLink = gameObject.AddComponent<CameraFeedLink>();
         mIncoming = new Texture2D(2, 2);
@@ -63,18 +63,18 @@ public partial class SplitScreenView : MonoBehaviour
     void OnDestroy()
     {
         OpponentView = null;
-        if (mCamera != null) mCamera.rect = FullView;
-        if (mCapture != null) mCapture.Release();
+        if (mCamera != null) { mCamera.rect = FullView; }
+        if (mCapture != null) { mCapture.Release(); }
     }
 
     void Update()
     {
-        if (mCamera == null) mCamera = Camera.main;
-        if (mCamera == null) return;
+        if (mCamera == null) { mCamera = Camera.main; }
+        if (mCamera == null) { return; }
         ApplyLayout();
-        if (mLink == null) return; // offline: just the layout
+        if (mLink == null) { return; } // offline: just the layout
 
-        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) mSplit = !mSplit;
+        if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame) { mSplit = !mSplit; }
 
         byte[] frame = mLink.TakeLatest();
         if (frame != null && mIncoming.LoadImage(frame))
@@ -95,7 +95,7 @@ public partial class SplitScreenView : MonoBehaviour
             encoded = mEncoded;
             mEncoded = null;
         }
-        if (encoded != null) mLink.Send(encoded);
+        if (encoded != null) { mLink.Send(encoded); }
 
         // Direct: paced from each capture's start, so the rate holds; the database waits for each upload
         bool due = mLink.Direct ? Time.unscaledTime >= mNextCapture && !mLink.Busy : mLink.ReadyToSend;
@@ -109,23 +109,23 @@ public partial class SplitScreenView : MonoBehaviour
     // Again after Vuforia's own updates, in case it resets the camera's viewport
     void LateUpdate()
     {
-        if (mCamera != null) ApplyLayout();
+        if (mCamera != null) { ApplyLayout(); }
     }
 
     void ApplyLayout()
     {
         Rect wanted = ViewRect(mSplit);
-        if (mCamera.rect != wanted) mCamera.rect = wanted;
+        if (mCamera.rect != wanted) { mCamera.rect = wanted; }
 
-        if (mBackdrop == null) mBackdrop = CreateBackdrop();
+        if (mBackdrop == null) { mBackdrop = CreateBackdrop(); }
         mBackdrop.depth = mCamera.depth - 1;
 
         OpponentView = null;
         bool split = mFeedPanel != null && mSplit;
         ViewsArea = split ? new Rect(wanted.x, wanted.y, wanted.width, 1f - 2f * wanted.y) : wanted; // the two boxes, mirrored about the middle
-        if (mFeedPanel == null) return;
+        if (mFeedPanel == null) { return; }
         mFeedPanel.SetActive(mSplit);
-        if (mSplit) OpponentView = new Rect(wanted.x, 1f - wanted.yMax, wanted.width, wanted.height);
+        if (mSplit) { OpponentView = new Rect(wanted.x, 1f - wanted.yMax, wanted.width, wanted.height); }
 
         // The opponent's view: the same box, mirrored into the top half
         RectTransform panel = (RectTransform)mFeedPanel.transform;
@@ -177,21 +177,23 @@ public partial class SplitScreenView : MonoBehaviour
         int height = Mathf.Max(1, Mathf.RoundToInt(wide / ViewAspect)); // same shape as the view on screen
         if (mCapture == null || mCapture.height != height || mCapture.width != wide)
         {
-            if (mCapture != null) mCapture.Release();
+            if (mCapture != null) { mCapture.Release(); }
             mCapture = new RenderTexture(wide, height, 24);
         }
 
         // Zone labels turned as the opponent reads them
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
         int ownAngle = mBoard != null ? mBoard.LabelAngle : 0;
-        if (mBoard != null) mBoard.SetLabelAngle(OnlineMatch.OpponentTurned ? 90 : 180);
+        if (mBoard != null) { mBoard.SetLabelAngle(OnlineMatch.OpponentTurned ? 90 : 180); }
 
         Rect rect = mCamera.rect;
         mCamera.rect = FullView;
         CardOverlayUI.HideOpenPanels(true); // a card's detail panel is only for this player
         var request = new RenderPipeline.StandardRequest { destination = mCapture };
         if (RenderPipeline.SupportsRenderRequest(mCamera, request))
+        {
             RenderPipeline.SubmitRenderRequest(mCamera, request);
+        }
         else
         {
             RenderTexture target = mCamera.targetTexture;
@@ -201,7 +203,7 @@ public partial class SplitScreenView : MonoBehaviour
         }
         CardOverlayUI.HideOpenPanels(false);
         mCamera.rect = rect;
-        if (mBoard != null) mBoard.SetLabelAngle(ownAngle);
+        if (mBoard != null) { mBoard.SetLabelAngle(ownAngle); }
 
         mInFlight++;
         int seq = ++mCaptureSeq;

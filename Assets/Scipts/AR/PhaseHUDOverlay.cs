@@ -53,7 +53,7 @@ public class PhaseHUDOverlay : MonoBehaviour
 
     void OnSettingsChanged()
     {
-        if (GameState.Instance != null) OnGameStateUpdated(GameState.Instance);
+        if (GameState.Instance != null) { OnGameStateUpdated(GameState.Instance); }
     }
 
     RulesEngine mRules;
@@ -67,17 +67,17 @@ public class PhaseHUDOverlay : MonoBehaviour
             timerText.color = MatchTimer.Remaining < 300 ? new Color(1f, 0.4f, 0.35f) : Color.white; // red for the last 5 minutes
         }
 
-        if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        if (mRules == null) { mRules = FindFirstObjectByType<RulesEngine>(); }
         // Before turn 1 there's no phase yet; turn 1's Stand Phase puts these back (OnPhaseChanged)
         if (mRules != null && mRules.InSetup)
         {
             GameState gs = GameState.Instance;
             int first = mRules.Setup.FirstPlayer;
-            if (phaseText != null) phaseText.text = "Setup";
-            if (turnPlayerText != null) turnPlayerText.text = first >= 0 && gs != null ? gs.players[first].playerName + " goes first" : "Coin toss...";
+            if (phaseText != null) { phaseText.text = "Setup"; }
+            if (turnPlayerText != null) { turnPlayerText.text = first >= 0 && gs != null ? gs.players[first].playerName + " goes first" : "Coin toss..."; }
         }
 
-        if (waitingText == null) return;
+        if (waitingText == null) { return; }
         string waiting = mRules != null ? mRules.Waiting : null;
         waitingText.text = waiting != null ? "Waiting: " + waiting : "";
     }
@@ -85,16 +85,16 @@ public class PhaseHUDOverlay : MonoBehaviour
     // Updates phase name, icon and turn player label
     public void OnPhaseChanged(TurnPhase newPhase, string turnPlayerName)
     {
-        if (phaseText != null) phaseText.text = FormatPhaseName(newPhase);
-        if (turnPlayerText != null) turnPlayerText.text = FormatTurnLabel(turnPlayerName);
-        if (phaseIcon != null) phaseIcon.sprite = GetPhaseSprite(newPhase);
+        if (phaseText != null) { phaseText.text = FormatPhaseName(newPhase); }
+        if (turnPlayerText != null) { turnPlayerText.text = FormatTurnLabel(turnPlayerName); }
+        if (phaseIcon != null) { phaseIcon.sprite = GetPhaseSprite(newPhase); }
     }
 
     // e.g. "Player 1 (Left) (Turn 3)"; each player's turn counts as its own turn
     string FormatTurnLabel(string turnPlayerName)
     {
         GameState gs = GameState.Instance;
-        if (gs == null) return turnPlayerName + "'s Turn";
+        if (gs == null) { return turnPlayerName + "'s Turn"; }
 
         int index = gs.currentPlayerIndex;
         string side = index < sideLabels.Length ? " (" + sideLabels[index] + ")" : "";
@@ -108,11 +108,11 @@ public class PhaseHUDOverlay : MonoBehaviour
         {
             bool shown = counter.zone != "Energy" || GameSettings.EnergyEnabled;
             foreach (GameObject part in counter.parts)
-                if (part != null && part.activeSelf != shown) part.SetActive(shown);
+                if (part != null && part.activeSelf != shown) { part.SetActive(shown); }
 
             PlayerState player = state.players[counter.playerIndex];
-            if (counter.bar != null && player != null) counter.bar.Refresh(state); // Damage and Energy (StatBar)
-            if (counter.text == null || player == null) continue;
+            if (counter.bar != null && player != null) { counter.bar.Refresh(state); } // Damage and Energy (StatBar)
+            if (counter.text == null || player == null) { continue; }
 
             bool isDamage = counter.zone == "Damage";
             int count = counter.zone == "CB" ? player.FaceUpDamage : player.CountInZone(counter.zone);

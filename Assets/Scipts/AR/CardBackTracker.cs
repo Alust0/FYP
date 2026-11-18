@@ -14,8 +14,8 @@ public class CardBackTracker : MonoBehaviour
 
     [Tooltip("Card backs that can be followed at once: face-down damage, the deck and the ride deck. Every one uses a slot of Vuforia's simultaneous image target limit.")]
     [Range(1, 10)] public int copies = 6;
-    [Tooltip("Copies of a picture with \"Ride\" in its name, for the ride deck's sleeve.")]
-    [Range(1, 10)] public int rideCopies = 1;
+    [Tooltip("Copies of a picture with \"Ride\" in its name, for the ride deck's sleeve (the ride deck and the face-down starter).")]
+    [Range(1, 10)] public int rideCopies = 2;
     public float cardWidth = 0.063f;
     [Tooltip("Width of a sleeve picture (any picture but CardBack.png); sleeves are a little wider than cards.")]
     public float sleeveWidth = 0.067f;
@@ -56,7 +56,7 @@ public class CardBackTracker : MonoBehaviour
 
     void OnDestroy()
     {
-        if (Instance != this) return;
+        if (Instance != this) { return; }
         Instance = null;
         sSleeves.Clear(); // the next match's decks bring their own
         sSleevesUsed.Clear();
@@ -65,7 +65,7 @@ public class CardBackTracker : MonoBehaviour
     // A deck's sleeve (SleeveLibrary id) to follow; null, empty or already added does nothing
     public static void UseSleeve(string sleeveId, bool rideDeck)
     {
-        if (!SleeveLibrary.IsSleeve(sleeveId) || !sSleevesUsed.Add(sleeveId)) return;
+        if (!SleeveLibrary.IsSleeve(sleeveId) || !sSleevesUsed.Add(sleeveId)) { return; }
         sSleeves.Add((sleeveId, rideDeck));
     }
 
@@ -81,12 +81,14 @@ public class CardBackTracker : MonoBehaviour
         string folder = Path.Combine(Application.streamingAssetsPath, Folder);
         var pictures = new List<string>();
         if (Directory.Exists(folder))
+        {
             foreach (string file in Directory.GetFiles(folder))
             {
                 string ext = Path.GetExtension(file).ToLowerInvariant();
-                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") pictures.Add(file);
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") { pictures.Add(file); }
             }
-        if (pictures.Count == 0) Debug.LogWarning("[CardBackTracker] No card back pictures in " + folder);
+        }
+        if (pictures.Count == 0) { Debug.LogWarning("[CardBackTracker] No card back pictures in " + folder); }
 
         foreach (string path in pictures)
         {
@@ -104,7 +106,7 @@ public class CardBackTracker : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             ImageTargetBehaviour target = VuforiaBehaviour.Instance.ObserverFactory.CreateImageTarget(path, width, "CardBack#" + name + "#" + i);
-            if (target == null) continue;
+            if (target == null) { continue; }
 
             Back back = new Back { target = target };
             target.OnTargetStatusChanged += (_, status) => back.tracked = status.Status == Status.TRACKED;
@@ -161,26 +163,26 @@ public class CardBackTracker : MonoBehaviour
 
     void Update()
     {
-        if (mReady && sSleeves.Count > 0) AddSleeves();
+        if (mReady && sSleeves.Count > 0) { AddSleeves(); }
 
         Camera cam = Camera.main;
-        if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
-        if (cam == null || mBoard == null) return;
+        if (mBoard == null) { mBoard = FindFirstObjectByType<BoardLayout>(); }
+        if (cam == null || mBoard == null) { return; }
 
         var decksSeen = new HashSet<string>();
         foreach (Back back in mBacks)
         {
             back.zoneKey = null;
-            if (!back.tracked) continue;
+            if (!back.tracked) { continue; }
 
             Vector3 screen = cam.WorldToScreenPoint(back.target.transform.position);
-            if (screen.z <= 0f) continue;
+            if (screen.z <= 0f) { continue; }
             back.zoneKey = mBoard.ZoneAtScreenPoint(screen, cam);
-            if (back.zoneKey != null && back.zoneKey.EndsWith("_Deck")) decksSeen.Add(back.zoneKey);
+            if (back.zoneKey != null && back.zoneKey.EndsWith("_Deck")) { decksSeen.Add(back.zoneKey); }
         }
 
         foreach (string key in decksSeen)
-            if (!mDecks.ContainsKey(key)) mDecks[key] = new DeckWatch();
+            if (!mDecks.ContainsKey(key)) { mDecks[key] = new DeckWatch(); }
 
         foreach (KeyValuePair<string, DeckWatch> deck in mDecks)
             UpdateDeck(deck.Key, deck.Value, decksSeen.Contains(deck.Key));
@@ -189,7 +191,7 @@ public class CardBackTracker : MonoBehaviour
     void UpdateDeck(string key, DeckWatch deck, bool seen)
     {
         float now = Time.time;
-        if (seen == deck.visible) return;
+        if (seen == deck.visible) { return; }
         deck.visible = seen;
 
         if (!seen)
@@ -204,21 +206,23 @@ public class CardBackTracker : MonoBehaviour
         deck.lastHiddenEnd = now;
         deck.visibleSince = now;
         if (wasArmed && hidden >= minDeckHiddenSeconds && hidden <= maxDeckHiddenSeconds)
+        {
             OnDeckTouched?.Invoke(key, deck.hiddenSince);
+        }
     }
 
     // Whether the deck's card back was out of view between from and to
     public bool DeckHiddenDuring(string key, float from, float to)
     {
-        if (key == null || !mDecks.TryGetValue(key, out DeckWatch deck)) return false;
-        if (!deck.visible && deck.hiddenSince <= to) return true;
+        if (key == null || !mDecks.TryGetValue(key, out DeckWatch deck)) { return false; }
+        if (!deck.visible && deck.hiddenSince <= to) { return true; }
         return deck.lastHiddenStart <= to && deck.lastHiddenEnd >= from;
     }
 
     // Time.time the deck's card back was last in view; never seen is minus infinity
     public float DeckLastSeen(string key)
     {
-        if (key == null || !mDecks.TryGetValue(key, out DeckWatch deck)) return float.NegativeInfinity;
+        if (key == null || !mDecks.TryGetValue(key, out DeckWatch deck)) { return float.NegativeInfinity; }
         return deck.visible ? Time.time : deck.hiddenSince;
     }
 
@@ -227,11 +231,25 @@ public class CardBackTracker : MonoBehaviour
     {
         foreach (Back back in mBacks)
         {
-            if (!back.tracked) continue;
+            if (!back.tracked) { continue; }
             Vector3 screen = cam.WorldToScreenPoint(back.target.transform.position);
-            if (screen.z > 0f && Vector2.Distance(screen, screenPoint) <= maxPixels) return true;
+            if (screen.z > 0f && Vector2.Distance(screen, screenPoint) <= maxPixels) { return true; }
         }
         return false;
+    }
+
+    // Screen points of the card backs in view, copies seen on the same card counted once
+    public List<Vector2> BacksOnScreen(Camera cam, float mergePixels)
+    {
+        var points = new List<Vector2>();
+        foreach (Back back in mBacks)
+        {
+            if (!back.tracked) { continue; }
+            Vector3 screen = cam.WorldToScreenPoint(back.target.transform.position);
+            if (screen.z <= 0f) { continue; }
+            if (!points.Exists(p => Vector2.Distance(p, screen) <= mergePixels)) { points.Add(screen); }
+        }
+        return points;
     }
 
     // Card backs in view on one board zone, e.g. "P1_Damage"
@@ -239,7 +257,7 @@ public class CardBackTracker : MonoBehaviour
     {
         int count = 0;
         foreach (Back back in mBacks)
-            if (back.zoneKey == zoneKey) count++;
+            if (back.zoneKey == zoneKey) { count++; }
         return count;
     }
 }

@@ -73,8 +73,8 @@ public class NotificationOverlay : MonoBehaviour
     // Starts out of sight off the screen; stays active so this keeps listening
     void Start()
     {
-        if (slideUp && notificationPanel != null) SetPos(HiddenPos);
-        if (hideButton != null) hideButton.onClick.AddListener(Hide);
+        if (slideUp && notificationPanel != null) { SetPos(HiddenPos); }
+        if (hideButton != null) { hideButton.onClick.AddListener(Hide); }
         if (todoTab != null)
         {
             todoTab.GetComponent<Button>()?.onClick.AddListener(BringBack);
@@ -84,17 +84,19 @@ public class NotificationOverlay : MonoBehaviour
 
     void Update()
     {
-        if (todoTab == null) return;
+        if (todoTab == null) { return; }
         int tucked = TuckedCount();
-        if (todoTab.activeSelf != tucked > 0) todoTab.SetActive(tucked > 0);
-        if (tucked > 0 && todoTabLabel != null) todoTabLabel.text = "To-do (" + tucked + ")";
+        if (todoTab.activeSelf != tucked > 0) { todoTab.SetActive(tucked > 0); }
+        if (tucked > 0 && todoTabLabel != null) { todoTabLabel.text = "To-do (" + tucked + ")"; }
     }
 
     // The panel's Hide: a to-do showing is tucked away with any others; a timed notice ends now
     public void Hide()
     {
         if (mShowingToDo != null)
+        {
             foreach (ToDo t in mToDos) t.tucked = true;
+        }
         mSkip = true;
     }
 
@@ -102,14 +104,14 @@ public class NotificationOverlay : MonoBehaviour
     public void BringBack()
     {
         foreach (ToDo t in mToDos) t.tucked = false;
-        if (hideCoroutine == null) hideCoroutine = StartCoroutine(ShowQueue());
+        if (hideCoroutine == null) { hideCoroutine = StartCoroutine(ShowQueue()); }
     }
 
     int TuckedCount()
     {
         mToDos.RemoveAll(t => t.turn != Turn || !StillToDo(t));
         int count = 0;
-        foreach (ToDo t in mToDos) if (t.tucked) count++;
+        foreach (ToDo t in mToDos) if (t.tucked) { count++; }
         return count;
     }
 
@@ -177,7 +179,7 @@ public class NotificationOverlay : MonoBehaviour
     {
         mToDos.RemoveAll(t => t.turn != Turn || !StillToDo(t));
         for (int i = mToDos.Count - 1; i >= 0; i--)
-            if (!mToDos[i].tucked) return mToDos[i];
+            if (!mToDos[i].tucked) { return mToDos[i]; }
         return null;
     }
 
@@ -238,17 +240,17 @@ public class NotificationOverlay : MonoBehaviour
     // Queues a notification; the same message already showing or waiting isn't repeated
     void ShowNotification(string title, string body, Sprite icon)
     {
-        if (notificationPanel == null) return;
+        if (notificationPanel == null) { return; }
 
         string key = title + "|" + body;
-        if (key == mShowingKey) return;
-        if (mToDos.Exists(t => t.tucked && t.title + "|" + t.body == key)) return; // its to-do was tucked away
+        if (key == mShowingKey) { return; }
+        if (mToDos.Exists(t => t.tucked && t.title + "|" + t.body == key)) { return; } // its to-do was tucked away
         foreach (var queued in mQueue)
-            if (queued.title + "|" + queued.body == key) return;
-        if (mQueue.Count >= maxQueued) mQueue.Dequeue(); // oldest waiting one goes
+            if (queued.title + "|" + queued.body == key) { return; }
+        if (mQueue.Count >= maxQueued) { mQueue.Dequeue(); } // oldest waiting one goes
 
         mQueue.Enqueue((title, body, icon));
-        if (hideCoroutine == null) hideCoroutine = StartCoroutine(ShowQueue());
+        if (hideCoroutine == null) { hideCoroutine = StartCoroutine(ShowQueue()); }
     }
 
     // Shows queued notices, then the newest open to-do
@@ -260,11 +262,11 @@ public class NotificationOverlay : MonoBehaviour
             ToDo todo = null;
             string title, body;
             Sprite icon = null;
-            if (mQueue.Count > 0) (title, body, icon) = mQueue.Dequeue();
+            if (mQueue.Count > 0) { (title, body, icon) = mQueue.Dequeue(); }
             else
             {
                 todo = OpenToDo();
-                if (todo == null) break;
+                if (todo == null) { break; }
                 (title, body) = (todo.title, todo.body);
             }
 
@@ -272,8 +274,8 @@ public class NotificationOverlay : MonoBehaviour
             if (key != mShowingKey)
             {
                 mShowingKey = key;
-                if (notificationTitle != null) notificationTitle.text = title;
-                if (notificationBody != null) notificationBody.text = body;
+                if (notificationTitle != null) { notificationTitle.text = title; }
+                if (notificationBody != null) { notificationBody.text = body; }
                 if (notificationIcon != null)
                 {
                     notificationIcon.sprite = icon;
@@ -289,7 +291,7 @@ public class NotificationOverlay : MonoBehaviour
 
             mSkip = false;
             mShowingToDo = todo;
-            if (todo != null) yield return new WaitUntil(() => mQueue.Count > 0 || OpenToDo() != todo);
+            if (todo != null) { yield return new WaitUntil(() => mQueue.Count > 0 || OpenToDo() != todo); }
             else
             {
                 float until = Time.time + (mQueue.Count > 0 ? queuedDuration : displayDuration);
@@ -298,8 +300,8 @@ public class NotificationOverlay : MonoBehaviour
         }
 
         mShowingToDo = null;
-        if (slideUp) yield return Slide(HiddenPos);
-        else if (hideWhenDone) notificationPanel.SetActive(false);
+        if (slideUp) { yield return Slide(HiddenPos); }
+        else if (hideWhenDone) { notificationPanel.SetActive(false); }
         mShowingKey = null;
         hideCoroutine = null;
     }

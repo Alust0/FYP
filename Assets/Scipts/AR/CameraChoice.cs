@@ -43,14 +43,14 @@ public static class CameraChoice
         get
         {
             string[] devices = Devices;
-            if (devices.Length == 0) return null;
+            if (devices.Length == 0) { return null; }
 
             string saved = PlayerPrefs.GetString(PrefKey(WindowId), "");
-            if (devices.Contains(saved)) return saved;
+            if (devices.Contains(saved)) { return saved; }
 
             // Main editor: whatever Vuforia's own setting says. Player 2: something else, if there is
             string main = MainCamera(devices);
-            if (WindowId == MainWindow) return main;
+            if (WindowId == MainWindow) { return main; }
             return devices.FirstOrDefault(d => d != main) ?? main;
         }
     }
@@ -66,15 +66,17 @@ public static class CameraChoice
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     public static void Apply()
     {
-        if (!Application.isEditor) return;
+        if (!Application.isEditor) { return; }
         PreloadVuforiaDriver();
 
         string device = Current;
-        if (device == null) return;
+        if (device == null) { return; }
 
         // Remember the main editor's camera before a virtual player changes the shared setting
         if (WindowId != MainWindow && !PlayerPrefs.HasKey(PrefKey(MainWindow)))
+        {
             PlayerPrefs.SetString(PrefKey(MainWindow), MainCamera(Devices));
+        }
 
         VuforiaConfiguration.Instance.WebCam.DeviceNameSetInEditor = device;
 #if UNITY_EDITOR
@@ -96,13 +98,15 @@ public static class CameraChoice
         Apply();
 
         if (!VuforiaApplication.Instance.IsInitialized)
+        {
             VuforiaApplication.Instance.Initialize(); // VuforiaBehaviour starts the camera once this is done
+        }
     }
 
     // Checks Vuforia opened the right webcam, then ends this window's turn
     public static IEnumerator CheckVuforiaCamera()
     {
-        if (!Application.isEditor) yield break;
+        if (!Application.isEditor) { yield break; }
         yield return new WaitForSeconds(0.5f);
         yield return SwitchIfWrong();
         yield return WaitForPictures(4f);
@@ -129,7 +133,7 @@ public static class CameraChoice
                 Debug.LogWarning("[CameraChoice] Waited too long for the other window's camera; starting this one anyway.");
                 yield break;
             }
-            if (!told) Debug.Log("[CameraChoice] " + WindowId + " window waits for the other window's camera to start.");
+            if (!told) { Debug.Log("[CameraChoice] " + WindowId + " window waits for the other window's camera to start."); }
             told = true;
             yield return new WaitForSecondsRealtime(0.25f);
         }
@@ -137,13 +141,15 @@ public static class CameraChoice
 
     static bool TryTakeTurn()
     {
-        if (sHasTurn) return true;
+        if (sHasTurn) { return true; }
         try
         {
             // A turn file that's ours (from an earlier Play) or too old is left over
             if (File.Exists(TurnFile) &&
                 (File.ReadAllText(TurnFile) == WindowId || (DateTime.UtcNow - File.GetLastWriteTimeUtc(TurnFile)).TotalSeconds > TurnSeconds))
+            {
                 File.Delete(TurnFile);
+            }
 
             // CreateNew fails if the other window made it first, so only one can hold the turn
             using (var file = new FileStream(TurnFile, FileMode.CreateNew))
@@ -161,7 +167,7 @@ public static class CameraChoice
     // Called once this window's camera is going, or the scene closes or Vuforia gives up
     public static void EndCameraTurn()
     {
-        if (!sHasTurn) return;
+        if (!sHasTurn) { return; }
         sHasTurn = false;
         try { File.Delete(TurnFile); }
         catch (IOException) { }
@@ -176,7 +182,7 @@ public static class CameraChoice
         while (frames < 10 && Time.realtimeSinceStartup < deadline)
         {
             WebCamTexture texture = Resources.FindObjectsOfTypeAll<WebCamTexture>().FirstOrDefault(t => t.isPlaying);
-            if (texture != null && texture.didUpdateThisFrame) frames++;
+            if (texture != null && texture.didUpdateThisFrame) { frames++; }
             yield return null;
         }
     }
@@ -189,7 +195,7 @@ public static class CameraChoice
     // In-game Settings: the picked webcam, then a restart on it
     public static IEnumerator SwitchTo(string device)
     {
-        if (sRefreshing || device == null || !Devices.Contains(device) || device == InUse) yield break;
+        if (sRefreshing || device == null || !Devices.Contains(device) || device == InUse) { yield break; }
         SwitchFailed = false;
         Choose(device);
         yield return Refresh();
@@ -202,7 +208,7 @@ public static class CameraChoice
     public static IEnumerator Refresh()
     {
         VuforiaBehaviour vuforia = VuforiaBehaviour.Instance;
-        if (sRefreshing || vuforia == null || !VuforiaApplication.Instance.IsInitialized) yield break;
+        if (sRefreshing || vuforia == null || !VuforiaApplication.Instance.IsInitialized) { yield break; }
 
         sRefreshing = true;
         if (Application.isEditor)
@@ -233,7 +239,7 @@ public static class CameraChoice
             // A switched-to webcam with no picture (in use elsewhere?): back to the one that worked
             for (int tries = 0; tries < 3 && !BuildWebcamDriver.HasPicture; tries++)
             {
-                if (tries > 0) yield return BuildWebcamDriver.Retry(); // a smaller size
+                if (tries > 0) { yield return BuildWebcamDriver.Retry(); } // a smaller size
                 float giveUp = Time.realtimeSinceStartup + 4f;
                 while (!BuildWebcamDriver.HasPicture && Time.realtimeSinceStartup < giveUp) yield return null;
             }
@@ -276,7 +282,7 @@ public static class CameraChoice
                 nextLookup = now + 1f;
             }
 
-            if ((texture != null && texture.didUpdateThisFrame) || sRefreshing) lastFrame = now;
+            if ((texture != null && texture.didUpdateThisFrame) || sRefreshing) { lastFrame = now; }
 
             if (now - lastFrame > StallSeconds)
             {
@@ -314,7 +320,7 @@ public static class CameraChoice
             ". Wanted '" + wanted + "'. Playing: " +
             (playing.Length == 0 ? "none" : string.Join(", ", playing.Select(t => "'" + t.deviceName + "' " + t.width + "x" + t.height))) + ".");
 
-        if (wanted == null || playing.Length != 1 || playing[0].deviceName == wanted) yield break;
+        if (wanted == null || playing.Length != 1 || playing[0].deviceName == wanted) { yield break; }
 
         WebCamTexture texture = playing[0];
         string was = texture.deviceName;
@@ -350,13 +356,13 @@ public static class CameraChoice
     // Loads Vuforia's driver DLL by full path (for Play Mode windows)
     static void PreloadVuforiaDriver()
     {
-        if (sDriverLoaded) return;
+        if (sDriverLoaded) { return; }
 
         string driver = Path.Combine(ProjectRoot, "Packages/com.ptc.vuforia.engine/Vuforia/Plugins/Windows/x64/UnityDriver.dll");
-        if (!File.Exists(driver)) return; // package installed elsewhere; Unity finds it itself then
+        if (!File.Exists(driver)) { return; } // package installed elsewhere; Unity finds it itself then
 
         sDriverLoaded = LoadLibrary(driver) != IntPtr.Zero;
-        if (!sDriverLoaded) Debug.LogWarning("[CameraChoice] Couldn't preload " + driver + " (error " + Marshal.GetLastWin32Error() + ").");
+        if (!sDriverLoaded) { Debug.LogWarning("[CameraChoice] Couldn't preload " + driver + " (error " + Marshal.GetLastWin32Error() + ")."); }
     }
 #else
     static void PreloadVuforiaDriver() { }
@@ -365,7 +371,7 @@ public static class CameraChoice
     static string MainCamera(string[] devices)
     {
         string saved = PlayerPrefs.GetString(PrefKey(MainWindow), "");
-        if (devices.Contains(saved)) return saved;
+        if (devices.Contains(saved)) { return saved; }
 
         string vuforia = VuforiaConfiguration.Instance.WebCam.DeviceNameSetInEditor;
         return devices.Contains(vuforia) ? vuforia : devices[0];

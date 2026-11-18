@@ -27,7 +27,7 @@ public static class DeckFiles
                 var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.Downloads, SuggestedFileName = name };
                 picker.FileTypeChoices.Add("Deck file", new List<string> { ".json" });
                 StorageFile file = await picker.PickSaveFileAsync();
-                if (file == null) message = null;
+                if (file == null) { message = null; }
                 else
                 {
                     await FileIO.WriteTextAsync(file, json);
@@ -61,8 +61,8 @@ public static class DeckFiles
     {
 #if UNITY_EDITOR
         string path = UnityEditor.EditorUtility.OpenFilePanel("Import deck", DownloadsPath, "json");
-        if (string.IsNullOrEmpty(path)) done(null, null);
-        else Read(Path.GetFileName(path), () => File.ReadAllText(path), done);
+        if (string.IsNullOrEmpty(path)) { done(null, null); }
+        else { Read(Path.GetFileName(path), () => File.ReadAllText(path), done); }
 #elif ENABLE_WINMD_SUPPORT
         UnityEngine.WSA.Application.InvokeOnUIThread(async () =>
         {
@@ -84,9 +84,9 @@ public static class DeckFiles
             }
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                if (error != null) done(null, "Couldn't open the deck file: " + error);
-                else if (name == null) done(null, null);
-                else Read(name, () => text, done);
+                if (error != null) { done(null, "Couldn't open the deck file: " + error); }
+                else if (name == null) { done(null, null); }
+                else { Read(name, () => text, done); }
             }, false);
         }, false);
 #else
@@ -94,8 +94,8 @@ public static class DeckFiles
         string newest = Directory.Exists(DownloadsPath)
             ? Directory.GetFiles(DownloadsPath, "*.json").OrderByDescending(File.GetLastWriteTime).FirstOrDefault()
             : null;
-        if (newest == null) done(null, "No .json deck file in " + DownloadsPath + ".");
-        else Read(Path.GetFileName(newest), () => File.ReadAllText(newest), done);
+        if (newest == null) { done(null, "No .json deck file in " + DownloadsPath + "."); }
+        else { Read(Path.GetFileName(newest), () => File.ReadAllText(newest), done); }
 #endif
     }
 
@@ -126,7 +126,7 @@ public static class DeckFiles
     static Deck FromJson(string json)
     {
         Deck deck = JsonUtility.FromJson<Deck>(json);
-        if (deck == null) return null;
+        if (deck == null) { return null; }
         deck.id = null;
         deck.cards ??= new List<DeckEntry>();
         deck.rideDeck ??= new List<DeckEntry>();
@@ -136,9 +136,9 @@ public static class DeckFiles
             entry.cardNumber = (entry.cardNumber ?? "").Trim().ToUpperInvariant().Replace('/', '-');
             entry.count = Math.Max(1, entry.count);
         }
-        if (SleeveLibrary.GetPath(deck.deckSleeve) == null) deck.deckSleeve = null;
-        if (SleeveLibrary.GetPath(deck.rideDeckSleeve) == null) deck.rideDeckSleeve = null;
-        if (string.IsNullOrWhiteSpace(deck.deckName)) deck.deckName = "Imported Deck";
+        if (SleeveLibrary.GetPath(deck.deckSleeve) == null) { deck.deckSleeve = null; }
+        if (SleeveLibrary.GetPath(deck.rideDeckSleeve) == null) { deck.rideDeckSleeve = null; }
+        if (string.IsNullOrWhiteSpace(deck.deckName)) { deck.deckName = "Imported Deck"; }
         return deck.AllEntries.Any(e => e.cardNumber.Length > 0) ? deck : null;
     }
 

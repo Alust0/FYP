@@ -29,7 +29,7 @@ public partial class StatBar : MonoBehaviour
     public void Refresh(GameState gs)
     {
         PlayerState player = gs.players[mPlayer];
-        if (player == null) return;
+        if (player == null) { return; }
 
         int count;
         if (mDamage)
@@ -56,7 +56,7 @@ public partial class StatBar : MonoBehaviour
 
     static bool IsPicked(DamageSlots.Slot slot)
     {
-        foreach (DamageSlots.Slot picked in DamageSlots.Picked) if (picked == slot) return true;
+        foreach (DamageSlots.Slot picked in DamageSlots.Picked) if (picked == slot) { return true; }
         return false;
     }
 
@@ -68,7 +68,7 @@ public partial class StatBar : MonoBehaviour
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
             mBadge.color = Color.Lerp(new Color(0.6f, 0f, 0f), new Color(1f, 0.25f, 0.2f), pulse);
         }
-        if (mHover != null) Tooltip.Show(mHover);
+        if (mHover != null) { Tooltip.Show(mHover); }
     }
 
     // A segment hovered (StatBarHover): its card for damage, the count for energy
@@ -82,7 +82,7 @@ public partial class StatBar : MonoBehaviour
         }
         GameState gs = GameState.Instance;
         PlayerState player = gs != null ? gs.players[mPlayer] : null;
-        if (player == null) return;
+        if (player == null) { return; }
         if (!mDamage)
         {
             mHover = "Energy " + player.CountInZone("Energy") + " / " + RulesEngine.MaxEnergy;
@@ -94,7 +94,7 @@ public partial class StatBar : MonoBehaviour
 
     void OnDisable()
     {
-        if (mHover != null) Tooltip.Hide();
+        if (mHover != null) { Tooltip.Hide(); }
         mHover = null;
     }
 }
@@ -117,7 +117,7 @@ public static class Tooltip
 
     public static void Show(string text)
     {
-        if (sBox == null) Build();
+        if (sBox == null) { Build(); }
         sBox.gameObject.SetActive(true);
         sText.text = text;
         Vector2 mouse = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
@@ -129,7 +129,7 @@ public static class Tooltip
 
     public static void Hide()
     {
-        if (sBox != null) sBox.gameObject.SetActive(false);
+        if (sBox != null) { sBox.gameObject.SetActive(false); }
     }
 
     static void Build()
