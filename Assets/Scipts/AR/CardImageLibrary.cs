@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-/* Finds a card's picture under StreamingAssets/cards by card number. Pictures sit in numbered
- set folders, named by card number with "/" as "-" (e.g. "DZ-BT01-001.png"). */
+// Finds a card's picture in StreamingAssets/cards by card number
 public static class CardImageLibrary
 {
     const string Folder = "cards";

@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-/* One part of a skill's cost and how much of it, e.g. Counter Blast (1). Each kind checks and
- pays itself its own way, off the counts the engine keeps (GameState.AdjustCount). */
+// One part of a skill's cost, paid off the counts
 public abstract class Cost
 {
     public int Amount { get; }

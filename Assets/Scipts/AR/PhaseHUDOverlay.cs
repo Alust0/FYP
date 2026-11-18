@@ -67,8 +67,17 @@ public class PhaseHUDOverlay : MonoBehaviour
             timerText.color = MatchTimer.Remaining < 300 ? new Color(1f, 0.4f, 0.35f) : Color.white; // red for the last 5 minutes
         }
 
-        if (waitingText == null) return;
         if (mRules == null) mRules = FindFirstObjectByType<RulesEngine>();
+        // Before turn 1 there's no phase yet; turn 1's Stand Phase puts these back (OnPhaseChanged)
+        if (mRules != null && mRules.InSetup)
+        {
+            GameState gs = GameState.Instance;
+            int first = mRules.Setup.FirstPlayer;
+            if (phaseText != null) phaseText.text = "Setup";
+            if (turnPlayerText != null) turnPlayerText.text = first >= 0 && gs != null ? gs.players[first].playerName + " goes first" : "Coin toss...";
+        }
+
+        if (waitingText == null) return;
         string waiting = mRules != null ? mRules.Waiting : null;
         waitingText.text = waiting != null ? "Waiting: " + waiting : "";
     }

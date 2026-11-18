@@ -1,9 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-/* "相手のリアガードを1枚選び、退却させる": the skill's owner picks the opponent's unit on screen, lit up
- like an attack target (OpponentUnitPicker), and the opponent is told what happens to it, e.g. retire it
- (with an arrow to their drop zone). The real card is theirs to move; a power change is applied here. */
+// Choose an opponent's unit on screen, then tell them what happens
 public class ChooseOpponentStep : Step
 {
     public enum Where { Rearguards, FrontRow, BackRow, Units }

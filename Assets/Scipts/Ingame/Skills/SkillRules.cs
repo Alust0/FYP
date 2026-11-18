@@ -1,20 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-/* Card skills during a game, for RulesEngine:
- - An [AUTO] skill whose timing the engine sees (a ride, a call, an attack, a phase starting) is
-   queued on its owner's PC and asked about one at a time: Activate, Skip, or Later to pick the order
- - [ACT] skills are offered in the Main Phase once their circle, limit and costs allow
- - A skill used opens a frame that runs its steps in order (Pump): costs come off the counts,
-   count-only effects are done, a draw or reveal waits for the camera, and anything else waits for
-   the player's Done. "Skip step" passes one by.
- - Nothing moves on to the next phase until it's all done; Next Phase or turn end finishes the
-   steps left as done, e.g. counting a draw that wasn't seen
- - A queued [AUTO] whose card was seen moving to another zone before it was answered does nothing
- - Online, what was used or skipped goes to the other PC too, for its notices and log
- - Of the conditions in the text only "if you are the first/second player" is checked, and the
-   keywords that gate a skill (SkillGate, e.g. Limit Break); others, e.g. "if your vanguard
-   is ...", are left to the player in a ManualStep */
+// Card skills during a game: [AUTO] prompts, [ACT] offers, step frames
 public class SkillRules
 {
     class Prompt
@@ -87,8 +74,7 @@ public class SkillRules
         discardsDue = new List<(PlayerState, int)>(mDiscardsDue),
     };
 
-    /* A skill part-way through its steps can't be wound back, so one started since the save is
-     dropped and one still going keeps the steps it has done */
+    // A skill mid-steps can't be wound back
     public void LoadState(object saved)
     {
         var state = (State)saved;
@@ -199,9 +185,7 @@ public class SkillRules
             () => Busy && mPrompts[0] == p);
     }
 
-    /* Seen somewhere else since it went off, from a rear-guard or guardian circle or the order zone.
-     A card the camera has just lost sight of hasn't moved, and nor has a vanguard: the camera swaps
-     it with the card under it as they peek out. */
+    // Seen somewhere else since it went off
     static bool Fizzled(Prompt p) =>
         p.zone != null && p.zone != "Vanguard" && p.zone != "Soul" && p.card.zone != null && p.card.zone != p.zone;
 
@@ -300,8 +284,7 @@ public class SkillRules
         Pump();
     }
 
-    /* Runs the skill's steps until one waits (for the camera, a count, or the player) or they're all
-     done; then the next [AUTO] in the queue is asked about */
+    // Runs steps until one waits or all are done
     void Pump()
     {
         if (mPumping) return;
@@ -376,8 +359,7 @@ public class SkillRules
     // For ConditionStep's "このターンにあなたがペルソナライドしているなら"
     internal bool HasPersonaRode(PlayerState player) => mPersonaRode == player;
 
-    /* A step gives a unit power and critical (PowerStep): RulesEngine adds them, battle-only ones to be
-     taken off when the battle ends (card, power, critical, battle only) */
+    // Power/critical from a PowerStep
     public System.Action<CardInstance, int, int, bool> AddBonus;
 
     // A step makes the attacked unit unhittable this battle (CantBeHitStep): RulesEngine's perfect guard, for its owner
@@ -414,16 +396,13 @@ public class SkillRules
         Pump();
     }
 
-    /* After every count change: a waiting step may be done now, e.g. a draw once the deck goes down
-     (the Draw button, "draw card", HandZones seeing it, or Deck -) */
+    // After every count change, recheck the waiting step
     public void Recheck()
     {
         if (mFrame != null && mFrame.Begun) Pump();
     }
 
-    /* A card put on its owner's trigger zone while a Reveal step waits: that's it being shown, not a
-     drive or damage check. On another zone only the card asked for counts, e.g. a set order shown on
-     the order zone, not played. True when it's taken as the reveal. */
+    // Card on the trigger zone while a Reveal waits = the reveal
     public bool TakeShown(CardInstance card)
     {
         if (!(mFrame?.Current is RevealStep reveal) || card.zoneOwner != mFrame.Owner) return false;
@@ -460,8 +439,7 @@ public class SkillRules
         StepNotice(f, "Paid " + cost + (todo != null ? ": " + todo : "") + ".");
     }
 
-    /* Where the owner moves cards now: the waiting step's zones, a cost's for a few seconds after paying
-     it, and the drop zone until a discard paid is in it */
+    // Zones the owner must move cards on now
     public List<(PlayerState owner, string zone)> AttentionZones()
     {
         mPaidZones.RemoveAll(z => z.until < UnityEngine.Time.time);
@@ -535,9 +513,7 @@ public class SkillRules
         [Move.Guard] = new[] { "guardian", "(gc)", "ガーディアン", "(g)" },
     };
 
-    /* The skill that lets one of owner's cards make this move against the usual rules, as "Card's
-     [ACT]": one resolving now, or resolved in the last few seconds, whose effect does that move.
-     Null if none, and the rule break is a mistake */
+    // The skill allowing this rule break, or null
     public string Allowing(PlayerState owner, Move move)
     {
         SkillFrame f = mFrame ?? (UnityEngine.Time.time - mLastFrameEnded < AllowSeconds ? mLastFrame : null);
@@ -554,9 +530,7 @@ public class SkillRules
         return !needsPrison || Prison.Has(owner);
     }
 
-    /* The camera reading one card twice (a second target of it, or it flickering out and back) isn't it
-     happening again: not while the same card's skill is still waiting, and once a turn for timings
-     that can't come twice, e.g. a ride or an order played */
+    // Ignore the camera reading one card twice
     bool Repeat(PlayerState owner, CardInstance card, Skill skill, SkillTiming timing)
     {
         string number = card.data.cardNumber;
@@ -568,8 +542,7 @@ public class SkillRules
     // RulesEngine saw a Persona Ride
     public void PersonaRode(PlayerState player) => mPersonaRode = player;
 
-    /* A card the camera saw go from the soul to the drop zone while a Soul Blast is counted: the
-     seen card takes over from the count, as the camera's own zones now hold it */
+    // Soul card seen in the drop zone replaces the count
     public void SeenInDrop(CardInstance card, string fromZone)
     {
         PlayerState owner = card.zoneOwner;

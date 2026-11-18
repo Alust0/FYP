@@ -3,9 +3,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 
-/* The card sleeve pictures in StreamingAssets/Sleeves, named s0.png, s1.png and so on. A deck picks
- one for its main deck and one for its ride deck (Deck.deckSleeve / rideDeckSleeve), and
- CardBackTracker follows face-down cards in them. Ids never clash with card numbers, which have dashes. */
+// Sleeve pictures in StreamingAssets/Sleeves (ids s0, s1...)
 public static class SleeveLibrary
 {
     const string Folder = "Sleeves";

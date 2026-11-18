@@ -1,6 +1,4 @@
-/* "Reveal a grade 3 <Gear Dragon> from your ride deck": the camera only reads cards inside board
- zones, so the card is shown by putting it on the owner's trigger zone (RulesEngine hands it here
- instead of taking it as a check). The card it was shown is kept for later steps as "revealed". */
+// Reveal = put the card on your trigger zone
 public class RevealStep : Step
 {
     public CardFilter Filter { get; }

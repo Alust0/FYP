@@ -1,5 +1,4 @@
-/* "Shuffle your deck", or the end of an effect that searched the deck without saying so: the
- camera can't see a shuffle, so the player is told to do it and the skill carries on */
+// Shuffle: the player is told to
 public class ShuffleStep : Step
 {
     public override bool Begin(SkillFrame f)

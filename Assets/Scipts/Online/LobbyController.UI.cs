@@ -4,9 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* LobbyController's screen, built in code so the Lobby scene needs no Canvas: the room list on the
- left, your deck and camera top-right and the host panel below it.
- The rest of LobbyController is in LobbyController.cs. */
+// Lobby UI, built in code
 public partial class LobbyController
 {
     void BuildUI()

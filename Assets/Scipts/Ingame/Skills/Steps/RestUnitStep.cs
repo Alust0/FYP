@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-/* "Rest one of your units", e.g. to play a set order: done once the camera sees that many of the
- player's units rest (SkillRules.TakeRestDue), which then isn't an attack. Done counts them as rested. */
+// Rest a unit (e.g. to play a set order)
 public class RestUnitStep : Step
 {
     public int Amount { get; }

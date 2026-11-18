@@ -14,8 +14,7 @@ public class UISetup : MonoBehaviour
     private MatchLogPanel logPanel;
     private AROverlayEventBridge eventBridge;
 
-    /* HUD count rows per player: PlayerState zone name ("CB" = face-up damage) and its label.
-     Energy isn't a zone, just a count, and its row hides when GameSettings.EnergyEnabled is off. */
+    // HUD count rows per player
     static readonly (string zone, string label)[] HudZones =
     {
         ("Damage", "DMG"), ("CB", "CB"), ("Soul", "Soul"), ("Drop", "Drop"), ("Deck", "Deck"), ("RideDeck", "Ride"), ("Energy", "Energy"),
@@ -47,6 +46,7 @@ public class UISetup : MonoBehaviour
         gameObject.AddComponent<AttackTargetPicker>(); // pops up over the defender's front row when attacking
         gameObject.AddComponent<CounterBlastPicker>(); // which damage cards a Counter Blast flips
         gameObject.AddComponent<OpponentUnitPicker>(); // over the opponent's units a skill has its owner choose
+        gameObject.AddComponent<ShieldBreak>(); // a shield on the attacked unit: breaks on a hit, holds on a miss
         gameObject.AddComponent<ZoneHighlighter>(); // lights up the zones a skill, check or cost needs cards moved on
 
         // F2 test panel for placing cards without a camera, e.g. in a second editor
@@ -98,9 +98,7 @@ public class UISetup : MonoBehaviour
     static readonly Color SectionColor = new Color(0.11f, 0.12f, 0.17f, 0.95f);
     static readonly Color ButtonColor = new Color(1f, 1f, 1f, 0.15f);
 
-    /* Everything but the battle and notice popups sits in a sidebar down the right of the screen,
-     beside the camera views (SplitScreenView keeps them out of its way). Top to bottom: buttons,
-     phase and counts, the last card played, and online the opponent's field. */
+    // Sidebar on the right: buttons, phase, counts, card, opponent
     void CreateSidebar()
     {
         GameObject sidebar = CreatePanel("Sidebar", canvas.transform, new Vector2(1f - SplitScreenView.SidebarWidth, 0f), Vector2.one, Vector2.zero, Vector2.zero);
@@ -179,8 +177,7 @@ public class UISetup : MonoBehaviour
         CreateIconButton(row, "LogButton", "Logs", 0f, 66f).onClick.AddListener(logPanel.Toggle);
     }
 
-    /* A button width px wide, right px in from the row's right end, showing StreamingAssets/Icons/<icon>.png
-     (swap the file to change it), or the icon's name if there's no such file */
+    // Icon button from StreamingAssets/Icons
     Button CreateIconButton(Transform row, string name, string icon, float right, float width)
     {
         GameObject obj = CreatePanel(name, row, new Vector2(1f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
@@ -267,8 +264,7 @@ public class UISetup : MonoBehaviour
             TextMeshProUGUI nameText = CreateStretchText("Name", columnRT, 84f, 24f, 12f, 4f, "— " + name + " —", 17, TextAlignmentOptions.Left);
             nameText.color = new Color(0.75f, 0.78f, 0.85f);
 
-            /* A count line per zone, with -/+ buttons to fix counts the camera gets wrong.
-             Online only for this PC's player: the opponent's counts come from their PC. */
+            // Count lines with -/+ buttons
             for (int row = 0; row < HudZones.Length; row++)
             {
                 (string zone, string label) = HudZones[row];
@@ -373,15 +369,13 @@ public class UISetup : MonoBehaviour
         battleOverlay.resultText = resultText;
     }
 
-    /* Notices, rulings and triggers: a popup that slides up from the bottom, in the middle of the
-     camera area, and back down once nothing more is waiting */
+    // Notification popup, slides in from the left
     void CreateNotificationPanel()
     {
-        const float height = 150f;
-        float middle = (1f - SplitScreenView.SidebarWidth) * 0.5f; // of the camera area, left of the sidebar
-        GameObject sectionObj = CreatePanel("NotificationPanel", canvas.transform, new Vector2(middle, 0f), new Vector2(middle, 0f), Vector2.zero, new Vector2(660f, height));
+        const float height = 170f;
+        GameObject sectionObj = CreatePanel("NotificationPanel", canvas.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(580f, height));
         RectTransform section = (RectTransform)sectionObj.transform;
-        section.pivot = new Vector2(0.5f, 0f);
+        section.pivot = new Vector2(0f, 0.5f);
         sectionObj.GetComponent<Image>().color = new Color(0.1f, 0.1f, 0.3f, 0.95f);
 
         // Icon at the top-right, for triggers and Persona Ride
@@ -405,14 +399,14 @@ public class UISetup : MonoBehaviour
         bodyText.fontSizeMin = 13;
         bodyText.fontSizeMax = 19;
 
-        /* On the always-active panel: a component added to an inactive object doesn't get
-         OnEnable, so it would never subscribe to the notices */
+        // On the active panel so it gets OnEnable
         notificationOverlay = section.gameObject.AddComponent<NotificationOverlay>();
         notificationOverlay.notificationPanel = section.gameObject;
         notificationOverlay.notificationTitle = titleText;
         notificationOverlay.notificationBody = bodyText;
         notificationOverlay.notificationIcon = iconImg;
         notificationOverlay.slideUp = true;
+        notificationOverlay.fromLeft = true;
 
         // Clicks go through to what's under it, e.g. a card's "i"
         foreach (Graphic graphic in sectionObj.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
@@ -561,7 +555,7 @@ public class UISetup : MonoBehaviour
         overlay.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
 
         GameObject box = CreatePanel("SettingsBox", overlay.transform,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 768f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MenuWidth, 844f));
         ((RectTransform)box.transform).pivot = new Vector2(0.5f, 0.5f);
         box.GetComponent<Image>().color = new Color(0.1f, 0.11f, 0.16f, 0.97f);
 
@@ -580,25 +574,24 @@ public class UISetup : MonoBehaviour
 
         CreateMenuButton(box.transform, "Resume", -84f, MenuButtonColor, menu.Close);
         CreateMenuButton(box.transform, "Calibrate Board", -160f, MenuButtonColor, menu.Calibrate);
-        menu.refreshLabel = CreateMenuButton(box.transform, "Refresh Camera", -236f, MenuButtonColor, menu.RefreshCamera)
+        menu.cameraDropdown = CreateMenuDropdown(box.transform, -236f);
+        menu.refreshLabel = CreateMenuButton(box.transform, "Refresh Camera", -312f, MenuButtonColor, menu.RefreshCamera)
             .GetComponentInChildren<TextMeshProUGUI>();
-        menu.flipButton = CreateMenuButton(box.transform, "Flip Camera: Off", -312f, MenuButtonColor, menu.ToggleFlip);
+        menu.flipButton = CreateMenuButton(box.transform, "Flip Camera: Off", -388f, MenuButtonColor, menu.ToggleFlip);
         menu.flipLabel = menu.flipButton.GetComponentInChildren<TextMeshProUGUI>();
-        menu.windowLabel = CreateMenuButton(box.transform, WindowMode.Label, -388f, MenuButtonColor, WindowMode.Toggle)
+        menu.windowLabel = CreateMenuButton(box.transform, WindowMode.Label, -464f, MenuButtonColor, WindowMode.Toggle)
             .GetComponentInChildren<TextMeshProUGUI>();
-        menu.fontSlider = CreateMenuSlider(box.transform, -468f, out menu.fontLabel);
-        menu.brightnessSlider = CreateMenuSlider(box.transform, -544f, out menu.brightnessLabel);
-        Button leave = CreateMenuButton(box.transform, "Leave Match", -624f, Color.red, menu.Leave);
+        menu.fontSlider = CreateMenuSlider(box.transform, -544f, out menu.fontLabel);
+        menu.brightnessSlider = CreateMenuSlider(box.transform, -620f, out menu.brightnessLabel);
+        Button leave = CreateMenuButton(box.transform, "Leave Match", -700f, Color.red, menu.Leave);
         menu.leaveBackground = leave.GetComponent<Image>();
         menu.leaveLabel = leave.GetComponentInChildren<TextMeshProUGUI>();
 
-        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -708f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
+        menu.infoText = CreateText("Info", box.transform, new Vector2(0f, -784f), new Vector2(MenuWidth, 40f), "", 18, TextAlignmentOptions.Center);
         menu.infoText.color = new Color(0.7f, 0.72f, 0.78f);
     }
 
-    /* A 48 px StreamingAssets/Icons/<icon>.png button in the top right (or left) corner of parent,
-     on a tile of background if given (e.g. for a dark icon), or the icon's name on a plain button
-     if there's no such file */
+    // 48 px corner icon button
     Button CreateCornerIcon(Transform parent, string icon, bool right, Color? background = null)
     {
         Vector2 corner = new Vector2(right ? 1f : 0f, 1f);
@@ -645,6 +638,24 @@ public class UISetup : MonoBehaviour
         obj.transform.Find("Fill Area/Fill").GetComponent<Image>().color = new Color(0.96f, 0.76f, 0.26f);
         obj.transform.Find("Handle Slide Area/Handle").GetComponent<Image>().color = Color.white;
         return obj.GetComponent<Slider>();
+    }
+
+    // A menu-button-sized dropdown (the webcam picker), y px down from parent's top edge
+    TMP_Dropdown CreateMenuDropdown(Transform parent, float y)
+    {
+        TMP_Dropdown dropdown = MenuUI.AddDropdown(parent);
+        RectTransform rt = (RectTransform)dropdown.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, y);
+        rt.sizeDelta = new Vector2(400f, 64f);
+        dropdown.GetComponent<Image>().color = MenuButtonColor;
+        dropdown.captionText.color = Color.white;
+        dropdown.captionText.alignment = TextAlignmentOptions.Center;
+        dropdown.captionText.enableAutoSizing = true; // long webcam names shrink to fit
+        dropdown.captionText.fontSizeMin = 14f;
+        dropdown.captionText.fontSizeMax = 26f;
+        dropdown.itemText.fontSize = 22;
+        return dropdown;
     }
 
     // A wide button centered across the top of parent, y px down from its top edge

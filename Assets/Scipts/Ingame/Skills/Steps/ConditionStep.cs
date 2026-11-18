@@ -1,11 +1,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 
-/* "相手のヴァンガードがグレード3以上なら" and other conditions in an effect: checked from the board and
- the counts when the engine can (either vanguard's grade, the damage, soul or drop count, cards in
- the Prison, a Persona Ride this turn), else the player says: Done if it's met, Skip step if not. Not met, the skill does
- nothing more. One at the start comes before the costs (SkillParser.WithCosts), so nothing is paid
- for a skill that won't go on. */
+// Effect condition: auto-checked, else the player says
 public class ConditionStep : Step
 {
     static readonly Regex VanguardGradeRx = new Regex(@"^(相手|あなた)のヴァンガードがグレード(\d+)以上なら$");

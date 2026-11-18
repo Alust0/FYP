@@ -37,6 +37,11 @@ public partial class LoginController
         title.raycastTarget = false;
         // Margins clear SceneSettings' gear in the top-right corner
         MenuUI.PlaceTop(title.rectTransform, 0f, 1f, 30f, 100f, 120f, 120f);
+
+        // Status under the title at any window height (the scene had it from the middle, so short windows overlapped)
+        float width = statusText.rectTransform.rect.width;
+        MenuUI.PlaceTop(statusText.rectTransform, 0.5f, 0.5f, 140f, 110f, -width / 2f, -width / 2f);
+        statusText.alignment = TextAlignmentOptions.Top;
     }
 
     string CodeSentText() =>

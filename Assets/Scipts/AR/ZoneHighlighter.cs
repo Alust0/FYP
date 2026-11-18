@@ -2,22 +2,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* Lights up the board zones a player has to move cards on now (RulesEngine.AttentionZones), e.g. the
- trigger zone for a skill's reveal, the damage zone for a Counter Blast, the drop zone for a discard:
- each glows and sends out ripples (Ripple) so the eye goes to it. Cards to put in the drop zone
- (RulesEngine.AttentionArrows: a rear-guard the attack hit, guardians after the drive check) get an
- arrow from where they are, and the drop zone lights up in the arrow's colour; a ride from the ride
- deck, which the camera doesn't read, lights it in the arrow's colour with an arrow to the vanguard
- circle, lit yellow; a Soul Blast paid, an arrow from the vanguard to the drop zone. A boost: green
- chevrons running from the booster up to the unit it boosts (RulesEngine.BoostArrow); a guardian, yellow
- ones from the Guardian circle to the unit it guards (RulesEngine.GuardArrow). Online only this PC's
- own side; Over The Board, both. Added by UISetup. Its UI is built in ZoneHighlighter.UI.cs. */
+// Lights the zones to act on, and draws arrows (BoardArrow)
 public partial class ZoneHighlighter : MonoBehaviour
 {
     public Color zoneColor = new Color(1f, 0.82f, 0.2f);
     public Color arrowColor = new Color(1f, 0.42f, 0.3f);
     public Color boostColor = new Color(0.35f, 1f, 0.45f);
     public Color guardColor = new Color(1f, 0.9f, 0.2f);
+    public Color attackColor = new Color(1f, 0.15f, 0.1f);
+    public float attackArrowSize = 2.2f; // the attack arrow's thickness, times the others'
 
     class Highlight
     {
@@ -27,16 +20,11 @@ public partial class ZoneHighlighter : MonoBehaviour
         public Ripple ripple;
     }
 
-    class Arrow
-    {
-        public RectTransform root;
-        public Image[] parts; // shaft and the two sides of the head
-    }
-
     readonly List<Highlight> mHighlights = new List<Highlight>();
-    readonly List<Arrow> mArrows = new List<Arrow>();
-    BoostArrow mBoost;
-    BoostArrow mGuard; // the same chevrons in yellow, from the Guardian circle to the guarded unit
+    readonly List<BoardArrow> mArrows = new List<BoardArrow>();
+    BoardArrow mBoost;
+    BoardArrow mGuard; // the same chevrons in yellow, from the Guardian circle to the guarded unit
+    BoardArrow mAttack; // red chevrons from the attacker to its target
     readonly Dictionary<string, Color> mZones = new Dictionary<string, Color>();
     RectTransform mCanvas;
     RulesEngine mRules;
@@ -51,7 +39,7 @@ public partial class ZoneHighlighter : MonoBehaviour
         Camera cam = Camera.main;
         mZones.Clear();
         int arrows = 0;
-        bool boosting = false, guarding = false;
+        bool boosting = false, guarding = false, attacking = false;
 
         if (mRules != null && mBoard != null && cam != null)
         {
@@ -73,8 +61,9 @@ public partial class ZoneHighlighter : MonoBehaviour
                 // A skill's (a paid cost, a chosen unit): its zones stay lit as they are, and the drop zone lights if it isn't
                 else mZones.TryAdd(toKey, zoneColor);
                 if (!mBoard.TryGetZoneViewRect(Key(owner, from), cam, out Rect fromView) || !mBoard.TryGetZoneViewRect(toKey, cam, out Rect toView)) continue;
-                if (arrows == mArrows.Count) mArrows.Add(BuildArrow());
-                ShowArrow(mArrows[arrows++], ToPixels(px, fromView), ToPixels(px, toView));
+                if (arrows == mArrows.Count) mArrows.Add(BoardArrow.Add(mCanvas, BoardArrow.Style.Pulse, arrowColor));
+                mArrows[arrows].color = kind == RulesEngine.ArrowKind.Check ? zoneColor : arrowColor;
+                mArrows[arrows++].Show(ToPixels(px, fromView), ToPixels(px, toView));
             }
 
             var boost = mRules.BoostArrow;
@@ -82,8 +71,9 @@ public partial class ZoneHighlighter : MonoBehaviour
                 mBoard.TryGetZoneViewRect(Key(boost.Value.owner, boost.Value.from), cam, out Rect boosterView) &&
                 mBoard.TryGetZoneViewRect(Key(boost.Value.owner, boost.Value.to), cam, out Rect boostedView))
             {
-                if (mBoost == null) mBoost = BuildBoostArrow();
-                ShowBoost(mBoost, ToPixels(px, boosterView), ToPixels(px, boostedView), boostColor);
+                if (mBoost == null) mBoost = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, boostColor);
+                mBoost.color = boostColor;
+                mBoost.Show(ToPixels(px, boosterView), ToPixels(px, boostedView));
                 boosting = true;
             }
 
@@ -92,9 +82,22 @@ public partial class ZoneHighlighter : MonoBehaviour
                 mBoard.TryGetZoneViewRect(Key(guard.Value.owner, guard.Value.from), cam, out Rect guardianView) &&
                 mBoard.TryGetZoneViewRect(Key(guard.Value.owner, guard.Value.to), cam, out Rect guardedView))
             {
-                if (mGuard == null) mGuard = BuildBoostArrow();
-                ShowBoost(mGuard, ToPixels(px, guardianView), ToPixels(px, guardedView), guardColor);
+                if (mGuard == null) mGuard = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, guardColor);
+                mGuard.color = guardColor;
+                mGuard.Show(ToPixels(px, guardianView), ToPixels(px, guardedView));
                 guarding = true;
+            }
+
+            // Both players' PCs: it crosses to the other side's view online
+            var attack = mRules.AttackArrow;
+            if (attack != null &&
+                TryGetScreenRect(mBoard, attack.Value.attacker, attack.Value.from, out Rect attackerRect) &&
+                TryGetScreenRect(mBoard, attack.Value.defender, attack.Value.to, out Rect targetRect))
+            {
+                if (mAttack == null) mAttack = BoardArrow.Add(mCanvas, BoardArrow.Style.Chevrons, attackColor, attackArrowSize);
+                mAttack.color = attackColor;
+                mAttack.Show(attackerRect, targetRect);
+                attacking = true;
             }
 
             int used = 0;
@@ -108,16 +111,38 @@ public partial class ZoneHighlighter : MonoBehaviour
         }
         else Hide(mHighlights, 0);
 
-        for (int i = arrows; i < mArrows.Count; i++)
-            if (mArrows[i].root.gameObject.activeSelf) mArrows[i].root.gameObject.SetActive(false);
-        if (!boosting && mBoost != null && mBoost.root.gameObject.activeSelf) mBoost.root.gameObject.SetActive(false);
-        if (!guarding && mGuard != null && mGuard.root.gameObject.activeSelf) mGuard.root.gameObject.SetActive(false);
+        for (int i = arrows; i < mArrows.Count; i++) mArrows[i].Hide();
+        if (!boosting && mBoost != null) mBoost.Hide();
+        if (!guarding && mGuard != null) mGuard.Hide();
+        if (!attacking && mAttack != null) mAttack.Hide();
     }
 
     static bool Shown(PlayerState owner) => owner != null && (!MatchSession.IsOnline || MatchSession.IsLocal(owner));
 
     // "P1" is always this PC's own player (BoardLayout.SeatOfZone)
     static string Key(PlayerState owner, string zone) => (owner.playerIndex == MatchSession.LocalSeat ? "P1" : "P2") + "_" + zone;
+
+    // A player's zone on screen in pixels; online the opponent's is in their video (layout assumed same as ours)
+    public static bool TryGetScreenRect(BoardLayout board, PlayerState owner, string zone, out Rect box)
+    {
+        box = default;
+        Camera cam = Camera.main;
+        if (board == null || cam == null || owner == null) return false;
+
+        if (!MatchSession.IsOnline || MatchSession.IsLocal(owner))
+        {
+            if (!board.TryGetZoneViewRect(Key(owner, zone), cam, out Rect view)) return false;
+            box = ToPixels(cam.pixelRect, view);
+            return true;
+        }
+
+        Rect? shown = SplitScreenView.OpponentView;
+        if (shown == null || !board.TryGetZoneViewRect("P1_" + zone, cam, out Rect theirs)) return false;
+        Rect o = shown.Value; // their picture is turned round
+        box = new Rect((o.x + (1f - theirs.xMax) * o.width) * Screen.width, (o.y + (1f - theirs.yMax) * o.height) * Screen.height,
+            theirs.width * o.width * Screen.width, theirs.height * o.height * Screen.height);
+        return true;
+    }
 
     static Rect ToPixels(Rect px, Rect view) =>
         new Rect(px.x + view.x * px.width, px.y + view.y * px.height, view.width * px.width, view.height * px.height);
@@ -140,41 +165,5 @@ public partial class ZoneHighlighter : MonoBehaviour
         h.glow.color = new Color(color.r, color.g, color.b, 0.16f + 0.14f * pulse);
         foreach (Image edge in h.edges) edge.color = color;
         h.ripple.color = color;
-    }
-
-    // Centre to centre: a faint track with chevrons running along it to the boosted (or guarded) unit, fading in and out at the ends
-    void ShowBoost(BoostArrow boost, Rect from, Rect to, Color color)
-    {
-        if (!boost.root.gameObject.activeSelf) boost.root.gameObject.SetActive(true);
-        Vector2 direction = (to.center - from.center).normalized;
-        float length = (to.center - from.center).magnitude;
-        boost.root.anchoredPosition = from.center;
-        boost.root.sizeDelta = new Vector2(length, ArrowThickness);
-        boost.root.localEulerAngles = new Vector3(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
-        boost.track.color = new Color(color.r, color.g, color.b, 0.3f);
-
-        for (int i = 0; i < boost.chevrons.Length; i++)
-        {
-            float along = Mathf.Repeat(Time.unscaledTime / BoostRunSeconds + i / (float)boost.chevrons.Length, 1f);
-            boost.chevrons[i].anchoredPosition = new Vector2(along * length, 0f);
-            Color shade = new Color(color.r, color.g, color.b, Mathf.Sin(along * Mathf.PI));
-            foreach (Image part in boost.parts[i]) part.color = shade;
-        }
-    }
-
-    // From one zone's edge to the other's, pulsing
-    void ShowArrow(Arrow arrow, Rect from, Rect to)
-    {
-        if (!arrow.root.gameObject.activeSelf) arrow.root.gameObject.SetActive(true);
-        Vector2 direction = (to.center - from.center).normalized;
-        Vector2 start = from.center + direction * Mathf.Min(from.width, from.height) * 0.4f;
-        Vector2 end = to.center - direction * Mathf.Min(to.width, to.height) * 0.4f;
-
-        arrow.root.anchoredPosition = start;
-        arrow.root.sizeDelta = new Vector2(Mathf.Max(0f, (end - start).magnitude), ArrowThickness);
-        arrow.root.localEulerAngles = new Vector3(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
-
-        float alpha = 0.6f + 0.4f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2f * Mathf.PI / 0.8f));
-        foreach (Image part in arrow.parts) part.color = new Color(arrowColor.r, arrowColor.g, arrowColor.b, alpha);
     }
 }

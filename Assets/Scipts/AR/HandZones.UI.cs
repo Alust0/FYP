@@ -2,9 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* HandZones' buttons, trigger pick circles, deck frame and H preview. On their own overlay canvas,
- so they aren't in the camera picture being checked.
- The rest of HandZones is in HandZones.cs. */
+// HandZones' buttons, pick circles, deck frame and H preview
 public partial class HandZones
 {
     void BuildCanvas()
@@ -66,9 +64,7 @@ public partial class HandZones
         area.label = AddLabel(area.ui, label);
     }
 
-    /* H: the picture being checked, bottom-right of the camera view, with every live area boxed
-     (green while covered) and how much of it has changed. If the picture doesn't match the camera
-     view, the hand check is looking in the wrong place. */
+    // H: debug preview of the checked picture
     void BuildPreview()
     {
         mPreview = new GameObject("HandZonesPreview", typeof(RectTransform));

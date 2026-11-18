@@ -294,8 +294,7 @@ public partial class LoginController : MonoBehaviour
     static bool IsOwnEntry(RtdbRest.Result entry, string username) =>
         string.Equals(entry.fields.GetString("username"), username, StringComparison.OrdinalIgnoreCase);
 
-    /* Emails are stored by SHA-256 of the lower-case address, so the readable database doesn't list
-     anyone's email and the key has none of the characters Realtime Database keys can't hold */
+    // Email key: SHA-256 of the lower-case address
     static string EmailId(string email)
     {
         using (SHA256 sha = SHA256.Create())
@@ -377,8 +376,7 @@ public partial class LoginController : MonoBehaviour
         SceneManager.LoadScene(menuSceneName);
     }
 
-    /* Makes the dashboard's player name match the login username. A restored session may not carry
-     the username, so it's fetched; failures only log, since the name is cosmetic. */
+    // Sets the dashboard player name to the login username
     static async Task SyncPlayerNameAsync()
     {
         var auth = AuthenticationService.Instance;

@@ -7,10 +7,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.Windows.Speech;
 #endif
 
-/* Voice keywords, always listening through Windows' offline phrase recognition. Only the fixed
- keywords below are recognised; nothing else is recorded or sent. Each keyword heard shows who
- said it over the camera view, and online the keyword (just the word) goes to the other PC too,
- so both see it and both rule engines follow the battle. M mutes. Added by UISetup. Its UI is built in VoiceCommands.UI.cs. */
+// Voice keywords via Windows' offline recognition (M mutes)
 public partial class VoiceCommands : MonoBehaviour
 {
     public enum Command
@@ -167,8 +164,7 @@ public partial class VoiceCommands : MonoBehaviour
         mToastGroup.alpha = Mathf.Clamp01(left / 0.5f); // fades over its last half second
     }
 
-    /* A keyword chosen with ActionButtons when voice isn't working: handled exactly like saying it,
-     so it also shows and reaches the other PC */
+    // A keyword from ActionButtons, handled like a spoken one
     public void Press(string phrase) => Heard(phrase, true);
 
     // A keyword from this PC's microphone (or ActionButtons, pressed)
@@ -185,8 +181,7 @@ public partial class VoiceCommands : MonoBehaviour
         Run(command, who, gs);
     }
 
-    /* Online: the opponent's keyword. Their counts and phases already come with their board, so
-     only the battle declarations are acted on here, for this PC's rule engine to follow the battle. */
+    // Online: the opponent's keyword, only battle declarations used
     public void HeardRemote(string phrase, PlayerState who)
     {
         if (phrase == null || who == null || !Phrases.TryGetValue(phrase, out Command command)) return;
@@ -199,8 +194,7 @@ public partial class VoiceCommands : MonoBehaviour
         else if (command == Command.PersonaRide) mRules?.DeclarePersonaRide(who, true); // its power, for this PC's battle maths
     }
 
-    /* Online it's always this PC's player. On one PC, the defender's keywords are the player not
-     taking their turn, an [AUTO]'s answer is its owner's, and everything else is the turn player's. */
+    // Which player said the keyword
     PlayerState Speaker(GameState gs, Command command)
     {
         if (MatchSession.IsOnline) return gs.players[MatchSession.LocalSeat];

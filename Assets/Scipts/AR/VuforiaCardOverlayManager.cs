@@ -5,13 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using Vuforia;
 
-/* Drives real card state (identity, zone placement, stand/rest) from Vuforia: Image Targets made
- from the decks before the match (DeckTargetLoader), plus Cloud Reco when useCloudReco is on.
- Replaces the ARFoundation-based CardOverlayManager, which can't run alongside Cloud Reco's
- camera pipeline.
-
- Zone placement projects each card's on-screen center onto the board (BoardLayout.ZoneAtScreenPoint),
- so the real playmat must line up with the zones drawn on screen. Its UI is built in VuforiaCardOverlayManager.UI.cs. */
+// Card identity, zone and stand/rest from Vuforia targets
 public partial class VuforiaCardOverlayManager : MonoBehaviour
 {
     RulesEngine mRules; // for LeaveIfGone
@@ -91,8 +85,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     // Keyed by Cloud Reco's UniqueTargetId, or "Deck_" + card number + "#" + copy for deck targets
     readonly Dictionary<string, TrackedCard> mTrackedCards = new Dictionary<string, TrackedCard>();
 
-    /* In the order their card data resolved: when several targets cover one physical card,
-     the earliest here is the one shown (see ResolveDuplicates). */
+    // In resolve order; the earliest wins duplicates
     readonly List<TrackedCard> mResolvedCards = new List<TrackedCard>();
     readonly List<TrackedCard> mLiveCards = new List<TrackedCard>(); // rebuilt every frame by ResolveDuplicates
 
@@ -164,8 +157,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
         Debug.Log("[CloudReco] " + Describe(source) + " matched '" + result.TargetName + "', metadata: '" + result.MetaData + "'");
 
-        /* A unique name per result (not one shared template GameObject) lets multiple
-         physical cards stay tracked on the board at the same time. */
+        // Unique name per result so several cards can be tracked
         ObserverBehaviour target = source.EnableObservers(result, "CardTarget_" + result.UniqueTargetId);
         if (target == null)
         {
@@ -191,8 +183,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         overlay.AddComponent<OverlaySmoothing>(); // Vuforia's pose wobbles; this stops the overlay shaking with it
         CardOverlayUI ui = overlay.GetComponent<CardOverlayUI>();
 
-        /* Card data is fetched by CheckNewMatches on the first tracked frame, once the pose is
-         real and the match can be checked for being a duplicate of a card already in view. */
+        // Card data fetched on the first tracked frame
         TrackedCard tracked = new TrackedCard
         {
             target = target,
@@ -204,9 +195,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         mTrackedCards[key] = tracked;
         RefreshOverlayVisibility(tracked); // stays hidden until its card data resolves
 
-        /* Vuforia freezes a lost target's transform at its last pose instead of disabling it,
-         which would leave the overlay (and its board zone) stuck there. Only TRACKED counts as
-         live: EXTENDED_TRACKED is a guessed pose for a card that has left the camera image. */
+        // Only TRACKED counts as live
         target.OnTargetStatusChanged += (observer, status) =>
         {
             tracked.hasPose = status.Status == Status.TRACKED;
@@ -214,9 +203,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         };
     }
 
-    /* A new match that lands on a card already in view is that same physical card matched by
-     a second database entry (a duplicate upload, or a same-art reprint). It's dropped before
-     its data is fetched, so it never shows, logs, or takes over when the original flickers. */
+    // A new match on a card already in view is a duplicate: dropped
     void CheckNewMatches()
     {
         Camera cam = Camera.main;
@@ -227,8 +214,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
             TrackedCard original = cam != null ? FindCardCovering(cam, tracked) : null;
 
-            /* A spare deck copy on a card another copy already reads: it waits, still unresolved,
-             until Vuforia puts it on a second identical card somewhere else */
+            // A spare copy waits until it's on another card
             if (original != null && tracked.isDeckCopy) continue;
 
             tracked.awaitingFirstPose = false;
@@ -258,8 +244,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         return null;
     }
 
-    /* Firestore is the source of truth for card stats; the local REST scraper cache
-     (ApiCardDatabase) is only a fallback when Firestore is unreachable or unconfigured. */
+    // Firestore first, ApiCardDatabase as fallback
     void ResolveCardData(string cardNumber, TrackedCard tracked)
     {
         if (CardFirestoreDatabase.Instance != null)
@@ -357,9 +342,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         }
     }
 
-    /* Vuforia can't see a face-down card's front, so a damage card that stays unseen counts as
-     flipped (Counter Blast) and flips back face up once seen again. A card back showing where it
-     was (CardBackTracker) confirms the flip, so then it needn't wait the full faceDownAfterSeconds. */
+    // Damage card unseen = flipped; back face up once seen
     void UpdateFacing(TrackedCard tracked, Camera cam)
     {
         GameState gs = GameState.Instance;
@@ -377,11 +360,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
             gs.SetFacing(tracked.instance, CardFacing.FaceDown);
     }
 
-    /* A rear-guard or check card out of view for goneAfterSeconds has been taken off the board, so
-     it no longer counts there (picks, [ACT] skills, boosts). Back on the same circle, the rules don't
-     treat it as a new call. Piles keep their cards: they lie under each other. So do the vanguard,
-     which only leaves by being ridden over, and the guardians, which often overlap, unless the rules
- are waiting for that card to go (RulesEngine.ExpectsMove, e.g. guardians after the battle). */
+    // Rear-guard/check card unseen for goneAfterSeconds leaves its zone
     void LeaveIfGone(TrackedCard tracked)
     {
         string zone = tracked.instance.zone;
@@ -423,9 +402,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
     static int sNormalFrame = -1;
     static Vector3 sNormal;
 
-    /* The mat's facing, toward the camera: the average facing of the cards seen on it, leaving out
-     any far from the rest, with the camera's view as one more vote. Cards lie flat on the mat, but
-     Vuforia sometimes gets one's tilt wrong (half covered, or at the image's edge). Once a frame. */
+    // The mat's facing: average of the cards seen, outliers dropped
     public static Vector3 MatNormal(Camera cam)
     {
         if (sNormalFrame == Time.frameCount) return sNormal;
@@ -465,9 +442,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         return screen.z > 0f && board.ZoneAtScreenPoint(screen, cam, tracked.currentZoneKey) != null;
     }
 
-    /* Several Cloud Reco targets can match one physical card (a duplicate upload, or a reprint
-     with the same art). Only the first to resolve is shown; later ones overlapping it are
-     hidden and kept off the board. */
+    // Several targets on one card: only the first is shown
     void ResolveDuplicates()
     {
         Camera cam = Camera.main;
@@ -492,8 +467,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
 
             if (coveredBy != tracked.duplicateOf)
             {
-                /* Taking over from the target this one was hidden behind, now out of view:
-                 pull that one off the board so the card isn't counted in a zone twice. */
+                // Taking over from a hidden target: remove the old one from the board
                 if (coveredBy == null && !tracked.duplicateOf.hasPose)
                     SetZone(tracked.duplicateOf, null);
 
@@ -505,8 +479,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         }
     }
 
-    /* Compared on screen, not in world space: Vuforia infers distance from the uploaded
-     target width, so two targets of one card can sit at different depths yet overlap. */
+    // Compared on screen, not in world space
     bool CoversSameCard(Camera cam, TrackedCard live, TrackedCard other)
     {
         Vector3 liveCenter = cam.WorldToScreenPoint(live.target.transform.position);
@@ -535,8 +508,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         return 2f * Mathf.Max(toSideEdge.magnitude, toTopEdge.magnitude);
     }
 
-    /* Stand vs rest, from the card's angle on screen against the board's card axis, so it
-     doesn't depend on how the camera is mounted. Upside down still counts as standing. */
+    // Stand or rest from the card's angle against the board
     void UpdateOrientation(TrackedCard tracked, Camera cam)
     {
         Transform t = tracked.target.transform;
@@ -561,8 +533,7 @@ public partial class VuforiaCardOverlayManager : MonoBehaviour
         return (Vector2)(cam.WorldToScreenPoint(origin + direction * step) - cam.WorldToScreenPoint(origin));
     }
 
-    /* Undo put this card back where the rules had it (GameState.PutBackQuietly). It still lies where it
-     was on the mat, so nothing's reported until it's picked up or moved; then wherever it's seen is a move */
+    // Undo put this card back; wait until it's moved
     void OnCardPutBack(CardInstance card)
     {
         foreach (TrackedCard tracked in mTrackedCards.Values)

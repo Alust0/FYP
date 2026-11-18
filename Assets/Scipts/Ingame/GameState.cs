@@ -71,12 +71,7 @@ public class GiftMarker
     public GiftType giftType; // TypeI or TypeII
     public int circleIndex; // target circle index on field
 
-    /* Force I → Power +10000 your turn
-     Force II → Critical becomes 2
-     Accel I → new circle Power +10000
-     Accel II → new circle Power +5000 draw
-     Protect I → Protect pseudo-card hand
-     Protect II → intercept Shield +10000 */
+    // Gift effects: Force I/II, Accel I/II, Protect I/II
 
     public GiftMarker(ImaginaryGift clan, GiftType type, int circle)
     {
@@ -174,22 +169,17 @@ public class PlayerState
         if (centerBackRearguard != null) yield return centerBackRearguard;
     }
 
-    /* Cards in a zone the camera can't count one by one: the face-down deck, soul charges, and
-     extra copies of a card (Cloud Reco tracks only one copy per card). Added to the tracked
-     cards, and can go negative to remove a tracked card that left unseen. "FaceDownDamage"
-     counts Counter Blast paid with untracked damage. */
+    // Counts the camera can't track (deck, soul, extra copies)
     public Dictionary<string, int> untrackedCards = new Dictionary<string, int>();
 
     public int Untracked(string zone) => untrackedCards.TryGetValue(zone, out int n) ? n : 0;
 
     public const int MaxDamage = 6;
 
-    /* Damage still face up, i.e. what's left to pay Counter Blast with. Kept as counts, not read off
-     the cards: damage cards overlap, and the camera losing one isn't it being flipped */
+    // Damage still face up (counts, not camera)
     public int FaceUpDamage => Mathf.Max(0, Untracked("Damage") - Untracked("FaceDownDamage"));
 
-    /* Changes a zone's count without a tracked card, never below zero cards in total. Damage stops at
-     6 (the game is over by then), and no more of it can be face down than there is */
+    // Changes a zone count without a tracked card
     public void AdjustCount(string zone, int delta)
     {
         int tracked = CountInZone(zone) - Untracked(zone);
@@ -235,9 +225,7 @@ public class PlayerState
         }
     }
 
-    /* Tracked cards in a zone plus its untracked count. Damage is the count alone (RulesEngine counts
-     each damage check, heal and HUD +/-): damage cards overlap, so the camera both loses them and reads
-     one card as two */
+    // Tracked cards plus untracked count (Damage: count only)
     public int CountInZone(string zone)
     {
         if (zone == "Damage") return Untracked(zone);
@@ -257,8 +245,7 @@ public class PlayerState
         if (card.zone != null) ZoneList(card.zone)?.Remove(card);
     }
 
-    /* Places a card into the zone named by a BoardLayout circle-key suffix (the part after
-     "P1_"/"P2_", e.g. "Vanguard"). Returns false for unknown zone names. */
+    // Places a card by zone name (key without "P1_"/"P2_")
     public bool PlaceCardInZone(CardInstance card, string zoneSuffix)
     {
         RemoveCardFromAllZones(card);
@@ -305,6 +292,7 @@ public class GameState : MonoBehaviour
     public string endReason;     // e.g. "Bo reached 6 damage"
     public int orderLimit = 1;
     readonly bool[] mHadDeck = new bool[2]; // per player: the deck count has been above 0
+    [System.NonSerialized] public bool handOnCircles; // setup (MatchSetup): the opening hand is laid on the rear-guard circles, orders too
     [System.NonSerialized] public string attackTarget; // not saved in the scene, which would load it as "" not null. Defender's circle under attack, e.g. "LeftFront"; null when there's no battle or it's not picked yet
 
     // Events that AROverlay and UI subscribe to
@@ -339,13 +327,12 @@ public class GameState : MonoBehaviour
     // Returns the opponent of the current player
     public PlayerState Opponent => players[1 - currentPlayerIndex];
 
-    /* Moves a card to a zone, or off the board when owner/zone is null. Trackers (Vuforia, or
-     OpenCV later) only ever call this, SetOrientation and SetFacing, so the rules don't care which one runs. */
+    // Moves a card to a zone, or off the board when null
     public void MoveCard(CardInstance card, PlayerState owner, string zone)
     {
         if (gameOver) return; // the board is final once the game is over
         // An order is never a unit: on the vanguard or a rear-guard circle it isn't counted as on the board
-        if (card.data.isOrderCard && Skill.IsUnitCircle(zone))
+        if (card.data.isOrderCard && Skill.IsUnitCircle(zone) && !handOnCircles)
         {
             OnRuleNotice?.Invoke("Rule check", card.data.DisplayName + " is an order, so it can't go on a circle. Put it in the order zone.");
             OnRulePrompt?.Invoke(card.data.cardName, "Orders go in the order zone.");
@@ -371,10 +358,7 @@ public class GameState : MonoBehaviour
         BroadcastState();
     }
 
-    /* Undo (RulesEngine): a card the undone move put somewhere goes back where the rules had it, with no
-     move announced. Trackers hear of it (OnCardPutBack) and report the card again once it's lifted or
-     moved, so putting it down again counts as a new move. Take every such card off before putting any
-     back, so a ride's new vanguard is off the circle before the old one returns to it */
+    // Undo: puts cards back quietly (no move event)
     public static System.Action<CardInstance> OnCardPutBack;
 
     public void TakeOffQuietly(CardInstance card)
@@ -422,9 +406,7 @@ public class GameState : MonoBehaviour
         BroadcastState();
     }
 
-    /* Six damage or an empty deck loses. The deck is the HUD's count, as the camera can't see it,
-     and only once it has had cards (the starting count, or online the opponent's first update).
-     A vanguard hidden under a hand isn't really gone, so no-vanguard isn't auto-checked. */
+    // Six damage or an empty deck loses
     public void CheckWinCondition()
     {
         if (gameOver || players[0] == null || players[1] == null) return;

@@ -3,24 +3,10 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-/* Reads a card's official Japanese text into skills, the same kinds SkillParser makes from the
- English. The Japanese wording is fixed, so each part has one marker:
- - 【自】【起】【永】 start an AUTO, ACT or CONT skill; 【ディヴァインスキル】- or 【ユニークスキル】- before
-   one makes it once a game for all of that kind, 白翼-/黒翼- gate it (SkillGate); any other
-   keyword before it (ペルソナ-, 抜錨-, 3つ以上-) is kept in front of its text for the player
- - The header runs to the colon: 【(V)】/【(R)】/【(G)】 or a zone (【ソウル】【ドロップ】...) for where it
-   works, 【ターン1回】 for 1/Turn, 【ファイト1回】 for once a game, and a keyword like 【リミットブレイク】(4)
- - An AUTO's timing is its opening clause, up to "...時、"
- - 【コスト】[...] is its cost: "," between costs, "か" between options to pick from, "ことで" after it
- - The effect is split into clauses at 、 and 。, and the ones the engine knows become steps
- - Abilities given to a unit, in 『』, aren't the card's own: no markers, costs or steps are read
-   from inside them
- - 罪能- (堕獄囚) is no skill of its own: it's what "このユニットの罪能を使う" does
- The text is normalised (NFKC) first, so full-width digits, brackets and colons read as plain ones. */
+// Reads a card's Japanese text into skills and steps
 public static class JpSkillParser
 {
-    /* A keyword before the marker, e.g. "【ディヴァインスキル】-" or "フレンド-", belongs to the skill after it.
-     A skill starts a line or a "・" item; "...同名のカードの【自】能力" in the middle of one is a mention. */
+    // A keyword before the marker belongs to the skill after it
     static readonly Regex MarkerRx = new Regex(@"(?<=^|\n|・|。|\s)(?:(【[^】]+】|[^\s、。【】:・]+)-)?【(自|起|永)】");
     static readonly Regex CircleRx = new Regex(@"\((V|R|G)\)");
     static readonly Regex PerTurnRx = new Regex(@"ターン(\d+)回");
@@ -67,8 +53,7 @@ public static class JpSkillParser
     const int MaxHeaderLength = 30; // a colon further in is the effect's own
     const char Masked = '＿'; // a 『』 ability's text, kept the same length
 
-    /* [AUTO] keywords whose timing is only in their reminder text (removed), from 総合ルール 14:
-     the keyword alone stands for "...時", which ParseTiming reads */
+    // [AUTO] keywords whose timing is only in reminder text
     static readonly Dictionary<string, string> KeywordTimings = new Dictionary<string, string>
     {
         ["先駆"] = "このユニットがライドされた時", // 14.8: ridden by a unit of the same clan
@@ -99,9 +84,7 @@ public static class JpSkillParser
         (new Regex(@"山札の下に"), "put the cards named on the bottom of your deck"),
     };
 
-    /* The text is read without its reminder text (総合ルール 2.11.3: it explains, it doesn't do
-     anything), so a keyword's "(あなたのダメージが4枚以上で有効)" doesn't push the colon past the
-     header. Brackets without kana, e.g. (V) or (3), are kept. */
+    // Reminder text is removed before reading
     public static List<Skill> Parse(string text)
     {
         var skills = new List<Skill>();
@@ -186,8 +169,7 @@ public static class JpSkillParser
         return zones.Length > 0 ? zones : null;
     }
 
-    /* text and masked are the same text, masked with 『』 blanked out, so an index into one is an
-     index into the other. onVanguard: the (V) half of a "(V)か(R)に登場した時" skill. */
+    // masked: text with 『』 blanked (same indexes)
     static Skill ParseSkill(string kind, string text, string masked, string sin, bool onVanguard)
     {
         int colon = masked.IndexOf(':');
@@ -315,8 +297,7 @@ public static class JpSkillParser
         return SkillTiming.Other;
     }
 
-    /* "," between costs that are all paid; "か" between options, one of which is paid (ChoiceCost).
-     One the engine doesn't know is paid by hand (OtherCost). */
+    // "," = all costs paid; "か" = one of them
     static List<Cost> ParseCosts(string part)
     {
         var costs = new List<Cost>();
@@ -350,11 +331,7 @@ public static class JpSkillParser
         return new OtherCost("the printed cost", 1);
     }
 
-    /* A step per clause the engine knows, null for one it doesn't. "...を1枚選び、公開してよい":
-     the choosing clause belongs to the reveal after it, and says which card it is. So does a search
-     ("...探し、公開して"), and "手札に加え" after the reveal is the shown card going into the hand. A
-     search with no "山札をシャッフル" of its own ends with one. A choice ("以下を1つ行う",
-     "1枚引くか、...") and what the opponent reveals are the player's. */
+    // A step per known clause, null for unknown
     internal static IEnumerable<Step> EffectSteps(string effect)
     {
         string[] clauses = ClauseRx.Split(effect).Select(c => c.Trim()).Where(c => c.Length > 0).ToArray();
@@ -442,8 +419,7 @@ public static class JpSkillParser
     static readonly Regex ChooseOpponentRx = new Regex(@"^(.*?)相手の(前列の|後列の)?(?:他の)?(リアガード|ユニット)を(\d+)枚(まで)?選び$");
     static readonly Regex OpponentPowerRx = new Regex(@"^パワー([-−+])(\d+)(?:する|し)?$");
 
-    /* What a chosen opponent's unit has done to it, by the keyword: (Japanese, the step's English, what the
-     opponent does, the zone of theirs it goes to for an arrow (CardMoves), or null: off the board, or stays) */
+    // What happens to a chosen opponent unit, by keyword
     static readonly (string ja, string act, string theirs, string to)[] OpponentActs =
     {
         ("退却させ", "retire it", "put {card} into your drop zone", "Drop"),
@@ -456,8 +432,7 @@ public static class JpSkillParser
         ("【レスト】させ", "rest it", "rest {card} (turn it sideways)", null),
     };
 
-    /* The step for "...相手のリアガードを1枚選び" and the clause after it saying what happens ("そのターン中"
-     and the like in between), which it takes up. An action it doesn't know is left for the clauses after. */
+    // Step for choosing an opponent's rear-guard and what happens to it
     static ChooseOpponentStep ChooseOpponent(Match m, string[] clauses, ref int i, bool battleOnly)
     {
         var where = m.Groups[2].Value == "前列の" ? ChooseOpponentStep.Where.FrontRow

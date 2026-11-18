@@ -11,10 +11,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* Logs scene: the match logs MatchLogger saved for the logged-in account (MatchLogger.Folder) on the left, newest
- first, and the picked one on the right: its result (Win, Lose or Draw, the damage each player
- dealt and the time) over the log, coloured by kind of line. A filter and a search narrow the log
- down; Copy puts the whole file on the clipboard. Builds its own UI (MatchLog.UI.cs). */
+// Logs scene: this account's saved match logs, with filter and search
 public partial class MatchLog : MonoBehaviour
 {
     [SerializeField] private string menuSceneName = "Menu";
@@ -79,9 +76,7 @@ public partial class MatchLog : MonoBehaviour
         else ShowLog();
     }
 
-    /* Logs from before each account had its own folder lie loose in MatchLogs. One whose player on
-     this PC (the solo player, the seat in its name online, the first player for one PC) has this
-     account's name moves into this account's folder; the rest stay put, shown to no one */
+    // Moves old loose logs into this account's folder if the player name matches
     void ClaimOldLogs()
     {
         string me = PlayerSession.Name;

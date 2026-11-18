@@ -6,10 +6,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/* In-game Settings: opened by the Settings button or Esc, closed by its X or Esc. Resume, Calibrate
- Board (BoardCalibrator), Refresh Camera (CameraChoice.Refresh), Flip Camera (upside-down webcams), full screen or windowed (WindowMode), text size (GameSettings), camera
- brightness, and Leave Match back to the menu, which needs a second tap so it isn't hit by accident. Online, leaving tells the opponent
- (OnlineMatch marks the room closed). Built by UISetup. */
+// In-game Settings menu (Esc)
 public class SettingsMenu : MonoBehaviour
 {
     public GameObject overlay;
@@ -25,6 +22,11 @@ public class SettingsMenu : MonoBehaviour
     public TextMeshProUGUI infoText; // room, voice status and the shortcut keys
     public TextMeshProUGUI windowLabel;
     public TextMeshProUGUI refreshLabel;
+    public TMP_Dropdown cameraDropdown;
+
+    string[] mCameras = new string[0];
+    string mShownCamera;
+    bool mShownFailed;
     public TextMeshProUGUI flipLabel;
     public Button flipButton;
 
@@ -48,6 +50,8 @@ public class SettingsMenu : MonoBehaviour
         fontSlider.SetValueWithoutNotify(GameSettings.FontScale);
         fontSlider.onValueChanged.AddListener(OnFontScaleChanged);
         ApplyFontScale();
+
+        cameraDropdown.onValueChanged.AddListener(OnCameraPicked);
 
         brightnessSlider.onValueChanged.AddListener(_ =>
         {
@@ -80,6 +84,7 @@ public class SettingsMenu : MonoBehaviour
             infoText.text = InfoText();
             windowLabel.text = WindowMode.Label;
             refreshLabel.text = CameraChoice.Refreshing ? "Refreshing camera..." : "Refresh Camera";
+            ShowCamera();
             flipButton.interactable = BuildWebcamDriver.CanFlip;
             flipLabel.text = !BuildWebcamDriver.CanFlip ? "Flip Camera: builds only"
                 : GameSettings.CameraUpsideDown ? "Flip Camera: On (180°)" : "Flip Camera: Off";
@@ -97,6 +102,7 @@ public class SettingsMenu : MonoBehaviour
     {
         overlay.SetActive(true);
         ResetLeave();
+        LoadCameras();
 
         // Read each time: the camera, or its brightness in another program, may have changed
         // UWP builds brighten the picture instead of the webcam
@@ -156,8 +162,37 @@ public class SettingsMenu : MonoBehaviour
         if (!CameraChoice.Refreshing) StartCoroutine(CameraChoice.Refresh());
     }
 
-    /* For a webcam mounted upside down: its picture is turned 180° before Vuforia sees it, straight
-     away. Builds only: in the editor Vuforia reads the webcam itself (Windows' camera settings can turn it there) */
+    // The webcams, read again each time the menu opens (one may have been plugged in)
+    void LoadCameras()
+    {
+        mCameras = CameraChoice.Devices;
+        cameraDropdown.ClearOptions();
+        cameraDropdown.AddOptions(mCameras.Length == 0 ? new List<string> { "No camera found" } : new List<string>(mCameras));
+        mShownCamera = null;
+        ShowCamera();
+    }
+
+    // Keeps the dropdown on the webcam in use (a failed switch goes back to the old one)
+    void ShowCamera()
+    {
+        cameraDropdown.interactable = mCameras.Length > 1 && !CameraChoice.Refreshing;
+        string inUse = CameraChoice.InUse;
+        if (inUse == mShownCamera && CameraChoice.SwitchFailed == mShownFailed) return;
+        if (CameraChoice.Refreshing) return; // shows the picked one until the switch is done
+        mShownCamera = inUse;
+        mShownFailed = CameraChoice.SwitchFailed;
+        cameraDropdown.SetValueWithoutNotify(Mathf.Max(0, System.Array.IndexOf(mCameras, inUse)));
+        if (mShownFailed) cameraDropdown.captionText.text = inUse + " (other had no picture)";
+    }
+
+    // A webcam picked in the dropdown (this window's, saved for later matches too)
+    void OnCameraPicked(int index)
+    {
+        if (index < 0 || index >= mCameras.Length || CameraChoice.Refreshing) return;
+        StartCoroutine(CameraChoice.SwitchTo(mCameras[index]));
+    }
+
+    // Flip Camera for an upside-down webcam (builds only)
     public void ToggleFlip()
     {
         if (BuildWebcamDriver.CanFlip) GameSettings.CameraUpsideDown = !GameSettings.CameraUpsideDown;

@@ -3,14 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* The battle's voice keywords as buttons, for when voice isn't working: only the ones the
- situation calls for, in a sidebar row (UISetup). First an [AUTO] skill's Activate / Skip / Later
- (SkillRules), or the step a used skill waits on (Done / Skip step, or which cost to pay), then picking an attack target, the defender's guard or no guard, the attacker's
- drive check, the defender's damage check, and for a check card the camera didn't scan, whether it
- was a trigger and which (RulesEngine.UnscannedCheck); in the Main Phase, ready [ACT] skills and the
- Energy Blast draw (RulesEngine.EnergyDraw). A keyword button press goes
- through VoiceCommands like the spoken keyword, so it shows and reaches the other PC the same way.
- Online only this PC's player gets buttons; on one PC both players' do. */
+// Buttons for the voice keywords the current situation needs
 public class ActionButtons : MonoBehaviour
 {
     const int MaxButtons = 7; // up to 3 in one line, more in two
@@ -115,7 +108,8 @@ public class ActionButtons : MonoBehaviour
             return;
         }
         if (phrase != null && phrase.EndsWith(" trigger")) mTriggerList = false; // answered
-        if (phrase == HealedFaceUp) mRules?.SetHealedFacing(false);
+        if (phrase != null && phrase.StartsWith(MatchSetup.PhrasePrefix)) mRules?.Setup?.Press(phrase);
+        else if (phrase == HealedFaceUp) mRules?.SetHealedFacing(false);
         else if (phrase == HealedFaceDown) mRules?.SetHealedFacing(true);
         else if (phrase == KeepTrigger) mRules?.KeepPicks();
         else if (phrase == EnergyDraw) mRules?.EnergyDraw();
@@ -134,6 +128,13 @@ public class ActionButtons : MonoBehaviour
         var actions = new List<(string, string)>();
         GameState gs = GameState.Instance;
         if (mRules == null || mRules.Skills == null || gs == null || gs.players[0] == null) return actions;
+
+        // Before turn 1: the opening hand's steps (MatchSetup)
+        if (mRules.InSetup)
+        {
+            actions.AddRange(mRules.Setup.Buttons());
+            return actions;
+        }
 
         // Online: the opponent's skill waiting on this PC's player, first of all
         if (MatchSession.IsOnline && OnlineMatch.OpponentStepForYou != null)

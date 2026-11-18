@@ -6,10 +6,7 @@ using Newtonsoft.Json;
 using UnityEngine;
 using CardFields = System.Collections.Generic.Dictionary<string, object>;
 
-/* The deck builder's card details: the scraper's D and DZ cards, one file per set in
- StreamingAssets/Deck (made by Tools/build_card_data.py), plus index.json with the set codes and
- nations. A set's file is read the first time one of its cards is asked for.
- CardFirestoreDatabase.CacheDeck copies a match's deck cards from here into its cache. */
+// Deck builder card data from StreamingAssets/Deck
 public static class LocalCardData
 {
     class Index

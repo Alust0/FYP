@@ -8,10 +8,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
-/* A one-time code that proves an email at sign-up. The code is made here and mailed by EmailJS (REST,
- free tier), set up in StreamingAssets/emailjs.json: {service_id, template_id, public_key, private_key}.
- The EmailJS template gets {{email}}, {{passcode}} and {{time}} (when the code runs out). The check
- runs in the game, so it proves the player can read that mailbox, not against a modified client. */
+// Sign-up email code, mailed by EmailJS (StreamingAssets/emailjs.json), checked in the game
 public class EmailOtp
 {
     const string SendUrl = "https://api.emailjs.com/api/v1.0/email/send";

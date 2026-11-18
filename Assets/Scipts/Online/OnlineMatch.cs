@@ -4,19 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-/* Keeps the two PCs of an online match in step through the room entry (see LobbyController).
- Each PC's camera only watches its own half of the board (BoardLayout's Multiplayer mode), so it
- uploads that half and mirrors the opponent's half from theirs:
-   seat0 / seat1  {cards: [{id, number, zone, rest, faceDown}], counts: {zone: n}, attackTarget, said, saidN} —
-                  counts are untrackedCards; attackTarget is the circle the turn player's current attack
-                  targets; said is that player's latest voice keyword and saidN how many they've said;
-                  pick / pickN the same for where they gave a trigger's power, critical or stand;
-                  turned whether their view is turned (RotatedView)
-   turn           {player, number, phase} — written by whichever PC moved the turn on, or undid
-   undo           {at, seat, sinceMs, player, number, phase} — the latest undo: when it was sent, by
-                  whom, and when the state it went back to began, so the other PC goes back there too
- The opponent's cards go through the same GameState calls the trackers use, so the rules, HUD and
- battle overlay treat them like cards seen by a camera. Added by GameSetup when the match is online. */
+// Keeps two PCs in step through the room's seat fields
 public class OnlineMatch : MonoBehaviour
 {
     [Tooltip("Seconds between syncs. Each sync is one database read, plus a write when this PC's board changed.")]
@@ -41,7 +29,7 @@ public class OnlineMatch : MonoBehaviour
     GameState gs;
     RulesEngine rules;
 
-    string RoomPath => "rooms/" + MatchSession.RoomCode;
+    string RoomPath => MatchSession.RoomPath;
     static string SeatField(int seat) => "seat" + seat;
     static string RoleField(int seat) => seat == 0 ? "host" : "guest";
 
@@ -54,6 +42,7 @@ public class OnlineMatch : MonoBehaviour
     long mAppliedSaidN = -1; // the opponent's keyword count last shown; -1 until their seat is first seen
     long mAppliedPickN = -1; // likewise their trigger picks
     long mAppliedSkillN = -1; // and the skills they used or skipped
+    long mAppliedAttackN = -1; // and the attacks they started
     int mSentUndos; // RulesEngine.UndoCount already uploaded
     long mAppliedUndoAt = -1; // the room's undo last handled; -1 until the room is first read
 
@@ -65,8 +54,7 @@ public class OnlineMatch : MonoBehaviour
     // The opponent's view is turned (RotatedView), so the picture sent to them turns its zone labels to suit
     public static bool OpponentTurned { get; private set; }
 
-    /* A step of the opponent's skill that's this PC's player to do (their OpponentStep), as they're told;
-     null for none. ActionButtons shows its Done, whose "skill done" reaches their PC */
+    // The opponent's skill step this player must do, or null
     public static string OpponentStepForYou { get; private set; }
     static string sDoneStep; // the one already answered, until their PC moves on
 
@@ -97,13 +85,13 @@ public class OnlineMatch : MonoBehaviour
             yield break;
         }
 
-        yield return new WaitUntil(() => rules.IsStarted);
+        yield return new WaitUntil(() => rules.IsStarted || rules.InSetup); // setup syncs too: the toss and who's ready
         mSyncedTurnKey = TurnKey();
         mSentUndos = RulesEngine.UndoCount;
 
         int remote = MatchSession.RemoteSeat;
         Notice("Online match", "Room " + MatchSession.RoomCode + ": you are " + gs.players[MatchSession.LocalSeat].playerName +
-            " vs " + gs.players[remote].playerName + ". " + gs.players[0].playerName + " goes first.");
+            " vs " + gs.players[remote].playerName + ".");
 
         while (true)
         {
@@ -129,8 +117,14 @@ public class OnlineMatch : MonoBehaviour
         var mask = new List<string>();
         int local = MatchSession.LocalSeat;
 
-        Dictionary<string, object> seat = SeatSnapshot(gs.players[local]);
+        Dictionary<string, object> seat = SeatSnapshot(gs.players[local], rules.HidesHand);
+        if (rules.Setup != null) seat["setup"] = rules.Setup.SeatField();
         if (gs.currentPlayerIndex == local && gs.attackTarget != null) seat["attackTarget"] = gs.attackTarget;
+        if (RulesEngine.AttackCount > 0)
+        {
+            seat["attackFrom"] = RulesEngine.LastAttackFrom;
+            seat["attackN"] = (long)RulesEngine.AttackCount;
+        }
         if (RulesEngine.PickCount > 0)
         {
             seat["pick"] = RulesEngine.LastPick;
@@ -210,11 +204,13 @@ public class OnlineMatch : MonoBehaviour
         if (beat) mLastBeat = Time.time;
     }
 
-    static Dictionary<string, object> SeatSnapshot(PlayerState player)
+    // hideRearguards: setup, when the opening hand lies on the rear-guard circles (MatchSetup)
+    static Dictionary<string, object> SeatSnapshot(PlayerState player, bool hideRearguards)
     {
         var cards = new List<object>();
         foreach (string zone in Zones)
         {
+            if (hideRearguards && Skill.IsUnitCircle(zone) && zone != "Vanguard") continue; // the five rear-guard circles
             IEnumerable<CardInstance> inZone = player.ZoneList(zone) ?? new List<CardInstance> { player.CardOnCircle(zone) };
             foreach (CardInstance card in inZone.Where(c => c != null))
             {
@@ -317,6 +313,7 @@ public class OnlineMatch : MonoBehaviour
 
     void ApplySeat(Dictionary<string, object> seat)
     {
+        rules.Setup?.ApplyRemote(seat.GetMap("setup")); // their opening hand's stage, and the host's toss
         OpponentTurned = seat.GetBool("turned");
         rules.Moves.ApplyRemote(seat.GetString("moves"), gs.players[MatchSession.LocalSeat]);
 
@@ -332,8 +329,7 @@ public class OnlineMatch : MonoBehaviour
             }
         }
 
-        /* Their latest keyword, before their cards: a guard or damage check is said before the
-         cards it's about are put down. Keywords from before this PC joined aren't news. */
+        // Their latest keyword, before their cards
         long saidN = seat.GetLong("saidN");
         if (mAppliedSaidN < 0) mAppliedSaidN = saidN;
         else if (saidN > mAppliedSaidN)
@@ -385,6 +381,15 @@ public class OnlineMatch : MonoBehaviour
 
         ApplyRemoteCards();
 
+        // An attack their PC started, in case its rest fell between two syncs and wasn't seen here
+        long attackN = seat.GetLong("attackN");
+        if (mAppliedAttackN < 0) mAppliedAttackN = attackN;
+        else if (attackN > mAppliedAttackN)
+        {
+            mAppliedAttackN = attackN;
+            rules.ApplyRemoteAttack(seat.GetString("attackFrom"));
+        }
+
         // Their attack's target, once its attack has arrived through ApplyRemoteCards
         string target = seat.GetString("attackTarget");
         if (target != null && target != gs.attackTarget && gs.currentPlayerIndex == MatchSession.RemoteSeat) rules.ChooseTarget(target);
@@ -393,9 +398,7 @@ public class OnlineMatch : MonoBehaviour
         gs.BroadcastState();
     }
 
-    /* Zones first, in Zones order: a new vanguard lands before the old one is seen in the soul, so
-     it counts as a ride (and a Persona Ride) like on the opponent's PC. Then stand/rest, front row
-     before back row, since a boost only counts once the unit in front is attacking. */
+    // Zones first, then stand/rest
     void ApplyRemoteCards()
     {
         PlayerState player = gs.players[MatchSession.RemoteSeat];

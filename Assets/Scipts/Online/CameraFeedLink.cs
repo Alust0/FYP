@@ -11,26 +11,16 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
-/* Carries camera pictures (JPEG bytes) between the two PCs of an online match, for SplitScreenView.
-
- Direct: the host listens on a free port and puts its addresses in the room entry ("video");
- the guest connects. Works on one network or one PC, and needs Windows Firewall to let Unity in
- (a UWP build needs the privateNetworkClientServer capability for home/work networks).
- Each side's first message is the room code, so a wrong connection is dropped.
-
- Fallback, when there's no direct connection (two homes' networks): about three pictures a second
- through the Realtime Database, in an entry next to the room ("<code>_video<seat>"), which the same
- rules cover and the lobby's room search skips (it has no status). The opponent's PC listens to it
- (RtdbRest.Listen), so a picture shows as soon as it's written. Every picture counts toward the
- database's download allowance (Spark plan: 10 GB a month, roughly 0.6 GB per hour of match). */
+// Camera pictures between the two PCs: TCP, else the database
 public class CameraFeedLink : MonoBehaviour
 {
-    public float directSeconds = 0.1f;   // between pictures over a direct connection
+    public float directSeconds = 1f / 30f; // between pictures over a direct connection (30 a second)
     public float fallbackSeconds = 0.3f; // between pictures through the database (also waits for the last upload)
     public float fallbackPollSeconds = 0.4f; // between checks for the opponent's next database picture, if streaming fails
     public float connectWaitSeconds = 8f; // before falling back
 
     public bool Direct => mConnection != null && mConnection.Verified && !mConnection.Closed;
+    public bool Busy => Direct && mConnection.Sending; // the last picture is still going out
     public bool UsingFallback => !Direct && Time.unscaledTime - mStartTime > connectWaitSeconds;
 
     // True when a new picture can go; then call Send
@@ -45,6 +35,7 @@ public class CameraFeedLink : MonoBehaviour
     }
 
     string mRoomCode;
+    string mRoomPath;
     int mLocalSeat;
     float mStartTime;
     float mNextSend;
@@ -58,12 +49,13 @@ public class CameraFeedLink : MonoBehaviour
     long mLastFrameMs;
     byte[] mFallbackFrame;
 
-    static string FramePath(string code, int seat) => "rooms/" + code + "_video" + seat;
+    string FramePath(int seat) => mRoomPath + "_video" + seat;
 
     void Start()
     {
         // Kept, since OnlineMatch ends the MatchSession when the scene closes
         mRoomCode = MatchSession.RoomCode;
+        mRoomPath = MatchSession.RoomPath;
         mLocalSeat = MatchSession.LocalSeat;
         mStartTime = Time.unscaledTime;
 
@@ -78,7 +70,7 @@ public class CameraFeedLink : MonoBehaviour
         lock (mAcceptLock) mAccepted?.Close();
         try { mListener?.Stop(); } catch (SocketException) { }
         mListener = null;
-        if (mRoomCode != null && mLastFrameMs != 0) RtdbRest.DeleteWithoutWaiting(FramePath(mRoomCode, mLocalSeat));
+        if (mRoomCode != null && mLastFrameMs != 0) RtdbRest.DeleteWithoutWaiting(FramePath(mLocalSeat));
     }
 
     void Update()
@@ -137,7 +129,7 @@ public class CameraFeedLink : MonoBehaviour
 
         var video = new Dictionary<string, object> { ["port"] = (long)port, ["ips"] = LocalAddresses().Cast<object>().ToList() };
         RtdbRest.Result result = null;
-        yield return RtdbRest.Patch("rooms/" + mRoomCode, new Dictionary<string, object> { ["video"] = video }, new[] { "video" }, r => result = r);
+        yield return RtdbRest.Patch(mRoomPath, new Dictionary<string, object> { ["video"] = video }, new[] { "video" }, r => result = r);
         Debug.Log("[CameraFeedLink] Listening on port " + port + (result.succeeded ? "." : ", but couldn't tell the guest: " + result.error));
     }
 
@@ -170,7 +162,7 @@ public class CameraFeedLink : MonoBehaviour
             }
 
             RtdbRest.Result room = null;
-            yield return RtdbRest.Get("rooms/" + mRoomCode, r => room = r);
+            yield return RtdbRest.Get(mRoomPath, r => room = r);
             Dictionary<string, object> video = room.succeeded ? room.fields.GetMap("video") : null;
 
             if (video != null)
@@ -185,16 +177,16 @@ public class CameraFeedLink : MonoBehaviour
                 {
                     mConnection?.Close();
                     mConnection = new Connection(attempt.Result, mRoomCode);
-                    yield return new WaitForSecondsRealtime(2f); // time for the hello to come back
+                    float until = Time.unscaledTime + 2f; // time for the hello to come back
+                    yield return new WaitUntil(() => Direct || Time.unscaledTime > until);
                     if (Direct) Debug.Log("[CameraFeedLink] Connected straight to the host.");
                 }
             }
-            yield return new WaitForSecondsRealtime(Direct ? 1f : 5f);
+            yield return new WaitForSecondsRealtime(Direct || Time.unscaledTime - mStartTime < 30f ? 1f : 5f); // quick tries at first
         }
     }
 
-    /* Tries every address at once, so the host's virtual and VPN adapters don't each cost a wait;
-     the first that connects wins */
+    // Tries every address at once
     static TcpClient TryConnect(List<string> ips, int port)
     {
         var attempts = new List<(TcpClient client, Task task)>();
@@ -264,17 +256,15 @@ public class CameraFeedLink : MonoBehaviour
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var fields = new Dictionary<string, object> { ["jpg"] = Convert.ToBase64String(jpeg), ["ms"] = now };
         RtdbRest.Result result = null;
-        yield return RtdbRest.Patch(FramePath(mRoomCode, mLocalSeat), fields, new[] { "jpg", "ms" }, r => result = r);
+        yield return RtdbRest.Patch(FramePath(mLocalSeat), fields, new[] { "jpg", "ms" }, r => result = r);
         if (result.succeeded) mLastFrameMs = now;
         mUploading = false;
     }
 
-    /* Listens to the opponent's picture entry, so each picture arrives as soon as it's written. A
-     dropped stream is reopened; one that never delivers anything (streaming blocked on this
-     network or platform) gives way to polling. */
+    // Streams the opponent's picture entry, else polls
     IEnumerator FallbackDownloads()
     {
-        string path = FramePath(mRoomCode, 1 - mLocalSeat);
+        string path = FramePath(1 - mLocalSeat);
         int failures = 0;
         while (failures < 3)
         {
@@ -303,8 +293,7 @@ public class CameraFeedLink : MonoBehaviour
         catch (FormatException) { }
     }
 
-    /* Polls the tiny "ms" stamp often and downloads the picture only when it changed, so a new one
-     shows soon after it's sent and an unchanged one isn't downloaded again */
+    // Polls the "ms" stamp, downloads only new pictures
     IEnumerator PollFallback(string path)
     {
         long lastSeen = 0;
@@ -328,8 +317,7 @@ public class CameraFeedLink : MonoBehaviour
         }
     }
 
-    /* One TCP connection: messages are a 4-byte length then the bytes. Only the newest picture is
-     kept each way, so a slow link drops pictures instead of falling behind. */
+    // One TCP link: 4-byte length + bytes, newest picture only
     class Connection
     {
         const int MaxMessage = 8 * 1024 * 1024;

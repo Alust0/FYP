@@ -3,8 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using Vuforia;
 
-/* Shows a pulsing scan frame + status text while Cloud Reco is searching, and briefly flashes
- a "found" state on a match. Attach to the same GameObject as your CloudRecoBehaviour. */
+// Pulsing scan frame while Cloud Reco searches
 [RequireComponent(typeof(CloudRecoBehaviour))]
 public class ScanningIndicatorUI : MonoBehaviour
 {

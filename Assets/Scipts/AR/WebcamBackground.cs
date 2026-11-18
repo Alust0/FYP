@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/* Displays the webcam feed as the background in the Unity Editor or standalone.
- On a real AR device, AR Foundation handles the camera feed. */
+// Webcam feed as background (editor/standalone)
 public class WebcamBackground : MonoBehaviour
 {
     [Header("Settings")]
@@ -49,8 +48,7 @@ public class WebcamBackground : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            /* A connected camera (often virtual, like OBS/DroidCam/iVCam) can report a device
-             name with invalid bytes, which crashes this call. */
+            // Some virtual cameras report names that crash this
             Debug.LogError("[Webcam] Failed to enumerate webcam devices — a connected camera driver may be reporting an invalid name: " + e.Message);
             return;
         }

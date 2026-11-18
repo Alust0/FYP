@@ -1,9 +1,6 @@
 using System.Linq;
 
-/* A keyword that turns a skill on only while its condition holds (総合ルール 14.2), e.g.
- 【リミットブレイク】(4). An [AUTO] whose gate is shut doesn't go off, and an [ACT] can't be used;
- one that went off resolves even if the condition stops holding (14.2.3.2). Cards the camera
- couldn't tell apart (untracked counts) get the benefit of the doubt. */
+// Gate keyword (e.g. Limit Break) that turns a skill on
 public class SkillGate
 {
     public enum Kind

@@ -8,10 +8,7 @@ using UnityEngine;
 using Vuforia;
 using Debug = UnityEngine.Debug;
 
-/* Builds only (UWP). There Vuforia opens a camera of its own choosing and can't be told which one,
- so instead it's started with its Unity webcam driver (UnityDriver.dll, what Play Mode uses), and
- this feeds that driver frames from the webcam picked in the lobby. If anything fails, Vuforia
- starts the normal way and picks its own camera. */
+// Builds only (UWP): feeds Vuforia frames from the lobby's webcam
 public class BuildWebcamDriver : MonoBehaviour
 {
     const string DriverLibrary = "UnityDriver.dll";
@@ -78,17 +75,25 @@ public class BuildWebcamDriver : MonoBehaviour
     IntPtr mImagePtr;
     bool mVuforiaRunning;
 
-    /* Play Mode's webcam turns this on, so the editor never froze on losing focus; builds need it
-     too, or alt-tabbing pauses the game, its camera and the online sync. */
+    // Run In Background, so alt-tab doesn't pause the game
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void KeepRunningInBackground() => Application.runInBackground = true;
 
-    /* True while this feeds Vuforia and can brighten its frames (GameSettings.CameraBrightness).
-     UWP can't reach the webcam's own brightness: there's no DirectShow, and the webcam is in use */
+    // True while this feeds Vuforia and can brighten its frames
     public static bool AdjustsBrightness => sInstance != null && sInstance.mBrightness != null;
 
     // True while this feeds Vuforia, so it can turn the picture upright (GameSettings.CameraUpsideDown)
     public static bool CanFlip => sInstance != null;
+
+    // The webcam fed to Vuforia, and whether it has sent a picture since it was started; null/false when not in use
+    public static string Device => sInstance != null && sInstance.mWebcam != null ? sInstance.mWebcam.deviceName : null;
+    public static bool HasPicture => sInstance != null && sInstance.mHasPicture;
+
+    // Starts the webcam again, smaller if it never sent a picture (CameraChoice's switch)
+    public static IEnumerator Retry()
+    {
+        if (sInstance != null && !sInstance.mRestarting) yield return sInstance.RestartWebcam();
+    }
 
     [MonoPInvokeCallback(typeof(DriverCreatedFn))]
     static void OnDriverCreated(IntPtr driver) => sDriver = driver;
@@ -116,8 +121,7 @@ public class BuildWebcamDriver : MonoBehaviour
         DontDestroyOnLoad(host);
         sInstance = host.AddComponent<BuildWebcamDriver>();
 
-        /* The size of the driver's frames is fixed at start, so wait for the webcam's real size. A webcam
-         Windows won't start at one size (0x80028019) is tried smaller */
+        // Driver frame size is fixed at start, so wait for the webcam's real size
         for (int i = 0; i < Widths.Length; i++)
         {
             sInstance.mWidthIndex = i;
@@ -180,8 +184,10 @@ public class BuildWebcamDriver : MonoBehaviour
 
         bool playing = mWebcam == null || mWebcam.isPlaying;
         mWidthIndex = 0;
+        mRestarts = 0;
         NewWebcam(camera);
-        if (playing) PlayWebcam();
+        if (playing) PlayWebcam(); // stopped (Settings switch): OnStarted plays it with Vuforia
+        mLastFrame = Time.realtimeSinceStartup;
     }
 
     static readonly int[] Widths = { MaxWidth, 1280, 640 }; // tried in turn while Windows won't start the webcam
@@ -189,8 +195,7 @@ public class BuildWebcamDriver : MonoBehaviour
     bool mPlayed; // Play called on this webcam
     bool mHasPicture; // it has sent a picture since its last Play
 
-    /* Webcams Windows refused to start: never stopped or destroyed, as Unity's UWP player crashes doing
-     that (StopPreviewAsync on a capture that never started). Kept here so they're never unloaded either */
+   
     static readonly List<WebCamTexture> sAbandoned = new List<WebCamTexture>();
 
     // A new webcam object for camera at the current size, in place of the old one
@@ -200,7 +205,7 @@ public class BuildWebcamDriver : MonoBehaviour
         {
             if (mHasPicture)
             {
-                mWebcam.Stop();
+                if (mWebcam.isPlaying) mWebcam.Stop(); // may be stopped already with Vuforia
                 Destroy(mWebcam);
             }
             else if (mPlayed)
@@ -251,9 +256,7 @@ public class BuildWebcamDriver : MonoBehaviour
         sUserData = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(DriverData)));
         Marshal.StructureToPtr(data, sUserData, false); // must stay valid while Vuforia runs, so never freed
 
-        /* The webcam only needs to run while Vuforia does. It's left running until Vuforia starts, though:
-         stopping it here and starting it again a moment later, when Vuforia started, was refused by
-         Windows (0x80028019), as it hadn't let go of the camera yet */
+        // Webcam runs only while Vuforia does
         VuforiaApplication.Instance.OnVuforiaStarted += OnStarted;
         VuforiaApplication.Instance.OnVuforiaStopped += OnStopped;
     }
@@ -271,10 +274,7 @@ public class BuildWebcamDriver : MonoBehaviour
     int mRestarts; // in a row, without a picture in between
     bool mRestarting;
 
-    /* Windows can refuse to start the webcam (error 0x80028019) when it's asked while the camera is
-     still being released, e.g. right after a stop, or while another app has it. The webcam then
-     never sends a picture: one that had been working is stopped and started again after a pause;
-     one that never started is replaced by a new one, a size smaller (see sAbandoned) */
+    // Restarts a webcam that sends no picture (Windows error 0x80028019)
     IEnumerator RestartWebcam()
     {
         mRestarting = true;
@@ -312,8 +312,7 @@ public class BuildWebcamDriver : MonoBehaviour
 
         if (!mVuforiaRunning || sDriver == IntPtr.Zero || mReadback == null || !mWebcam.didUpdateThisFrame) return;
 
-        /* Unity textures are stored bottom row first; Vuforia wants the top row first. A webcam
-         upside down is turned 180° too, which together just mirrors it left to right */
+        // Flip rows for Vuforia (top row first); upside down just mirrors it
         bool upsideDown = GameSettings.CameraUpsideDown;
         if (mBrightness != null)
         {

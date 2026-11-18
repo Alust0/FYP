@@ -1,8 +1,6 @@
 using UnityEngine;
 
-/* How long the match has run, from the first turn until the game is over, and the lobby's time
- limit (MatchSession.TimerMinutes): when it runs out the match ends in a draw. Online, each PC
- times its own match; they start within a second of each other. Created by UISetup. */
+// Match time and the lobby's limit (draw when it runs out)
 public class MatchTimer : MonoBehaviour
 {
     static double sStart = -1; // realtimeSinceStartup at turn 1, or -1 before it

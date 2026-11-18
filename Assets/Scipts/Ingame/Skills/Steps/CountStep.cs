@@ -1,5 +1,4 @@
-/* Soul Charge, Counter Charge and Energy Charge: they only change counts the camera can't see, so
- the engine does them and says what to do with the real cards */
+// Soul/Counter/Energy Charge: count changes
 public class CountStep : Step
 {
     public enum Kind { SoulCharge, CounterCharge, EnergyCharge }

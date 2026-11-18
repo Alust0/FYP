@@ -6,14 +6,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-/* Hand gestures: a Next Phase button drawn over the camera view (off unless useButtons), and the
- turn player's Deck zone. A few times a second the camera's own picture (the webcam Vuforia reads, so none of
- the overlays drawn on top) is checked; an area that moves away from how it usually looks has a
- hand over it. Holding a hand on one button for holdSeconds runs it. In the Draw
- Phase, or after an Energy Blast, a hand going onto the deck and away again counts as the draw: the camera can't see one card
- leave a face-down deck, but it can see the hand (fingers on part of it are enough, and taking the
- top card may leave it looking a little different). In the Ride Phase a hand going onto the ride deck and away is a card
- taken from it, so the ride counts as from the ride deck (RulesEngine.RideDeckTouched). H shows what the check sees. Added by UISetup. Its UI is built in HandZones.UI.cs. */
+// Camera-picture hand checks: deck draws, ride deck touches, pick circles
 public partial class HandZones : MonoBehaviour
 {
     [Tooltip("Show the hand buttons (Next Phase, attack targets). Off: only the hand-on-deck draw is watched.")]
@@ -184,10 +177,7 @@ public partial class HandZones : MonoBehaviour
         TryCountDraw();
     }
 
-    /* The draw counts for a hand on the deck and off again, after the Draw Phase (or the draw that's
-     due) starts. It used to need the deck's card back going out of view as well, when that's
-     followed, but the next card has the same back, so Vuforia often kept seeing one and the draw was
-     missed. The card back is now only noted in the log; this is only watched while a draw is due. */
+    // Draw = hand on the deck and off again, while a draw is due
     void TryCountDraw()
     {
         if (!(mHandTouch is Vector2 h) || h.x < mDrawWatchStart) return;
@@ -241,8 +231,7 @@ public partial class HandZones : MonoBehaviour
         UpdatePreview();
     }
 
-    /* Next Phase only on your turn; the deck only while your Draw Phase, Energy Blast or skill draw is still
-     to come; the attack target buttons, in place of the usual ones, while your attack needs a target */
+    // Which areas are live right now
     bool IsShown(Area area, GameState gs)
     {
         if (gs.gameOver) return false; // nothing more to do once it's over
@@ -318,9 +307,7 @@ public partial class HandZones : MonoBehaviour
         }
     }
 
-    /* The webcam's own picture when there is one: the board's zone lines, card overlays and labels
-     drawn over it would otherwise look like changes. Otherwise (e.g. a build with another camera
-     path) the AR camera rendered small, overlays and all. */
+    // The webcam picture, without overlays
     void Sample()
     {
         if ((mWebcam == null || !mWebcam.isPlaying) && Time.time >= mNextWebcamLookup)
@@ -329,8 +316,7 @@ public partial class HandZones : MonoBehaviour
             mNextWebcamLookup = Time.time + 1f;
         }
 
-        /* The webcam picture shrunk on the graphics card to the part the camera view shows, then read
-         back without stalling: copying all of a 1080p picture every sample made the game stutter */
+        // Webcam picture shrunk on the GPU and read back async
         if (mWebcam != null && mWebcam.isPlaying && mWebcam.width > 16)
         {
             if (mCapture == null) mCapture = new RenderTexture(CaptureWidth, CaptureHeight, 24);
@@ -395,8 +381,7 @@ public partial class HandZones : MonoBehaviour
 
     void Analyse(Picture picture)
     {
-        /* The whole picture first: camera exposure shifts everything a little (taken out of each
-         area's change), and the camera moving changes most of it, which isn't a hand */
+        // Whole-picture change first (exposure, camera moves)
         Color[] global = Cells(picture, new Rect(0f, 0f, 1f, 1f), GlobalCols, GlobalRows);
         Color shift = Color.clear;
         if (mGlobalBaseline != null)
@@ -414,8 +399,7 @@ public partial class HandZones : MonoBehaviour
         foreach (Area area in mAreas)
             if (area.view.width > 0f) Check(area, Cells(picture, area.view, Grid, Grid), shift);
 
-        /* One hand covers one slot, maybe two. The whole row changing together is the light or
-         something moving under it, so the row starts over from how it looks now. */
+        // Whole row changing = light or movement, so it resets
         if (mAreas.Where(a => IsButton(a) && a.covered).Select(a => a.view.center).Distinct().Count() >= Slots)
             foreach (Area area in mAreas.Where(IsButton)) ResetArea(area);
     }
@@ -435,14 +419,12 @@ public partial class HandZones : MonoBehaviour
         area.changed = changed;
         bool armed = now - area.baselineSince >= ArmSeconds;
 
-        /* Covered but not moving: a card put down, rested or flipped there, not a hand, which never
-         keeps that still for long. Its look now becomes the normal one, so the area works again. */
+        // Covered but still = a card, not a hand; relearn its look
         bool still = area.lastCells != null && ChangedFraction(cells, area.lastCells, Color.clear) == 0f;
         if (!still) area.stillSince = now;
         area.lastCells = cells;
 
-        /* A circle just lit: what's still moving there, e.g. the hand that rested the attacker and the
-         card it turned, isn't a finger. Its look is learnt again until it's been quiet for a moment. */
+        // Just-lit circle relearns its look until quiet
         if (area.relearn)
         {
             area.covered = false;
@@ -455,8 +437,7 @@ public partial class HandZones : MonoBehaviour
             return;
         }
 
-        /* Not while lit if it was covered after lighting up: that's an arm resting there. Covered from
-         before (e.g. the attacker's card just rested) it settles all the same. */
+        // Covered after lighting = an arm resting, don't settle
         bool maySettle = !area.shown || area.coveredSince < area.shownSince;
         if (area.covered && still && maySettle && now - area.stillSince >= settleSeconds)
         {
@@ -490,9 +471,7 @@ public partial class HandZones : MonoBehaviour
 
         area.peak = Mathf.Max(area.peak, changed);
 
-        /* A circle clears lower than it covers, or a fingertip near the line flickers and its hold keeps
-         starting over. A deck clears once most of the change has gone: taking its top card shifts the
-         stack, so it never quite looks as before, and that look becomes its normal one */
+        // Clear lower than cover; a deck clears once most change is gone
         bool pile = area.isDeck || area.isRideDeck;
         float clear = area.pickZone != null ? Mathf.Min(clearFraction, pickCoveredFraction * 0.5f)
             : pile ? Mathf.Max(clearFraction, area.peak * deckClearShare) : clearFraction;
@@ -518,9 +497,7 @@ public partial class HandZones : MonoBehaviour
 
         if (now - area.coveredSince >= maxCoverSeconds) area.fired = true;
 
-        /* Deck: a hand on it for minDeckTouchSeconds is the draw, straight away. Waiting for it to leave
-         felt slow, as a hand often lingers over the deck holding the card. Only watched while a draw is
-         due, so it's what the hand is there for; a hand already on it as the draw came due must lift first */
+        // Hand on the deck for minDeckTouchSeconds = the draw
         if (area.isDeck && area.shown && !area.fired && now - area.coveredSince >= minDeckTouchSeconds)
         {
             area.fired = true;
@@ -535,8 +512,7 @@ public partial class HandZones : MonoBehaviour
             if (changed > fingerMaxFraction) area.coveredSince = now; // a hand or arm over it: the hold starts over
             if (area.shown && !area.fired && now - area.coveredSince >= pickHoldSeconds && IsFingertip(area))
             {
-                /* Every circle under the arm has to clear too, or the next pick (a Critical trigger's power)
-                 goes to the one the arm crossed as the hand pulls back */
+                // Every circle under the arm must clear before the next pick
                 foreach (Area a in mAreas)
                     if (a.pickZone != null && a.covered) a.fired = true;
                 if (mRules != null && mRules.IsChoosingTarget) mRules.ChooseTarget(AttackTargetPicker.Facing(area.pickZone));
@@ -570,9 +546,7 @@ public partial class HandZones : MonoBehaviour
         return Mathf.Clamp01((Time.time - area.coveredSince) / pickHoldSeconds);
     }
 
-    /* How far a circle is from its player's edge of the board, which is where their arm comes in.
-     Online the field runs up the view from the player at the bottom; Over The Board, P1 sits at
-     the left edge and P2 at the right. */
+    // Distance from the player's edge of the board
     float Reach(Area area)
     {
         Vector2 c = area.view.center;
@@ -613,8 +587,7 @@ public partial class HandZones : MonoBehaviour
         area.covered = false;
     }
 
-    /* Average colour of each cell of a cols x rows grid over part of the camera view, reading at
-     most SamplesPerCellSide pixels across and down each cell */
+    // Average colour of each grid cell over part of the view
     static Color[] Cells(Picture picture, Rect view, int cols, int rows)
     {
         var cells = new Color[cols * rows];

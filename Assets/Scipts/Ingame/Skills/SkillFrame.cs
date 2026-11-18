@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 
-/* One skill being resolved, step by step (SkillRules.Pump): whose it is, which step it's on, and
- what earlier steps left for later ones, e.g. the card a Reveal step was shown */
+// One skill being resolved, step by step
 public class SkillFrame
 {
     public SkillRules Rules { get; }

@@ -17,30 +17,7 @@ using Firebase.Extensions;
 using Firebase.Firestore;
 #endif
 
-/*
-Looks up full card details from Firestore once Vuforia Cloud Reco has identified a card's
-set/number code (ObserverBehaviour MetaData). ApiCardDatabase (the local REST scraper cache)
-is the offline/editor fallback; both map fields through ScrapedCardDto.ToCardData().
-
-Firestore layout (ar-cardgame project, 288 sets / 6,368 cards as of 2024-06-05):
-  sets/{setId}                    — setId is the clean set code, e.g. "BT01", "TD17", "DZ-BT16"
-  sets/{setId}/cards/{cardDocId}  — cardDocId is the card number with "/" replaced by "-",
-                                    e.g. "TD17/001" -> "TD17-001"
-  card.number field               — stored with the slash, e.g. "TD17/001"
-
-Set codes can contain hyphens (e.g. DZ-BT16), so hyphenated card IDs are split by
-longest-prefix match against the cached list of valid set IDs.
-
-Firebase's Unity SDK doesn't support UWP, so UWP builds read the same database through
-Firestore's REST API instead. Only the backend sections at the bottom differ per platform.
-
-Firestore's free plan counts every read, so it's the backup rather than the first stop: a card
-comes from memory, then this PC's cache (CardCache.json), then Firestore. CacheDeck fills the cache
-at match start with the decks' cards from the deck builder's scraper data (LocalCardData), so a
-match only needs Firestore for cards outside them, like an online opponent's. Cards Firestore
-lacks (or can't answer for) are taken from LocalCardData too. A Firestore miss is remembered,
-and asked again after MissingRecheckDays.
-*/
+// Card details from Firestore (backup after memory and CardCache.json)
 public class CardFirestoreDatabase : MonoBehaviour
 {
     public static CardFirestoreDatabase Instance { get; private set; }
@@ -90,8 +67,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         foreach (Action action in pending) action();
     }
 
-    /* Resolves a card from Cloud Reco metadata, either "{setId}/{number}" or the hyphenated
-     "{setId}-{number}" doc-ID form: memory, this PC's cache, Firestore, then the scraper data. */
+    // Card from Cloud Reco metadata: memory, cache, Firestore, then local data
     public void GetCardByNumber(string cardNumber, Action<CardData> onSuccess, Action<string> onError)
     {
         if (string.IsNullOrEmpty(cardNumber)) { onError?.Invoke("Empty card number"); return; }
@@ -134,8 +110,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         });
     }
 
-    /* Caches the cards of the decks going into a match from the deck builder's data, so seeing them
-     needs no Firestore read; cards it doesn't have are looked up as usual (Firestore) */
+    // Caches the match decks' cards from local data
     public void CacheDeck(IEnumerable<string> cardNumbers)
     {
         int cached = 0;
@@ -247,8 +222,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         EnsureSetIdsLoaded(() => ResolveByNumber(cardNumber, done));
     }
 
-    /* Loads every document ID under the top-level "sets" collection once (288 docs), so
-     hyphenated metadata can be matched against real set codes. */
+    // Loads every set ID once, to match hyphenated card IDs
     void EnsureSetIdsLoaded(Action onReady)
     {
         if (mSetIdsByLengthDesc != null) { onReady(); return; }
@@ -285,8 +259,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         }
         else
         {
-            /* Longest-prefix match: a shorter set code (e.g. "D") could otherwise spuriously
-             match a longer one (e.g. "D-BT04"). */
+            // Longest-prefix match, so "D" doesn't match "D-BT04"
             setId = mSetIdsByLengthDesc.FirstOrDefault(id => cardNumber.StartsWith(id + "-"));
             if (setId != null)
             {
@@ -310,8 +283,7 @@ public class CardFirestoreDatabase : MonoBehaviour
                 return;
             }
 
-            /* Direct path missed (not seeded, or wrong set ID guess): fall back to a
-             collection group query on the slash-form "number" field. */
+            // Direct path missed: query by the "number" field
             QueryByNumber(slashNumber, done);
         });
     }
@@ -340,8 +312,7 @@ public class CardFirestoreDatabase : MonoBehaviour
         return fields;
     }
 
-    /* Converts a card's fields into a CardData, reusing ScrapedCardDto's mapping
-     so Firestore and the REST scraper API stay in sync. */
+    // Card fields to CardData via ScrapedCardDto
     public static CardData FromFields(CardFields fields)
     {
         ScrapedCardDto dto = new ScrapedCardDto

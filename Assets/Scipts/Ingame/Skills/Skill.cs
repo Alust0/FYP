@@ -15,9 +15,7 @@ public enum SkillTiming
 // "if you are the first/second player": the one condition in a skill's text the engine checks
 public enum PlayerOrder { Any, First, Second }
 
-/* One skill in a card's text (SkillParser): the circle it works from, how often it can be used, what
- it costs and what it does, as steps (Steps/). The engine checks when it can be used, then runs its
- steps; the ones it can't do or see are left to the player (ManualStep). */
+// One skill: circle, limit, costs and steps
 public abstract class Skill
 {
     // Shown to players,English even when parsed from the Japanese cards

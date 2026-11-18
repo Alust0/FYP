@@ -10,13 +10,7 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* Deck scene: the account's saved decks on the left, a card browser in the middle (one set or all
- of them, narrowed by a card-number search) and the open deck on the right. Clicking a card adds a copy. Decks save to
- Cloud Save through DeckRepository. Builds its own UI (DeckBuilder.UI.cs), like the lobby.
- Deck rules: up to maxCopies of a card number, 4 Sentinels, and one nation. Cray Elementals (no nation) go in any
- deck, and dual-nation cards go in a deck of either of their nations.
- Scan Cards shows the camera instead of the card grid, and CardScanner adds each card it finds
- like a click. */
+// Deck scene: saved decks, card browser and open deck
 public partial class DeckBuilder : MonoBehaviour
 {
     [SerializeField] private string menuSceneName = "Menu";
@@ -67,8 +61,7 @@ public partial class DeckBuilder : MonoBehaviour
     readonly Dictionary<string, Texture2D> mPictures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
     Coroutine mLoadingPictures;
 
-    /* Filters: they need each shown card's details from Firestore, so the cards load first.
-     Cards the database doesn't have are hidden while a filter is on, as they can't be checked */
+    // Filters need card details, so cards load first
     const string AnyNation = "Any nation";
     const string NoNation = "No nation";
     const string AnyRarity = "Any rarity";
@@ -223,8 +216,7 @@ public partial class DeckBuilder : MonoBehaviour
         ShowDeckChoices();
     }
 
-    /* Fills the deck dropdown with the saved decks and selects the open one. An unsaved deck, or
-     no deck, takes a first option of its own, so picking any saved deck counts as a change. */
+    // Fills the deck dropdown and selects the open deck
     void ShowDeckChoices()
     {
         mDeckChoices.Clear();
@@ -512,8 +504,7 @@ public partial class DeckBuilder : MonoBehaviour
         ShowDeck();
     }
 
-    /* Sleeve sections swap the card browser for the sleeve pictures: no filters or whole sets, and
-     the search is cleared, as card numbers don't match sleeve ids */
+    // Sleeve sections show sleeve pictures instead of cards
     void ShowBrowserMode()
     {
         bool sleeves = SleeveSection;
@@ -589,8 +580,7 @@ public partial class DeckBuilder : MonoBehaviour
         if (problem != null) SetStatus(problem);
     }
 
-    /* A card's nations: two for dual-nation cards, none for Cray Elementals and the few other
-     nationless cards (stored as "" or "-"), which go in any deck */
+    // A card's nations (none = any deck)
     static List<string> Nations(CardData card) => SplitNations(card.nation);
 
     static List<string> SplitNations(string nation) => (nation ?? "").Split(NationSeparators)
@@ -645,8 +635,7 @@ public partial class DeckBuilder : MonoBehaviour
         return elemental ? "Cray Elemental" : "No nation";
     }
 
-    /* Changes the copies in the picked section; null if done, else why not. The main deck holds 50 and
-     the ride deck 4 on top; the copy limit counts the two together; tokens and crests have none. */
+    // Changes copies in a section; returns why not, or null
     string ChangeCount(string number, int delta)
     {
         List<DeckEntry> cards = SectionCards(mSection);
@@ -681,8 +670,7 @@ public partial class DeckBuilder : MonoBehaviour
     bool IsSentinel(string number) => mCardData.TryGetValue(number, out CardData card) && card != null && IsKind(card, "Sentinel");
     int Sentinels() => mDeck.cards.Concat(mDeck.rideDeck).Where(e => IsSentinel(e.cardNumber)).Sum(e => e.count);
 
-    /* Each card in the chosen Start/Trial Deck once, on top of what's there, once every card's
-     nation is known. Only for those sets, as booster sets mix nations */
+    // Adds each card of a Start/Trial Deck once
     void OnAddWholeSet()
     {
         string set = ChosenSet;
@@ -913,9 +901,7 @@ public partial class DeckBuilder : MonoBehaviour
         return mAllNumbers.Where(Matches).ToList();
     }
 
-    /* All sets with a filter on: checks the scraper data's cards (D and DZ) on this PC, so Firestore
-     isn't asked about thousands of cards. Older series aren't searched. Lazy, so only as many sets
-     are read as the pages scrolled to need. */
+    // All sets + filter: searches local D/DZ data, lazily
     IEnumerable<string> FilterEverySet(string search)
     {
         if (mAllNumbers == null) mAllNumbers = CardImageLibrary.AllCardNumbers();
@@ -935,8 +921,7 @@ public partial class DeckBuilder : MonoBehaviour
 
     bool FiltersOn => mNationDropdown.value > 0 || mGradeDropdown.value > 0 || mRarityDropdown.value > 0 || mTypeDropdown.value > 0;
 
-    /* Opening them loads the set's card details, so the Nation list has their nations. All sets
-     already lists every nation, and its search can match far too many cards to look up. */
+    // Opening a set loads its details for the Nation list
     void ToggleFilters()
     {
         bool open = !mFilterPopup.activeSelf;
@@ -1088,8 +1073,7 @@ public partial class DeckBuilder : MonoBehaviour
         mRarityDropdown.SetValueWithoutNotify(Mathf.Max(0, mRarityOptions.FindIndex(r => string.Equals(r, picked, StringComparison.OrdinalIgnoreCase))));
     }
 
-    /* Shows the first page of `numbers`; OnGridScrolled adds the rest a page at a time. Skipped when
-     the browser and filters haven't changed, so details arriving late don't rebuild the grid. */
+    // Shows the first page; more load on scroll
     void ShowCards(IEnumerable<string> numbers, string emptyText)
     {
         string key = SleeveSection + "|" + ChosenSet + "|" + mSearchInput.text.Trim() + "|" + mNationOptions[mNationDropdown.value] + "|" +
@@ -1241,8 +1225,7 @@ public partial class DeckBuilder : MonoBehaviour
         return null;
     }
 
-    /* Shows a card in the details panel. Pointing at a card only uses details already on this PC
-     (`fetch` false), so sweeping over older cards doesn't spend Firestore reads; a click fetches. */
+    // Shows a card's details (hover uses local data only)
     void ShowCardInfo(string number, bool fetch)
     {
         if (number != mDetailNumber)

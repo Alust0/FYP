@@ -2,15 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-/* Cards the rules want moved, each shown as an arrow from where it is to where it goes (ZoneHighlighter):
- a rear-guard the attack hit and the guardians after the battle, to the drop zone; a unit a skill retires,
- puts on the bottom of the deck or into the soul; a Soul Blast's soul. Anything that wants a card moved
- calls Expect, and the arrow goes once it has.
- - With a card: done once the camera sees it leave. One that leaves the field without being seen land
-   (cards overlap in the drop zone) is counted where it was going, and taken back off if it shows up
-   after all.
- - Without one (a count, e.g. the soul under the vanguard): shown for a few seconds.
- Owned by RulesEngine; online the moves for the opponent's cards go to their PC (OnlineMatch). */
+// Arrows for cards the rules want moved; done when the card leaves
 public class CardMoves
 {
     class Move
@@ -93,8 +85,7 @@ public class CardMoves
         mApplied.UnionWith(now);
     }
 
-    /* A new turn: the arrows go. The cards counted unseen are still watched for, unless the counts
-     themselves went back (Undo) */
+    // New turn: clear the arrows
     public void Clear(bool counted)
     {
         mMoves.Clear();

@@ -2,8 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* CounterBlastPicker's canvas: a panel over the camera views with a row per damage card and Done.
- The rest of CounterBlastPicker is in CounterBlastPicker.cs. */
+// CounterBlastPicker's canvas
 public partial class CounterBlastPicker
 {
     const float RowHeight = 40f;

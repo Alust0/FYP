@@ -1,7 +1,6 @@
 using System.Linq;
 
-/* Which card a skill asks for, e.g. "a grade 3 or greater <Gear Dragon>" or a card named "Favnir".
- Empty parts match anything. Names and races match in English or Japanese, ignoring punctuation. */
+// Which card a skill asks for (empty parts match anything)
 public class CardFilter
 {
     public int Grade = -1; // -1 for any

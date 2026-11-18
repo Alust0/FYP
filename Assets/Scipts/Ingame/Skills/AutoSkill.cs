@@ -4,8 +4,7 @@ using System.Collections.Generic;
 public class AutoSkill : Skill
 {
     public SkillTiming Timing { get; }
-    /* Part of the name of the other card its timing names, or null for any: the rider ("ridden by
-     "X""), the vanguard ridden from ("「X」からライドして登場"), or the vanguard attacked */
+    // Part of the other card's name its timing names, or null for any
     public string Named { get; internal set; }
 
     // The other card has the name the skill asks for (any card, if it asks for none)

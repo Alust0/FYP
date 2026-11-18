@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/* Editor test aid, toggled with F2: places cards without a camera, e.g. in a second editor
- playing the other seat of an online match. Uses the same GameState calls as the trackers, so
- the rules, HUD and online sync treat these like scanned cards. Added by UISetup in the editor. */
+// Editor test aid (F2): place cards without a camera
 public class DebugCardPlacer : MonoBehaviour
 {
     public Key toggleKey = Key.F2;

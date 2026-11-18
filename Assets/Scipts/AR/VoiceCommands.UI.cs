@@ -2,8 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* VoiceCommands' pop-up: the keyword heard, top-centre of the camera view.
- The rest of VoiceCommands is in VoiceCommands.cs. */
+// Pop-up showing the keyword heard
 public partial class VoiceCommands
 {
     void ShowToast(PlayerState who, string phrase)

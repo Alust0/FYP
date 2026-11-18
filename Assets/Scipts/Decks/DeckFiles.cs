@@ -8,10 +8,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 #endif
 
-/* The deck builder's Export and Import: a deck as a .json file in Downloads, to send to another
- player or keep as a backup. The UWP build may only touch files the player picks, so there Export
- and Import open Windows' save and open dialogs at Downloads. The editor writes straight to
- Downloads and opens its own file dialog. Results come back on Unity's thread. */
+// Deck Export/Import as .json in Downloads
 public static class DeckFiles
 {
     static string DownloadsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");

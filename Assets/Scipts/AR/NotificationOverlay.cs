@@ -4,11 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-/* Displays popup notifications: Persona Ride, Stride, Triggers, Gifts and the referee's notices. Most go
- after a few seconds. A to-do (GameState.OnRuleToDo: a skill's prompt, cost or step, a trigger pick, a
- check to reveal...) stays up until it's done: newer notices show over it, then it comes back. The
- panel's Hide button tucks the to-dos away (or ends a timed notice early); the To-do tab at the
- camera area's side shows how many are tucked and brings them back. A new to-do still shows. */
+// Popup notifications; to-dos stay until done
 public class NotificationOverlay : MonoBehaviour
 {
     [Header("Notification Panel")]
@@ -25,12 +21,16 @@ public class NotificationOverlay : MonoBehaviour
     [Tooltip("Off: the last notification stays on the panel until the next one, e.g. in a sidebar.")]
     public bool hideWhenDone = true;
 
-    [Header("Slide Up")]
-    [Tooltip("The panel slides up from below the screen's bottom edge to show, and back down when done, instead of switching on and off.")]
+    [Header("Slide In")]
+    [Tooltip("The panel slides in from off screen to show, and back out when done, instead of switching on and off.")]
     public bool slideUp;
+    [Tooltip("Slides in from the left edge instead of up from the bottom.")]
+    public bool fromLeft;
     public float slideSeconds = 0.25f;
     [Tooltip("Height of the panel's bottom edge above the screen's bottom while it's up.")]
     public float shownY = 48f;
+    [Tooltip("From the left: its left edge's distance from the screen's left while it's in.")]
+    public float shownX = 16f;
 
     [Header("Trigger Sprites")]
     public Sprite criticalSprite;
@@ -70,10 +70,10 @@ public class NotificationOverlay : MonoBehaviour
     }
     readonly List<ToDo> mToDos = new List<ToDo>(); // newest last
 
-    // Starts out of sight below the screen; stays active so this keeps listening
+    // Starts out of sight off the screen; stays active so this keeps listening
     void Start()
     {
-        if (slideUp && notificationPanel != null) SetY(HiddenY);
+        if (slideUp && notificationPanel != null) SetPos(HiddenPos);
         if (hideButton != null) hideButton.onClick.AddListener(Hide);
         if (todoTab != null)
         {
@@ -113,24 +113,35 @@ public class NotificationOverlay : MonoBehaviour
         return count;
     }
 
-    float HiddenY => -((RectTransform)notificationPanel.transform).rect.height - 20f;
+    // Just off the screen: below it, or left of it (fromLeft)
+    float HiddenPos
+    {
+        get
+        {
+            Rect rect = ((RectTransform)notificationPanel.transform).rect;
+            return -(fromLeft ? rect.width : rect.height) - 20f;
+        }
+    }
 
-    void SetY(float y)
+    float ShownPos => fromLeft ? shownX : shownY;
+
+    // The position along the way it slides: x from the left, else y
+    void SetPos(float value)
     {
         RectTransform rect = (RectTransform)notificationPanel.transform;
-        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, y);
+        rect.anchoredPosition = fromLeft ? new Vector2(value, rect.anchoredPosition.y) : new Vector2(rect.anchoredPosition.x, value);
     }
 
     IEnumerator Slide(float to)
     {
         RectTransform rect = (RectTransform)notificationPanel.transform;
-        float from = rect.anchoredPosition.y;
+        float from = fromLeft ? rect.anchoredPosition.x : rect.anchoredPosition.y;
         for (float t = 0f; t < slideSeconds; t += Time.deltaTime)
         {
-            SetY(Mathf.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t / slideSeconds)));
+            SetPos(Mathf.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t / slideSeconds)));
             yield return null;
         }
-        SetY(to);
+        SetPos(to);
     }
 
     void OnEnable()
@@ -240,8 +251,7 @@ public class NotificationOverlay : MonoBehaviour
         if (hideCoroutine == null) hideCoroutine = StartCoroutine(ShowQueue());
     }
 
-    /* Shows each queued notification in turn. Then the newest to-do not done yet comes back (or stays)
-     until it's done or another notification comes; with none left, the panel hides */
+    // Shows queued notices, then the newest open to-do
     IEnumerator ShowQueue()
     {
         bool slidUp = false;
@@ -274,7 +284,7 @@ public class NotificationOverlay : MonoBehaviour
             if (slideUp && !slidUp)
             {
                 slidUp = true;
-                yield return Slide(shownY);
+                yield return Slide(ShownPos);
             }
 
             mSkip = false;
@@ -288,7 +298,7 @@ public class NotificationOverlay : MonoBehaviour
         }
 
         mShowingToDo = null;
-        if (slideUp) yield return Slide(HiddenY);
+        if (slideUp) yield return Slide(HiddenPos);
         else if (hideWhenDone) notificationPanel.SetActive(false);
         mShowingKey = null;
         hideCoroutine = null;
@@ -309,8 +319,7 @@ public class NotificationOverlay : MonoBehaviour
         }
     }
 
-    /* What RulesEngine did with the trigger: the bonuses start on the attacking unit (drive check)
-     or the vanguard (damage check), and its owner then picks where they go on the lit circles */
+    // Trigger result: where its bonuses start
     string GetTriggerEffectText(TriggerIcon icon, bool drive)
     {
         string unit = drive ? "the attacking unit" : "your vanguard";

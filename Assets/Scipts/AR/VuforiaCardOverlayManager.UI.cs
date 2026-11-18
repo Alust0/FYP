@@ -3,8 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Vuforia;
 
-/* The overlay shown on each tracked card: name, power, critical, shield and the skill panel.
- The rest of VuforiaCardOverlayManager is in VuforiaCardOverlayManager.cs. */
+// The overlay on each tracked card
 public partial class VuforiaCardOverlayManager
 {
     // Builds a minimal overlay canvas when no custom prefab is assigned
@@ -32,9 +31,7 @@ public partial class VuforiaCardOverlayManager
         canvasRT.sizeDelta = new Vector2(630f, 880f);
         canvasObj.transform.localScale = Vector3.one * OverlayScale(parent, canvasRT.sizeDelta.x);
 
-        /* Bold, bright text with a black outline on dark bands, so it reads over any card art: the name
-         across the top, power and critical over the card's bottom strip, shield sideways on its left edge
-         (where the card prints it) */
+        // Outlined text on dark bands: name, power, crit, shield
         RectTransform nameBand = CreateBand(canvasObj.transform, "NameBand", new Vector2(0f, 0.85f), new Vector2(1f, 1f));
         TextMeshProUGUI nameText = Bright(CreateText(nameBand, "CardName", new Vector2(0.03f, 0f), new Vector2(0.77f, 1f), 84, Color.white), 44);
 
@@ -65,9 +62,7 @@ public partial class VuforiaCardOverlayManager
         Button toggleBtn = toggleBtnObj.AddComponent<Button>();
         CreateText(toggleBtnObj.transform, "Label", Vector2.zero, Vector2.one, 50, Color.black).text = "i";
 
-        /* Skill panel: name, grade/power line and the card's full skill text. Hidden until toggled,
-         then held upright toward the camera (see CardOverlayUI.LateUpdate) so the text is readable.
-         Card-shaped and half again as big as the card, since skill text runs long. */
+        // Skill panel, toggled, faces the camera
         GameObject detailObj = new GameObject("DetailPanel");
         detailObj.transform.SetParent(canvasObj.transform, false);
         detailObj.transform.localPosition = new Vector3(0f, 0f, -0.05f);
@@ -114,8 +109,7 @@ public partial class VuforiaCardOverlayManager
         ui.skillBodyText = skillBody;
         ui.detailToggleButton = toggleBtn;
 
-        /* ui.Awake() already ran (AddComponent calls it synchronously) before these fields
-         were assigned, so wire the listener and initial state here. */
+        // ui.Awake already ran, so wire it here
         toggleBtn.onClick.AddListener(ui.ToggleDetailPanel);
         closeBtn.onClick.AddListener(ui.CloseDetailPanel);
         detailObj.SetActive(false);
@@ -123,8 +117,7 @@ public partial class VuforiaCardOverlayManager
         return canvasObj;
     }
 
-    /* Scale that makes the overlay canvas as wide as the card. Deck targets are real size (63 mm)
-     while Cloud Reco targets use their uploaded width, so a fixed scale only fits one of them. */
+    // Scale so the overlay is as wide as the card
     static float OverlayScale(Transform target, float canvasWidth)
     {
         if (!(target.GetComponent<ObserverBehaviour>() is ImageTargetBehaviour image)) return 0.001f;

@@ -5,11 +5,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-/* Lines the drawn board up with the real playmat as this PC's camera sees it, saved per PC
- (one layout per board mode). Toggle from the in-game Settings menu or the C key while playing:
-  drag empty space = move board, drag a zone = move that zone,
-  scroll = resize board, Shift+scroll = wider/narrower, Ctrl+scroll = taller/shorter, Q/E = rotate,
-  click a zone then [ / ] = shrink/grow it (Shift = width only, Ctrl = height only), H = hide/show it. */
+// Lines the board up with the playmat (C key)
 public class BoardCalibrator : MonoBehaviour
 {
     [SerializeField] private BoardLayout board;
@@ -58,8 +54,7 @@ public class BoardCalibrator : MonoBehaviour
     Vector2 mDragStartBoard;
     Rect mDragStartRect;
 
-    /* Per editor window too: a Multiplayer Play Mode window shares the main editor's PlayerPrefs but
-     not its camera, so one shared layout would be overwritten by whichever window saved last */
+    // Per editor window too (shared PlayerPrefs)
     string PrefsKey => "BoardCalibration_" + board.boardMode + (CameraChoice.WindowId == "Main" ? "" : "." + CameraChoice.WindowId);
 
     void Awake()

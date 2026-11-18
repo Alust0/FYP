@@ -2,13 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-/* Plug-in point for a card recogniser other than Vuforia, e.g. a second camera run by OpenCV.
- Vuforia (camera 1) keeps its own logic in VuforiaCardOverlayManager and doesn't use this.
-
- To plug one in: add a seat for its camera below, then from the recogniser call
-  CardSightingReceiver.Instance.ReportSighting(seatIndex, trackId, cardNumber, screenPoint, angleFromUpright)
- every frame it sees a card, and ReportLost(seatIndex, trackId) when it stops seeing it.
- This turns those reports into zones, stand/rest and face up/down in GameState. */
+// Plug-in point for a non-Vuforia card recogniser
 public class CardSightingReceiver : MonoBehaviour
 {
     public enum SeatSide { Player1, Player2, Both }
@@ -54,9 +48,7 @@ public class CardSightingReceiver : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    /* trackId: the recogniser's ID for one physical card, stable while it stays in view.
-     screenPoint: card center in pixels of the seat's camera.
-     angleFromUpright: degrees the card is turned from upright (0 = standing, 90 = rested). */
+    // trackId: one physical card; screenPoint: pixels; angle: 0 stand, 90 rest
     public void ReportSighting(int seatIndex, string trackId, string cardNumber, Vector2 screenPoint, float angleFromUpright)
     {
         if (seatIndex < 0 || seatIndex >= seats.Count || seats[seatIndex].camera == null) return;

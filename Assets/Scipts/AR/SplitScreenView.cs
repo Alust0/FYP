@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -5,31 +6,24 @@ using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-/* Lays the camera views out left of UISetup's sidebar. Online: both players' fields, this PC's
- camera view in the bottom half and the opponent's (sent over CameraFeedLink) in the top half,
- turned round as if seen from across the table; V switches to this PC's view alone. Offline: this
- PC's view alone. Added by GameSetup. Its UI is built in SplitScreenView.UI.cs. */
+// Lays out the camera views; online, the opponent's on top
 public partial class SplitScreenView : MonoBehaviour
 {
     public Key toggleKey = Key.V;
-    public int captureWidth = 640;
+    public int captureWidth = 960; // the opponent's view is about this wide at 1080p
     public int fallbackWidth = 480; // smaller through the database, so each picture downloads sooner
-    [Range(1, 100)] public int directQuality = 70;
+    [Range(1, 100)] public int directQuality = 80;
     [Range(1, 100)] public int fallbackQuality = 40;
 
     public const float SidebarWidth = 0.26f; // of the screen's width, on the right
     const float Area = 1f - SidebarWidth;
 
-    /* Every view, on screen and sent, is this shape whatever the window's shape, so both players'
-     views match. Vuforia fits its camera picture to the camera's on-screen box (pixelWidth/Height),
-     so a box of another shape crops the picture rather than stretching it. */
+    // Every view uses this aspect so both players' views match
     const float ViewAspect = 16f / 9f;
     const float LabelHeight = 34f; // the opponent's name strip
     static readonly Rect FullView = new Rect(0f, 0f, 1f, 1f);
 
-    /* Online with both views up: where the opponent's camera picture is, as fractions of the
-     screen (origin bottom-left). It's turned round, so a point at (x, y) of their view shows at
-     (1 - x, 1 - y) of this. Null when it isn't on screen. */
+    // Where the opponent's picture is on screen (turned round); null if hidden
     public static Rect? OpponentView { get; private set; }
 
     // Both views together (or this PC's alone), as fractions of the screen, for RotatedView to turn
@@ -46,7 +40,15 @@ public partial class SplitScreenView : MonoBehaviour
     Texture2D mIncoming;
     RenderTexture mCapture;
     bool mSplit = true;
-    bool mReadingBack;
+    // Captures being read back or encoded; two at once so 30 a second keeps up
+    const int MaxInFlight = 2;
+    int mInFlight; // main thread only
+    int mFinished; // finished on worker threads (Interlocked)
+    int mCaptureSeq;
+    readonly object mEncodedLock = new object();
+    byte[] mEncoded;
+    int mEncodedSeq;
+    float mNextCapture;
 
     void Start()
     {
@@ -86,7 +88,22 @@ public partial class SplitScreenView : MonoBehaviour
         mLabel.text = mFeed.texture == null ? "Waiting for " + opponent + "'s camera..."
             : opponent + "'s side" + (mLink.UsingFallback ? "  <color=#fc6>(slow link: no direct connection)</color>" : "");
 
-        if (!mReadingBack && mLink.ReadyToSend) Capture();
+        mInFlight -= System.Threading.Interlocked.Exchange(ref mFinished, 0);
+        byte[] encoded;
+        lock (mEncodedLock)
+        {
+            encoded = mEncoded;
+            mEncoded = null;
+        }
+        if (encoded != null) mLink.Send(encoded);
+
+        // Direct: paced from each capture's start, so the rate holds; the database waits for each upload
+        bool due = mLink.Direct ? Time.unscaledTime >= mNextCapture && !mLink.Busy : mLink.ReadyToSend;
+        if (due && mInFlight < (mLink.Direct ? MaxInFlight : 1))
+        {
+            mNextCapture = Time.unscaledTime + mLink.directSeconds;
+            Capture();
+        }
     }
 
     // Again after Vuforia's own updates, in case it resets the camera's viewport
@@ -117,8 +134,7 @@ public partial class SplitScreenView : MonoBehaviour
         PlaceLabel(panel);
     }
 
-    /* Across the panel's top; with RotatedView's view turned, down its right edge a quarter turn
-     clockwise instead, which the turn puts across the top again, upright */
+    // Title across the panel's top
     void PlaceLabel(RectTransform panel)
     {
         RectTransform label = mLabel.rectTransform;
@@ -131,8 +147,7 @@ public partial class SplitScreenView : MonoBehaviour
         label.sizeDelta = turned ? new Vector2(panel.rect.height, LabelHeight) : new Vector2(0f, LabelHeight);
     }
 
-    /* The biggest ViewAspect box left of the sidebar, as a fraction of the screen: split, in the
-     middle of the bottom half; alone, in the middle of the area */
+    // The biggest ViewAspect box left of the sidebar
     static Rect ViewRect(bool split)
     {
         float width = Screen.width, height = Screen.height;
@@ -155,8 +170,7 @@ public partial class SplitScreenView : MonoBehaviour
         return backdrop;
     }
 
-    /* Renders the AR camera (camera picture, zones and card overlays, without the HUD) into a small
-     texture, reads it back without stalling, and sends it as a JPEG. */
+    // Captures the AR camera and sends it as a JPEG
     void Capture()
     {
         int wide = mLink.Direct ? captureWidth : fallbackWidth;
@@ -167,8 +181,7 @@ public partial class SplitScreenView : MonoBehaviour
             mCapture = new RenderTexture(wide, height, 24);
         }
 
-        /* The zone labels as the opponent reads them: their PC shows this picture turned round,
-         and a quarter turn anticlockwise more if their view is turned (RotatedView) */
+        // Zone labels turned as the opponent reads them
         if (mBoard == null) mBoard = FindFirstObjectByType<BoardLayout>();
         int ownAngle = mBoard != null ? mBoard.LabelAngle : 0;
         if (mBoard != null) mBoard.SetLabelAngle(OnlineMatch.OpponentTurned ? 90 : 180);
@@ -190,16 +203,34 @@ public partial class SplitScreenView : MonoBehaviour
         mCamera.rect = rect;
         if (mBoard != null) mBoard.SetLabelAngle(ownAngle);
 
-        mReadingBack = true;
+        mInFlight++;
+        int seq = ++mCaptureSeq;
         int quality = mLink.Direct ? directQuality : fallbackQuality;
         int width = mCapture.width;
         AsyncGPUReadback.Request(mCapture, 0, TextureFormat.RGB24, done =>
         {
-            mReadingBack = false;
-            if (this == null || done.hasError) return;
-            byte[] jpeg = ImageConversion.EncodeArrayToJPG(done.GetData<byte>().ToArray(), GraphicsFormat.R8G8B8_SRGB,
-                (uint)width, (uint)height, 0, quality);
-            mLink.Send(jpeg);
+            if (this == null || done.hasError)
+            {
+                System.Threading.Interlocked.Increment(ref mFinished);
+                return;
+            }
+            byte[] pixels = done.GetData<byte>().ToArray();
+            // Encoding on a worker thread keeps the frame rate up; Update sends the result
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    byte[] jpeg = ImageConversion.EncodeArrayToJPG(pixels, GraphicsFormat.R8G8B8_SRGB, (uint)width, (uint)height, 0, quality);
+                    lock (mEncodedLock)
+                        if (seq > mEncodedSeq) // never older over newer
+                        {
+                            mEncoded = jpeg;
+                            mEncodedSeq = seq;
+                        }
+                }
+                catch (System.Exception) { }
+                System.Threading.Interlocked.Increment(ref mFinished);
+            });
         });
     }
 }

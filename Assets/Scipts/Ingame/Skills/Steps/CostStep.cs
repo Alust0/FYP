@@ -1,7 +1,6 @@
 using System.Linq;
 
-/* Pays one of the skill's costs off the counts. An "A or B" cost (ChoiceCost) waits for the player
- to pick, unless only one of them can be paid. */
+// Pays one cost (waits for a choice on "A or B")
 public class CostStep : Step
 {
     public Cost Cost { get; }

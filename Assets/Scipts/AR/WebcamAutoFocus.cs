@@ -2,13 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-/* Switches PC webcams to continuous autofocus through the webcam driver (DirectShow), and sets
- their brightness (the in-game Settings menu). Vuforia's SetFocusMode only reaches phone cameras;
- on a PC the webcam stays in whatever focus mode its driver was left in, often manual. The driver
- keeps the brightness after the game closes, like any other webcam setting.
-
- COM objects are called through raw interface pointers because Unity's Mono returns null
- for [ComImport]-wrapped device objects. */
+// Sets PC webcams to autofocus and brightness via DirectShow
 public static class WebcamAutoFocus
 {
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
@@ -69,13 +63,7 @@ public static class WebcamAutoFocus
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     delegate int GetFn(IntPtr self, int property, out int value, out int flags);
 
-    /* Applies to every webcam that reports autofocus support: DirectShow names don't match
-     the device Unity picked (the Razer Kiyo X shows as "USB Video Device"), and fixed-focus
-     or virtual cameras report no support anyway.
-
-     onlyCamera limits it to the webcam with that name. Opening a camera's driver here disturbs
-     another program streaming from it, e.g. the other window when two editor windows each use
-     their own camera (CameraChoice); there it blacked out the other window's picture. */
+    // Applies to every webcam with autofocus (or just onlyCamera)
     public static void Enable(string onlyCamera = null) => ForEachCamera(onlyCamera, EnableOn);
 
     // The camera's brightness as a fraction of its driver's range; false if the driver can't say
@@ -122,8 +110,7 @@ public static class WebcamAutoFocus
     static bool ForEachCamera(string onlyCamera, Func<IntPtr, string, bool> action)
     {
         bool any = false;
-        /* 0 or 1 means COM was started (or already running) on this thread and needs a matching
-         CoUninitialize; anything else means it's running in another mode and still usable. */
+        // 0 or 1 needs a matching CoUninitialize
         int comInit = CoInitializeEx(IntPtr.Zero, 2);
         IntPtr deviceEnum = IntPtr.Zero;
         IntPtr monikers = IntPtr.Zero;

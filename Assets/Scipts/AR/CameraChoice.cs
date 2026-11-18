@@ -6,10 +6,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using Vuforia;
 
-/* Which webcam Vuforia uses in the editor, chosen per editor window. Vuforia keeps a single choice
- in the shared editor prefs, so a Multiplayer Play Mode window would otherwise use the same camera
- as the main editor. Picked in the lobby; Player 2's window defaults to a camera the main editor
- isn't using. Builds pass the choice to BuildWebcamDriver instead. */
+// The webcam Vuforia uses in the editor, per editor window
 public static class CameraChoice
 {
     const string MainWindow = "Main";
@@ -65,12 +62,7 @@ public static class CameraChoice
         Apply();
     }
 
-    /* Called before the first scene, by the lobby just before a match loads, and by DeckTargetLoader
-     as the match scene wakes, so the name is in place whenever Vuforia creates its camera.
-
-     Vuforia can throw its configuration away and reload it, losing a name set on the old copy; the
-     reloaded one then reads the editor pref "DeviceNameSetInEditor", which both editor windows
-     share. So the pref is written too, right before this window's Vuforia reads it. */
+    // Sets the camera name before Vuforia creates its camera
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     public static void Apply()
     {
@@ -91,10 +83,7 @@ public static class CameraChoice
         Debug.Log("[CameraChoice] " + WindowId + " window uses camera '" + device + "'.");
     }
 
-    /* Vuforia waits for this (Delayed Initialization in its settings) instead of opening the camera
-     at Play start. Two editor windows opening their cameras at the same moment broke one of them:
-     stopping its camera failed ("Could not pause pControl") and it never sent pictures again. So in
-     the editor the windows take turns, and a turn lasts until the camera is sending pictures. */
+    // Editor windows take turns starting their cameras
     public static IEnumerator StartVuforia()
     {
         if (!Application.isEditor)
@@ -110,10 +99,7 @@ public static class CameraChoice
             VuforiaApplication.Instance.Initialize(); // VuforiaBehaviour starts the camera once this is done
     }
 
-    /* Run by DeckTargetLoader once Vuforia's camera is running. Logs which webcam Vuforia really
-     opened; if it's the wrong one, tries once to switch it. A camera that won't start (e.g. busy in
-     the other editor window) delivers no frames, so then it goes back rather than freezing. Then
-     ends this window's turn and keeps watching for a stalled camera (WatchForStall). */
+    // Checks Vuforia opened the right webcam, then ends this window's turn
     public static IEnumerator CheckVuforiaCamera()
     {
         if (!Application.isEditor) yield break;
@@ -198,11 +184,21 @@ public static class CameraChoice
     static bool sRefreshing; // the camera is off on purpose, so WatchForStall leaves it alone
 
     public static bool Refreshing => sRefreshing;
+    public static bool SwitchFailed; // the last in-game switch went back to the old webcam (Settings shows it)
 
-    /* The Settings menu's Refresh Camera: stops Vuforia's camera and starts it again, so webcam
-     settings changed meanwhile (the camera picked, focus, brightness, other programs' changes) take
-     effect, and OnVuforiaStarted listeners (UpgradeCameraQuality's focus and quality) run again.
-     In builds BuildWebcamDriver's webcam stops and starts with Vuforia. */
+    // In-game Settings: the picked webcam, then a restart on it
+    public static IEnumerator SwitchTo(string device)
+    {
+        if (sRefreshing || device == null || !Devices.Contains(device) || device == InUse) yield break;
+        SwitchFailed = false;
+        Choose(device);
+        yield return Refresh();
+    }
+
+    // The webcam actually running (builds: the driver's, which can differ after a failed switch)
+    public static string InUse => Application.isEditor ? Current : BuildWebcamDriver.Device ?? Current;
+
+    // Settings' Refresh Camera: restarts Vuforia's camera
     public static IEnumerator Refresh()
     {
         VuforiaBehaviour vuforia = VuforiaBehaviour.Instance;
@@ -214,11 +210,16 @@ public static class CameraChoice
             yield return WaitForCameraTurn();
             Apply();
         }
-        else yield return BuildWebcamDriver.Initialize(Current); // switches the driver's webcam if another was picked
 
         // Builds wait longer: Windows can refuse a webcam started before it has let go of it (0x80028019)
+        string before = BuildWebcamDriver.Device;
         vuforia.enabled = false;
-        yield return new WaitForSecondsRealtime(Application.isEditor ? 1f : 2f);
+        if (!Application.isEditor)
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            yield return BuildWebcamDriver.Initialize(Current); // switches the driver's webcam (while Vuforia is off) if another was picked
+        }
+        yield return new WaitForSecondsRealtime(Application.isEditor ? 1f : 1.5f);
         vuforia.enabled = true;
 
         if (Application.isEditor)
@@ -227,6 +228,28 @@ public static class CameraChoice
             yield return SwitchIfWrong();
             EndCameraTurn();
         }
+        else if (before != null && BuildWebcamDriver.Device != before)
+        {
+            // A switched-to webcam with no picture (in use elsewhere?): back to the one that worked
+            for (int tries = 0; tries < 3 && !BuildWebcamDriver.HasPicture; tries++)
+            {
+                if (tries > 0) yield return BuildWebcamDriver.Retry(); // a smaller size
+                float giveUp = Time.realtimeSinceStartup + 4f;
+                while (!BuildWebcamDriver.HasPicture && Time.realtimeSinceStartup < giveUp) yield return null;
+            }
+            if (!BuildWebcamDriver.HasPicture)
+            {
+                Debug.LogWarning("[CameraChoice] '" + BuildWebcamDriver.Device + "' gave no picture; back to '" + before + "'.");
+                PlayerPrefs.SetString(PrefKey(WindowId), before);
+                PlayerPrefs.Save();
+                vuforia.enabled = false;
+                yield return new WaitForSecondsRealtime(0.5f);
+                yield return BuildWebcamDriver.Initialize(before);
+                yield return new WaitForSecondsRealtime(1.5f);
+                vuforia.enabled = true;
+                SwitchFailed = true;
+            }
+        }
         sRefreshing = false;
         Debug.Log("[CameraChoice] " + WindowId + " window's camera refreshed.");
     }
@@ -234,10 +257,7 @@ public static class CameraChoice
     const float StallSeconds = 2f;
     const int MaxRestarts = 3;
 
-    /* With two editor windows, the camera opened second (the host's, which loads the match up to a
-     second after the guest) was seen dying right after it started: no frames, "Could not pause
-     pControl" errors. Restarting it through Vuforia once the other camera has settled brings it
-     back, so a camera with no new frame for StallSeconds is restarted, up to MaxRestarts times. */
+    // Restarts a camera with no new frame for StallSeconds
     static IEnumerator WatchForStall()
     {
         WebCamTexture texture = null;
@@ -327,10 +347,7 @@ public static class CameraChoice
 
     static bool sDriverLoaded;
 
-    /* Vuforia loads its webcam driver by bare file name ("UnityDriver.dll"), which only resolves
-     once Unity has loaded the package's plugins. A Multiplayer Play Mode window's copy of the
-     project has an empty Packages folder, so there it can fail with "Vuforia driver library load
-     error". Loading it by full path from the real project first makes the bare name resolve. */
+    // Loads Vuforia's driver DLL by full path (for Play Mode windows)
     static void PreloadVuforiaDriver()
     {
         if (sDriverLoaded) return;

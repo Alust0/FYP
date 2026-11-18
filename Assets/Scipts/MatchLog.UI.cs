@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* MatchLog's screen, built in code so the Logs scene needs no Canvas: saved matches on the
- left, the open log on the right. The rest of MatchLog is in MatchLog.cs. */
+// Logs scene UI, built in code
 public partial class MatchLog
 {
     void BuildUI()

@@ -6,8 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
-/* Colours and builders for the menu screens that make their UI in code (lobby, deck builder),
- so they look the same. Laid out for a 1920x1080 reference screen. */
+// Shared colours and builders for code-built menu UI (1920x1080 reference)
 public static class MenuUI
 {
     public static readonly Color Background = new Color(0.07f, 0.08f, 0.11f);
@@ -102,8 +101,7 @@ public static class MenuUI
         return button;
     }
 
-    /* A square button showing StreamingAssets/Icons/{icon}.png (white, so `Image.color` tints it),
-     or its name if the file is missing. Returns the button; the icon is its child "Icon" */
+    // Square icon button from StreamingAssets/Icons/{icon}.png, or its name if missing
     public static Button AddIconButton(Transform parent, string icon, UnityAction onClick, Color background)
     {
         RectTransform box = AddBox(parent, icon, background);
@@ -212,8 +210,7 @@ public static class MenuUI
         if (item != null) item.sizeDelta = new Vector2(item.sizeDelta.x, 44f);
     }
 
-    /* Makes the box scroll vertically and returns the content to fill. The content grows with its
-     children; give it a layout group (vertical list or grid) */
+    // Makes the box scroll vertically and returns the content
     public static RectTransform AddScrollContent(RectTransform scrollArea)
     {
         ScrollRect scroll = scrollArea.gameObject.AddComponent<ScrollRect>();

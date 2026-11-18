@@ -4,10 +4,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/* The Settings gear and menu for every scene outside a match (Ingame has its own SettingsMenu):
- display mode, the match's text size and Quit Game. Scenes built in code put the gear in their
- header with AddButton; any other scene (Login, SignUp, Menu) gets one in its top-right corner.
- Esc opens and closes it too. One per scene, made when the scene loads. */
+// Settings gear and menu for scenes outside a match
 public partial class SceneSettings : MonoBehaviour
 {
     static SceneSettings sCurrent;

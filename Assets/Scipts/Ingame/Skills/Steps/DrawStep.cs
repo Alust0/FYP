@@ -1,5 +1,4 @@
-/* "Draw 1 card": done once the deck count goes down by that many, seen the same ways as the Draw
- Phase's draw (HandZones, the Draw button, "draw card", Deck -). Done counts any not seen. */
+// Draw: waits for the deck count to fall
 public class DrawStep : Step
 {
     public int Amount { get; }

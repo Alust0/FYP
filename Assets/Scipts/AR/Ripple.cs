@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/* Rings spreading out from a highlighted box and fading, so the eye goes to it: ZoneHighlighter's zones,
- HandZones' frames and AttackTargetPicker's boxes, each in its own colour. Runs while the box is shown. */
+// Rings spreading out from a highlighted box
 public class Ripple : MonoBehaviour
 {
     public Color color = Color.white;

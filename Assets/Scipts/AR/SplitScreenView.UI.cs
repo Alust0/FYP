@@ -2,8 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* The opponent's camera picture and name strip, for SplitScreenView's top half.
- The rest of SplitScreenView is in SplitScreenView.cs. */
+// The opponent's camera picture and name strip
 public partial class SplitScreenView
 {
     // Top half of the screen, under the HUD's canvas

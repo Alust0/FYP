@@ -7,9 +7,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using Vuforia;
 
-/* Before the match: loads the decks and turns each unique card's picture into a Vuforia Image
- Target named by its card number, then hands it to VuforiaCardOverlayManager to track.
- Multiplayer loads only this PC's deck (Player 1); OverTheBoard loads both. */
+// Turns each deck card into a Vuforia Image Target
 public class DeckTargetLoader : MonoBehaviour
 {
     [SerializeField] private DeckSource deckSource;
@@ -35,9 +33,7 @@ public class DeckTargetLoader : MonoBehaviour
 
     bool mCameraFailed;
 
-    /* Subscribed in Awake, before Vuforia can report. Without a camera (e.g. a second editor window
-     while the first holds the webcam) the game carries on with a notice, instead of Vuforia's
-     full-screen error whose Close button ends Play Mode. */
+    // No camera: carry on with a notice instead of Vuforia's error
     void Awake()
     {
         CameraChoice.Apply(); // editor: this window's webcam, in case Vuforia reloaded its settings during the scene load
@@ -139,8 +135,7 @@ public class DeckTargetLoader : MonoBehaviour
         onReady?.Invoke();
     }
 
-    /* Each copy is its own target with the same picture, which is Vuforia's way to follow several
-     identical cards: one target only ever follows one of them. */
+    // One target per copy (a target follows one card)
     bool CreateTarget(string cardNumber, int copy)
     {
         string path = CardImageLibrary.GetPath(cardNumber);

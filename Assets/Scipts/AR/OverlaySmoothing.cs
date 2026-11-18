@@ -1,11 +1,6 @@
 using UnityEngine;
 
-/* Steadies a card overlay. Vuforia's pose for a card wobbles a little every frame, and an overlay
- fixed to it shakes with it. This keeps the overlay where its card target puts it, but filtered:
- small wobbles are smoothed out, while a real move (a card picked up, slid or rested) snaps
- straight there. Filtered relative to the camera, since Vuforia moves the camera as well as the
- cards. It's laid flat on the mat (VuforiaCardOverlayManager.FlatOnMat). Added to each overlay by VuforiaCardOverlayManager; before CardOverlayUI's LateUpdate,
- which turns the detail panel after it. */
+// Smooths an overlay's wobble; real moves snap
 [DefaultExecutionOrder(-50)]
 public class OverlaySmoothing : MonoBehaviour
 {

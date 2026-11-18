@@ -7,8 +7,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 
-/* The sidebar's card panel: picture, stats, type and skill of the last card put on a zone by
- either player, or of a card whose i was tapped. Built by UISetup. */
+// Sidebar card panel: picture, stats and skill of the last card placed
 public class CardInfoPanel : MonoBehaviour
 {
     public RawImage art;

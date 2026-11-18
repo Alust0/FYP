@@ -8,12 +8,7 @@ using UnityEngine.SceneManagement;
 using Firebase.Auth;
 #endif
 
-/* One running copy of the game per account. The Realtime Database entry sessions/{playerId} names the
- copy that's logged in (MatchSession.ClientId) and holds its heartbeat:
-   clientId, device, beatMs
- Another copy can only log in once that heartbeat is older than StaleSeconds, i.e. after the first
- one logged out, closed or crashed. A copy that finds it was replaced (its heartbeat stopped long
- enough for another to log in) is sent back to the login screen. Created by LoginController. */
+// One running copy per account (sessions/{playerId} heartbeat)
 public class AccountLock : MonoBehaviour
 {
     const string Sessions = "sessions";
@@ -68,8 +63,7 @@ public class AccountLock : MonoBehaviour
         StopHeartbeat();
         string path = SessionPath(playerId);
 
-        /* A few tries, for a dropped request or another copy writing between our read and our
-         write. Each failure is logged with the server's answer. */
+        // A few tries, logging each failure
         RtdbRest.Result failed = null;
         for (int attempt = 0; attempt < 4; attempt++)
         {

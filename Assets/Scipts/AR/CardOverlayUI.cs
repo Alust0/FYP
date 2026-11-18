@@ -76,10 +76,7 @@ public class CardOverlayUI : MonoBehaviour
             detailPanel.SetActive(false);
     }
 
-    /* Once opened, the detail panel turns to match the camera, so it sits upright on screen
-     whichever way the card lies. Looking at the camera with world up instead made it spin: an
-     overhead camera looks along world up, which leaves that rotation undefined. With the view
-     turned a quarter anticlockwise (RotatedView), it's laid a quarter clockwise to read upright. */
+    // Detail panel faces the camera so it stays upright
     void LateUpdate()
     {
         ShowStats();
@@ -110,8 +107,7 @@ public class CardOverlayUI : MonoBehaviour
 
     static readonly List<CardOverlayUI> sOpen = new List<CardOverlayUI>(); // detail panels open now
 
-    /* The detail panels are this player's own, so SplitScreenView hides them while it draws the
-     picture the opponent gets, and shows them again straight after */
+    // Hidden from the opponent's video (SplitScreenView)
     public static void HideOpenPanels(bool hide)
     {
         sOpen.RemoveAll(ui => ui == null);
@@ -123,8 +119,7 @@ public class CardOverlayUI : MonoBehaviour
     public void Populate(CardData data)
     {
         mData = data;
-        /* Prefer the English name: the default TMP font (LiberationSans SDF) has no CJK
-         glyphs, so Japanese-only names render as missing-glyph boxes. */
+        // English name first (default font has no Japanese)
         if (cardNameText != null)
             cardNameText.text = !string.IsNullOrEmpty(data.cardNameEn) ? data.cardNameEn : data.cardName;
         if (gradeText != null) 
@@ -173,8 +168,7 @@ public class CardOverlayUI : MonoBehaviour
             rulePromptPanel.SetActive(false); // hidden by default
     }
 
-    /* The database's own type name when it's in English, else worked out from the card (Japanese-only
-     entries would show as missing-glyph boxes in the default font) */
+    // Card type in English
     public static string TypeLabel(CardData data)
     {
         string type = data.cardType?.Trim();
@@ -206,8 +200,7 @@ public class CardOverlayUI : MonoBehaviour
         return Regex.Replace(safe, @"\[[^\]]{1,20}\]", m => "<b><color=" + markerColor + ">" + m.Value + "</color></b>");
     }
 
-    /* The Noto Sans JP font asset has no Japanese brackets or commas (they show as boxes), so they're
-     swapped for plain ones; 【自】 becomes [自], which FormatSkill then marks like [AUTO] */
+    // Swaps Japanese brackets and commas the font lacks
     public static string ReadableJa(string text) => string.IsNullOrEmpty(text) ? text : text
         .Replace('【', '[').Replace('】', ']').Replace('「', '"').Replace('」', '"')
         .Replace('『', '"').Replace('』', '"').Replace('、', ',').Replace('。', '.').Replace('　', ' ');
@@ -215,8 +208,7 @@ public class CardOverlayUI : MonoBehaviour
     // The card this overlay is on: its power and critical then follow its bonuses every frame
     public void Bind(CardInstance instance) => mInstance = instance;
 
-    /* Power as the battle has it (a boosted attacker's includes its booster's). A change rolls the
-     number up or down to the new value over RollSeconds, the number swelling as it goes. */
+    // Battle power, rolling to a new value over RollSeconds
     void ShowStats()
     {
         if (mInstance == null) return;

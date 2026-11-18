@@ -1,6 +1,4 @@
-/* "Reveal it, add it to your hand": the revealed card leaving the board (picked up off the zone it was
- shown on) is it going into the hand. From a deck search, the deck count goes down by 1 then.
- Done counts it as taken. */
+// Revealed card leaving the board = added to hand
 public class ToHandStep : Step
 {
     public bool FromDeck { get; }

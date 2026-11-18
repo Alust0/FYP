@@ -18,8 +18,7 @@ public class BoardLayout : MonoBehaviour
     // How far each player's field is from the center line
     public float playerFieldOffset = 2.8f;
 
-    /* Unparented (no tracked mat yet), the board sits this far in front of the AR camera so
-     the near clip plane doesn't cut it out. Ignored once parented under an Image Target. */
+    // Distance in front of the AR camera when unparented
     public float distanceFromCameraIfUnparented = 3f;
 
     [Header("Zone Appearance")]
@@ -40,8 +39,7 @@ public class BoardLayout : MonoBehaviour
     // Tracks which circles have a card placed on them
     private Dictionary<string, bool> hasCard = new Dictionary<string, bool>();
 
-    /* Each zone's area in board-local XY (the board's own coordinates). Zones are spaced by
-     colGap/rowGap, so these never overlap and a point is in at most one zone. */
+    // Each zone's area in board-local XY
     readonly Dictionary<string, Rect> mZoneRects = new Dictionary<string, Rect>();
     readonly Dictionary<string, Rect> mDefaultZoneRects = new Dictionary<string, Rect>(); // as spawned, for ResetZoneLayouts
     readonly HashSet<string> mHiddenZones = new HashSet<string>(); // hidden in calibration: not drawn, never matched
@@ -50,8 +48,7 @@ public class BoardLayout : MonoBehaviour
     [Tooltip("Board units a card can drift past its current zone's edge before it counts as leaving, so a card on an edge doesn't flicker between zones.")]
     public float zoneStickMargin = 0.1f;
 
-    /* Pairs a zone key (e.g. "P1_Vanguard") with a Vuforia Image Target in the scene, so the
-     zone tracks the real playmat instead of a procedural quad. Assign in the Inspector. */
+    // Pairs a zone key with a Vuforia Image Target
     [System.Serializable]
     public class ArZoneMarker
     {
@@ -62,9 +59,7 @@ public class BoardLayout : MonoBehaviour
     [Header("AR Zone Markers (optional) — overrides the procedural quad for matching keys")]
     public List<ArZoneMarker> arZoneMarkers = new List<ArZoneMarker>();
 
-    /* Multiplayer: only P1's half, laid out vertically (each player on their own PC and camera).
-     OverTheBoard: both halves side by side horizontally on one PC, P1 on the left.
-     Order matters: scenes save this as a number (0 = Multiplayer, 1 = OverTheBoard). */
+    // Multiplayer: one half; OverTheBoard: both (saved as 0/1)
     public enum BoardMode { Multiplayer, OverTheBoard }
 
     [Header("Layout")]
@@ -102,9 +97,7 @@ public class BoardLayout : MonoBehaviour
 
     void Start()
     {
-        /* Local, not world, so a board parented under a playmat Image Target follows it.
-         Unparented, it rides on the AR camera with a forward offset instead: Vuforia moves
-         the camera once a card is tracked, which would leave a world-fixed board out of view. */
+        // Local offset, so it follows a parent target
         bool unparented = transform.parent == null;
         if (unparented && Camera.main != null)
             transform.SetParent(Camera.main.transform, false);
@@ -134,8 +127,7 @@ public class BoardLayout : MonoBehaviour
         GameState.OnGameStateUpdated += SyncFromGameState;
     }
 
-    /* Vuforia settles the AR camera's real FOV some time after Start(), tied to no single
-     event, so re-fit whenever the FOV changes. A no-op once it stops changing. */
+    // Re-fit whenever Vuforia changes the FOV
     float mLastFittedFov = -1f;
 
     void Update()
@@ -152,9 +144,7 @@ public class BoardLayout : MonoBehaviour
         }
     }
 
-    /* Scales the board to fit what the main camera sees at its distance, then centers the
-     content (not this transform's pivot) on the camera's forward axis. Multiplayer only
-     spawns one side, so the content isn't symmetric around the local origin. */
+    // Scales and centres the board in the camera view
     public void FitToCamera()
     {
         Camera cam = Camera.main;
@@ -200,11 +190,7 @@ public class BoardLayout : MonoBehaviour
         GameState.OnGameStateUpdated -= SyncFromGameState;
     }
 
-    /* Spawns the full field for one player:
-     [ Damage ][ LB ][ CB ][ RB ][ Drop ][ OOG ]
-     [ Order ][ LF ][ VG ][ RF ][ Deck ][ Ride ]
-     [ Crest ][ ][ GD ][ TG ][ Bind ]
-     Multiplayer runs this grid left-to-right (vertical); OverTheBoard turns it 90° (horizontal). */
+    // Spawns one player's field grid
     void SpawnPlayerField(bool isOpponent)
     {
         string prefix = isOpponent ? "P2" : "P1";
@@ -227,15 +213,12 @@ public class BoardLayout : MonoBehaviour
         float rightSideCol = rightCol + stepX + 0.1f;
         float farRightSideCol = rightSideCol + stepX + 0.1f; // OOG and Ride are one further out
 
-        /* Maps (position across row, distance from center line) to a position. P2 is P1 turned
-         180° (players face each other), and horizontal is vertical turned 90° with P1 on the left,
-         so each player's Left/Right and Deck/Drop sides match their real playmat. */
+        // Grid position to board position (P2 turned 180°)
         Vector3 Pos(float col, float dist) => IsHorizontal
             ? new Vector3(flip * dist, flip * col, 0f)
             : new Vector3(-flip * col, flip * dist, 0f);
 
-        /* Zone sizes as the player sees them (across, toward them). Unit circles are squares
-         the width of the mat's circles; sideways ones (Trigger) are 90% so they don't overlap Guardian. */
+        // Zone sizes as the player sees them
         Vector2 unitCircle = new Vector2(cardWidth, cardWidth);
         Vector2 cardArea = new Vector2(cardWidth, cardHeight);
         Vector2 sideways = new Vector2(cardHeight, cardWidth) * 0.9f;
@@ -314,8 +297,7 @@ public class BoardLayout : MonoBehaviour
         mDefaultZoneRects[key] = mZoneRects[key];
     }
 
-    /* Which player a card in this zone belongs to. Over The Board, both Guardian zones sit on the
-     mat's one shared circle, so a guard there belongs to the defender, not the turn player. */
+    // Which player a card in this zone belongs to
     public PlayerState ZoneOwner(GameState gs, string key)
     {
         if (key == null) return null;
@@ -379,9 +361,7 @@ public class BoardLayout : MonoBehaviour
     // World direction a standing card's long side runs along; a rested card is turned 90° from it
     public Vector3 CardLengthAxis => IsHorizontal ? transform.right : transform.up;
 
-    /* Which zone a screen point (e.g. a tracked card's center) is in. The point is projected
-     onto the board plane, so it works wherever the camera is and at any scale. currentKey
-     gets zoneStickMargin of slack so a card sitting on an edge keeps its zone. */
+    // Which zone a screen point is in
     public string ZoneAtScreenPoint(Vector2 screenPoint, Camera cam, string currentKey = null)
     {
         if (!TryScreenToBoard(screenPoint, cam, out Vector2 point)) return null;
@@ -426,9 +406,7 @@ public class BoardLayout : MonoBehaviour
         return true;
     }
 
-    /* Hides a zone's fill and outlines its edges. The fill's MeshRenderer is switched off
-     (not alpha-blended) so it's invisible under any pipeline/shader; HighlightCircle
-     re-enables it to flag valid move targets. */
+    // Hides a zone's fill and outlines it
     void StyleZone(GameObject obj)
     {
         Renderer rend = obj.GetComponent<Renderer>();
@@ -484,9 +462,7 @@ public class BoardLayout : MonoBehaviour
         FitLabel(parent);
     }
 
-    /* Undoes the zone's stretch so text keeps its shape, then sizes the text area to the box.
-     Run again whenever the zone is resized. Turned (LabelAngle, anticlockwise), so it reads
-     upright in a picture that's shown turned: a quarter turn runs the text up the box instead. */
+    // Fits the label to its box, turned by LabelAngle
     void FitLabel(GameObject zone)
     {
         if (!(zone.transform.Find("Label") is RectTransform label)) return;
@@ -502,8 +478,7 @@ public class BoardLayout : MonoBehaviour
     int mLabelAngle;
     public int LabelAngle => mLabelAngle;
 
-    /* Turns every zone's label: -90 for RotatedView's turned view, and for the picture sent to the
-     opponent, whatever reads upright once their PC has turned it (SplitScreenView) */
+    // Turns every zone's label
     public void SetLabelAngle(int degrees)
     {
         if (degrees == mLabelAngle) return;
@@ -561,8 +536,7 @@ public class BoardLayout : MonoBehaviour
         return obj;
     }
 
-    /* Tints a circle. The fill renderer is off by default (see StyleZone), so it's enabled
-     here while the color is visible and disabled again on reset to fillColor. */
+    // Tints a circle
     public void HighlightCircle(string key, Color color)
     {
         if (!circles.TryGetValue(key, out GameObject obj)) return;

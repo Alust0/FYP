@@ -4,10 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Vuforia;
 
-/* Scans cards with Vuforia Cloud Recognition for the deck builder. Every ticked CloudRecoBehaviour
- in the scene (one per Cloud database) searches at once, and each card found is passed to CardScanned.
- After a card it pauses, so the card can be moved away before the next search. Needs Vuforia's AR
- Camera in the scene. */
+// Deck builder card scanning with Cloud Reco
 public class CardScanner : MonoBehaviour
 {
     [Serializable]
@@ -40,9 +37,7 @@ public class CardScanner : MonoBehaviour
     // False without the AR Camera or any Cloud Reco objects in the scene
     public bool CanScan => mCloudReco.Count > 0 && mArCamera != null;
 
-    /* The ticked databases, inactive ones too; they only search while scanning. Unticked ones are
-     switched off so they don't use the recognition allowance. With none listed (added in code),
-     every one in the scene is used. */
+    // The ticked Cloud Reco databases
     void Start()
     {
         foreach (Database database in databases)

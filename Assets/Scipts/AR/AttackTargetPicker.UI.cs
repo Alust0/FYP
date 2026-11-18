@@ -2,8 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* AttackTargetPicker's canvas and its three target boxes.
- The rest of AttackTargetPicker is in AttackTargetPicker.cs. */
+// AttackTargetPicker's canvas and target boxes
 public partial class AttackTargetPicker
 {
     void BuildCanvas()

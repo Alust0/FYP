@@ -1,14 +1,13 @@
 using System;
 
-/* The online match this PC is in, set by the lobby before Ingame loads. When Ingame is opened
- without the lobby it stays offline and everything runs as the one-PC game. */
+// The online match this PC is in (set by the lobby)
 public static class MatchSession
 {
     public static bool IsOnline => RoomCode != null;
     public static string RoomCode { get; private set; }
+    public static string RoomPath { get; private set; } // "rooms/CODE", or a private room's hidden "privateRooms/<hash>"
 
-    /* The lobby's Test button: this PC's player and camera alone, with no room. One side of the
-     board, the lobby's deck, and RulesEngine skips the opponent's turns and battle steps */
+    // Test Solo: one player, no room
     public static bool IsSolo { get; private set; }
 
     // 0 = the room's host, who goes first; 1 = the guest. Always 0 offline
@@ -23,16 +22,16 @@ public static class MatchSession
     // The lobby's Card skills switch: off plays the basic rules only, no [AUTO]/[ACT]/order costs (SkillRules)
     public static bool SkillsOn { get; private set; } = true;
 
-    /* Id of the deck picked in the lobby (see DeckRepository): a saved deck's, or a starter set code
-     like "D-SD01"; null for the Inspector test deck. Kept between matches */
+    // Deck id picked in the lobby
     public static string DeckId;
 
     // New every run rather than per account, so two editors on one PC with the same login still count as two players
     public static readonly string ClientId = Guid.NewGuid().ToString("N");
 
-    public static void Begin(string roomCode, int localSeat, string hostName, string guestName, int timerMinutes, bool skills)
+    public static void Begin(string roomCode, string roomPath, int localSeat, string hostName, string guestName, int timerMinutes, bool skills)
     {
         RoomCode = roomCode;
+        RoomPath = roomPath;
         TimerMinutes = timerMinutes;
         SkillsOn = skills;
         LocalSeat = localSeat;
@@ -53,6 +52,7 @@ public static class MatchSession
     public static void End()
     {
         RoomCode = null;
+        RoomPath = null;
         IsSolo = false;
         LocalSeat = 0;
         TimerMinutes = 0;

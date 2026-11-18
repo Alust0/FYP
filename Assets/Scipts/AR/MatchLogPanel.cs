@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-/* In-match list of every notification so far (MatchLogger), newest at the bottom, so one that slid
- away too soon can be read again. Opened from the Settings menu or with L; built by UISetup. */
+// In-match list of every notification (L)
 public class MatchLogPanel : MonoBehaviour
 {
     public GameObject panel;

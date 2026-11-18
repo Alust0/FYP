@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/* Goes on a TMP_Dropdown's template, so the list the dropdown copies from it opens scrolled to the
- chosen option (centred where it can be) instead of the top. Added by MenuUI.StyleDropdown */
+// Opens a TMP_Dropdown's list scrolled to the chosen option
 public class DropdownScrollToChosen : MonoBehaviour
 {
     // The dropdown has made its items by Start

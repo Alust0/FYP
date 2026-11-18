@@ -1,9 +1,6 @@
 using System.Linq;
 
-/* Brandt Gate's Prison: a set order with 監獄 ("Prison") in its name. A skill that imprisons puts
- the opponent's card in the Prison owner's order zone, so while a Prison is there any non-order
- card seen in that zone is imprisoned. Freeing one is calling it to its owner's rear-guard circle,
- which takes it out of the zone again. */
+// Brandt Gate's Prison order
 public static class Prison
 {
     public static bool IsPrison(CardData data) =>

@@ -5,9 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* DeckBuilder's screen, built in code so the Deck scene needs no Canvas: the pointed-at card's
- details on the left, the card browser in the middle and the open deck on the right.
- The rest of DeckBuilder is in DeckBuilder.cs. */
+// Deck builder UI, built in code
 public partial class DeckBuilder
 {
     void BuildUI()
@@ -112,8 +110,7 @@ public partial class DeckBuilder
         BuildFilters(panel); // last, so it opens over the grid
     }
 
-    /* Set, nation, grade, rarity and card type, in a box under the filter button. A Kind row (trigger, unit
-     ability or order type) shows under Type once a type that has kinds is picked. */
+    // Filter box: set, nation, grade, rarity, type, kind
     void BuildFilters(RectTransform panel)
     {
         mFilterBox = AddBox(panel, "Filters", RowColor);
@@ -220,8 +217,7 @@ public partial class DeckBuilder
         mStatusBar.SetActive(false);
     }
 
-    /* The open deck's name, typed in place, over a dropdown of the saved decks that the arrow
-     opens; New Deck sits beside it */
+    // Deck name field over the saved-deck dropdown
     void BuildDeckChooser(RectTransform panel)
     {
         mDeckDropdown = AddDropdown(panel);

@@ -2,8 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* OpponentUnitPicker's canvas and its boxes, one per circle of the opponent's field.
- The rest of OpponentUnitPicker is in OpponentUnitPicker.cs. */
+// OpponentUnitPicker's canvas and boxes
 public partial class OpponentUnitPicker
 {
     void BuildCanvas()

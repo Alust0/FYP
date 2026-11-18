@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 
-/* "このユニットを【スタンド】させる": done once the camera sees the skill's unit standing (RulesEngine
- rechecks the steps when a card turns), or straight away if it already is. Done counts it as stood. */
+// Stand this unit
 public class StandStep : Step
 {
     public override bool Begin(SkillFrame f) => Recheck(f);

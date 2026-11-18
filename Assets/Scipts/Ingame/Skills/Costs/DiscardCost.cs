@@ -1,5 +1,4 @@
-/* Cards from hand to the drop zone. The camera can't see the hand, so it can always be paid; the
- discarded card counts when it's seen in the drop zone, or with Drop + */
+// Discard from hand (always payable)
 public class DiscardCost : Cost
 {
     public DiscardCost(int amount) : base(amount) { }

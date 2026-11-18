@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Card data: the game only reads it (sets list, one card, and the collection-group query on "cards")
+    match /sets/{setId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /{path=**}/cards/{cardId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Match archive (MatchArchive.cs): new documents only, never read, changed or deleted by the game
+    match /matches/{matchId} {
+      allow read, update, delete: if false;
+      allow create: if request.resource.data.keys().hasOnly([
+                         'playerId', 'player', 'opponent', 'mode', 'roomCode', 'seat', 'deckId', 'result',
+                         'winner', 'reason', 'damageDealt', 'damageTaken', 'turns', 'time', 'startedMs',
+                         'endedMs', 'gameVersion', 'log', 'logCut'])
+                    && request.resource.data.keys().hasAll(['player', 'result', 'endedMs', 'log'])
+                    && request.resource.data.result in ['Win', 'Lose', 'Draw']
+                    && request.resource.data.player is string && request.resource.data.player.size() <= 100
+                    && request.resource.data.log is string && request.resource.data.log.size() <= 900000
+                    && request.resource.data.endedMs is int;
+    }
+
+    // Anything else: no access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

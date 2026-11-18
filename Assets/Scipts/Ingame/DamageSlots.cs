@@ -1,11 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-/* Each player's damage zone as cards, oldest first, kept in step with the Damage and FaceDownDamage
- counts (the counts are the truth, see CLAUDE.md): which card each one is, when the engine saw it as a
- damage check card (RulesEngine), and which are face down. A Counter Blast or Counter Charge on this PC's
- player asks which cards to flip (CounterBlastPicker); anything else (the opponent's, Undo) flips the
- oldest face-up or newest face-down. Shown by StatBars. */
+// Damage zone as cards, in step with the counts
 public static class DamageSlots
 {
     public class Slot

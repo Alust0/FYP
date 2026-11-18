@@ -1,11 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-/* One thing a skill does, in the order its text says (SkillParser). The engine runs a skill's
- steps one at a time (SkillRules.Pump), stopping at one that waits for the camera or the player:
- - Begin is called once when it's reached, Recheck after every count change while it waits
- - Either returns true once it's done
- - Done (button or "skill done") ends it as done; "skip step" ends it as not done */
+// One thing a skill does (Begin, Recheck, Done, Skip)
 public abstract class Step
 {
     // The engine or camera does it; false makes the card only partly supported (SkillParser.Supported)

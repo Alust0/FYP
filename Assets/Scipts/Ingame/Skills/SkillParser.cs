@@ -2,10 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-/* Reads a card's skills from its Japanese text (JpSkillParser), whose wording is fixed. Players see
- English: each skill takes its English text, effect and cost names from the card's English text,
- paired by position, which is only split up here, not read. A card with no Japanese text has no
- skills the engine runs; its text still shows in the info panels. Parsed once per card. */
+// Parses skills from the JP text; EN text paired by position for display
 public static class SkillParser
 {
     // Some cards spell the markers out, e.g. "[Continuous]"; a keyword before one, e.g. "[Divine Skill]-", belongs to it
@@ -31,8 +28,7 @@ public static class SkillParser
     // Every skill on the card runs without the player doing part of it by hand; for its info panel
     public static bool Supported(CardData data) => Parse(data).All(s => s.Supported);
 
-    /* The Japanese skills, each showing the English one in the same place when the two have the same
-     skills in the same order, or else the whole English text */
+    // JP skills with their EN text where they line up
     public static List<Skill> ParseCard(string ja, string en)
     {
         List<Skill> skills = JpSkillParser.Parse(ja);
@@ -55,9 +51,7 @@ public static class SkillParser
         return skills;
     }
 
-    /* Its costs, then its effect's steps, with the first clause the engine doesn't know (null) as one
-     ManualStep. Conditions the effect opens with come before the costs: nothing is paid for a skill
-     that won't go on. */
+    // Costs, then effect steps (leading conditions first)
     internal static List<Step> WithCosts(IEnumerable<Cost> costs, IEnumerable<Step> effect)
     {
         List<Step> effectSteps = effect.ToList();
@@ -76,8 +70,7 @@ public static class SkillParser
         return steps;
     }
 
-    /* An order's cost to play it, from the Japanese line before its skills, as steps to run when it's
-     played (SkillRules.PayToPlay); null for none */
+    // An order's play cost as steps
     public static ExtraSkill PlayCost(CardData data)
     {
         if (data == null || !data.isOrderCard) return null;
@@ -96,8 +89,7 @@ public static class SkillParser
     static readonly Regex JpOverExtraRx = new Regex(@"追加効果\s*[-－ー]\s*(.+?)[!！]?\s*$", RegexOptions.Multiline); // "追加効果－あなたのヴァンガードを1枚選び、【スタンド】させる！"
     static readonly Regex EnOverExtraRx = new Regex(@"Additional Effect\s*[-–—:]\s*(.+?)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
-    /* An Over trigger's additional effect, which comes with its drive check (the card's "追加効果－..."
-     line, not a skill of its own), as steps; null for none. Shown in English when the card has it */
+    // An Over trigger's additional effect as steps
     public static ExtraSkill OverTriggerEffect(CardData data)
     {
         if (data == null) return null;
@@ -114,9 +106,7 @@ public static class SkillParser
         public string marker, text, effect, costs;
     }
 
-    /* The English text cut at each [AUTO], [ACT] or [CONT] marker. Costs run from [COST] to the first
-     "]" the effect follows, so uneven brackets like "[COST] [Counter Blast (1), [Soul Blast] (1)]"
-     still come out whole */
+    // EN text split at each [AUTO], [ACT] or [CONT]
     static List<EnglishSkill> English(string en)
     {
         var skills = new List<EnglishSkill>();

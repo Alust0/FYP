@@ -1,8 +1,7 @@
 using System;
 using UnityEngine;
 
-/* The in-game Settings menu's choices, saved on this PC (PlayerPrefs). Camera brightness is only
- here for UWP builds; elsewhere the webcam's driver keeps it (WebcamAutoFocus). */
+// In-game Settings choices, saved in PlayerPrefs
 public static class GameSettings
 {
     const string FontScaleKey = "Settings.FontScale";
@@ -28,8 +27,7 @@ public static class GameSettings
         }
     }
 
-    /* The camera area turned a quarter turn (RotatedView). Per editor window: Multiplayer Play Mode
-     windows share PlayerPrefs, so one key turned both players' views */
+    // Camera view turned a quarter (RotatedView), per editor window
     static string sRotateViewWindowKey; // read every frame, so worked out once
     static string RotateViewWindowKey => sRotateViewWindowKey ??=
         RotateViewKey + (CameraChoice.WindowId == "Main" ? "" : "." + CameraChoice.WindowId);
@@ -43,8 +41,7 @@ public static class GameSettings
         }
     }
 
-    /* Builds' camera brightness, 0–1 with 0.5 unchanged, applied to the picture by BuildWebcamDriver.
-     Per window like RotateView */
+    // Build camera brightness, 0-1 (0.5 = unchanged), per window
     static string sCameraBrightnessWindowKey; // read every frame, so worked out once
     static string CameraBrightnessWindowKey => sCameraBrightnessWindowKey ??=
         CameraBrightnessKey + (CameraChoice.WindowId == "Main" ? "" : "." + CameraChoice.WindowId);
@@ -58,8 +55,7 @@ public static class GameSettings
         }
     }
 
-    /* Builds' webcam picture turned 180° before Vuforia sees it (BuildWebcamDriver), for a webcam
-     mounted upside down. Per window like RotateView */
+    // Build webcam turned 180° for an upside-down mount, per window
     static string sCameraUpsideDownWindowKey; // read every frame, so worked out once
     static string CameraUpsideDownWindowKey => sCameraUpsideDownWindowKey ??=
         CameraUpsideDownKey + (CameraChoice.WindowId == "Main" ? "" : "." + CameraChoice.WindowId);
@@ -73,8 +69,7 @@ public static class GameSettings
         }
     }
 
-    /* Builds fill the screen (borderless) or run in a window, applied by WindowMode. Not per window:
-     the editor's Play Mode windows ignore it */
+    // Full screen or windowed (builds only)
     public static bool HasFullScreen => PlayerPrefs.HasKey(FullScreenKey);
     public static bool FullScreen
     {
@@ -87,8 +82,7 @@ public static class GameSettings
         }
     }
 
-    /* The Energy Generator: the Energy count, its charge each turn and the Energy Blast draw. Off hides all three.
-     Not saved or in the menu: BoardLayout's Energy box in the Inspector sets it. */
+    // Energy count, charge and Energy Blast; set by BoardLayout's Energy box
     public static bool EnergyEnabled
     {
         get => sEnergyEnabled;

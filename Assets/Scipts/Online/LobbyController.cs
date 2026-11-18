@@ -11,18 +11,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static MenuUI;
 
-/* Lobby before an online match: a list of open rooms to join, and a panel to host your own with
- the deck you'll play. Private rooms are listed too, but joining one needs its password typed
- into the Room password box. Each room is a Realtime Database entry, rooms/{code}:
-   status     "waiting" until a guest joins, then "playing"; "closed" once someone leaves
-   isPublic   false for private rooms
-   passwordHash  private rooms only: PasswordHash(code, password), so the password itself isn't stored
-   createdMs, host {id, name, beatMs}, guest {id, name, beatMs}
-   deck, cover, gameVersion, cardsVersion — shown in the list
-   timerMinutes  the host's Timer, 0 for none (MatchSession.TimerMinutes)
-   noSkills   true when the host turned Card skills off (MatchSession.SkillsOn); missing means on
- and, once the match starts, turn/seat0/seat1 (see OnlineMatch). The host refreshes beatMs while
- waiting, so rooms left behind by a closed game drop off the list. Builds its own UI (LobbyController.UI.cs), like UISetup. */
+// Online lobby: room list and hosting (rooms/{code})
 public partial class LobbyController : MonoBehaviour
 {
     [SerializeField] private string matchSceneName = "Ingame";
@@ -36,6 +25,7 @@ public partial class LobbyController : MonoBehaviour
     [SerializeField] private float staleRoomSeconds = 15f;
 
     const string Rooms = "rooms";
+    const string PrivateRooms = "privateRooms"; // a private room's data, at a path only its password leads to
     const string CodeLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O or 1/I mix-ups
     const int CodeLength = 5; // room codes and made-up private room passwords
     const int PasswordMaxLength = 12;
@@ -72,11 +62,13 @@ public partial class LobbyController : MonoBehaviour
     TMP_Text mStatusText;
     Coroutine mHosting;
     string mHostedCode; // room this PC is waiting in, removed if it leaves before anyone joins
+    string mHostedPath; // its data: the list entry, or the private room's hidden path
 
     readonly Dictionary<string, Texture2D> mCovers = new Dictionary<string, Texture2D>();
 
     static long NowMs => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     static string RoomPath(string code) => Rooms + "/" + code;
+    static string PrivatePath(string code, string password) => PrivateRooms + "/" + PasswordHash(code, password);
     static string GameVersion => Application.version;
     bool IsHosting => mHosting != null;
 
@@ -203,33 +195,55 @@ public partial class LobbyController : MonoBehaviour
                 ShowPasswordProblem(HostName(room) + "'s room is private. Type its password into the Room password box, then press Join.");
                 return;
             }
-            if (PasswordHash(room.id, password) != room.fields.GetString("passwordHash"))
-            {
-                ShowPasswordProblem("Wrong password for " + HostName(room) + "'s room.");
-                return;
-            }
+            StartCoroutine(Join(room, PrivatePath(room.id, password)));
+            return;
         }
-        StartCoroutine(Join(room));
+        StartCoroutine(Join(room, RoomPath(room.id)));
     }
 
     // Takes the guest seat, only if the room hasn't changed since it was read, so two guests can't both get in
-    IEnumerator Join(RtdbRest.Result room)
+    IEnumerator Join(RtdbRest.Result room, string path)
     {
         mJoining = true;
         ShowRooms(); // greys out the Join buttons
         SetStatus("Joining " + HostName(room) + "'s room...");
         string problem = "Couldn't join that room. Try again.";
+        string code = room.id;
+
+        // A private room's data is only found with the right password
+        if (path != RoomPath(room.id))
+        {
+            string host = HostName(room);
+            RtdbRest.Result hidden = null;
+            yield return RtdbRest.Get(path, r => hidden = r);
+            if (!hidden.succeeded)
+            {
+                mJoining = false;
+                RefreshSoon();
+                if (hidden.status == 404) ShowPasswordProblem("Wrong password for " + host + "'s room.");
+                else SetStatus(Problem(hidden));
+                yield break;
+            }
+            room = hidden;
+            if (!IsJoinable(room))
+            {
+                SetStatus("That room just filled up or closed.");
+                mJoining = false;
+                RefreshSoon();
+                yield break;
+            }
+        }
 
         for (int attempt = 0; attempt < 3; attempt++)
         {
             var fields = new Dictionary<string, object> { ["status"] = "playing", ["guest"] = SeatInfo() };
 
             RtdbRest.Result result = null;
-            yield return RtdbRest.Patch(RoomPath(room.id), fields, new[] { "status", "guest" }, r => result = r, room.version);
+            yield return RtdbRest.Patch(path, fields, new[] { "status", "guest" }, r => result = r, room.version);
 
             if (result.succeeded)
             {
-                StartMatch(room.id, 1, HostName(room), PlayerSession.Name, RoomTimer(room), RoomSkills(room));
+                StartMatch(code, path, 1, HostName(room), PlayerSession.Name, RoomTimer(room), RoomSkills(room));
                 yield break;
             }
             Debug.LogWarning("[LobbyController] Join attempt " + (attempt + 1) + " failed: " + result.error);
@@ -241,7 +255,7 @@ public partial class LobbyController : MonoBehaviour
 
             // Usually the host's heartbeat changed the room just before: read it again and retry if it's still open
             RtdbRest.Result fresh = null;
-            yield return RtdbRest.Get(RoomPath(room.id), r => fresh = r);
+            yield return RtdbRest.Get(path, r => fresh = r);
             if (!fresh.succeeded || !IsJoinable(fresh))
             {
                 problem = "That room just filled up or closed.";
@@ -306,11 +320,22 @@ public partial class LobbyController : MonoBehaviour
         for (int attempt = 0; attempt < 5 && code == null; attempt++)
         {
             string candidate = RandomCode();
-            if (!isPublic) fields["passwordHash"] = PasswordHash(candidate, password);
-            yield return RtdbRest.Create(Rooms, candidate, fields, r => result = r);
+            yield return RtdbRest.Create(Rooms, candidate, fields, r => result = r); // the list entry (never the password)
 
             if (result.succeeded) code = candidate;
             else if (result.status != 409) break; // 409: that code is taken, so try another
+        }
+
+        // Private: the room itself goes where only its password leads; the list entry just shows it
+        string path = code == null ? null : isPublic ? RoomPath(code) : PrivatePath(code, password);
+        if (code != null && !isPublic)
+        {
+            yield return RtdbRest.Create(PrivateRooms, PasswordHash(code, password), fields, r => result = r);
+            if (!result.succeeded)
+            {
+                RtdbRest.DeleteWithoutWaiting(RoomPath(code));
+                code = null;
+            }
         }
 
         if (code == null)
@@ -321,6 +346,7 @@ public partial class LobbyController : MonoBehaviour
         }
 
         mHostedCode = code;
+        mHostedPath = path;
         if (!isPublic) mPasswordInput.text = password; // shows a made-up one to the host
         SetStatus(isPublic
             ? "Your room is in the list. Waiting for an opponent..."
@@ -335,15 +361,16 @@ public partial class LobbyController : MonoBehaviour
             {
                 lastBeat = Time.time;
                 var beat = new Dictionary<string, object> { ["host"] = new Dictionary<string, object> { ["beatMs"] = NowMs } };
-                yield return RtdbRest.Patch(RoomPath(code), beat, new[] { "host.beatMs" }, null);
+                yield return RtdbRest.Patch(path, beat, new[] { "host.beatMs" }, null);
+                if (!isPublic) yield return RtdbRest.Patch(RoomPath(code), beat, new[] { "host.beatMs" }, null); // keeps the list entry fresh
             }
 
             RtdbRest.Result room = null;
-            yield return RtdbRest.Get(RoomPath(code), r => room = r);
+            yield return RtdbRest.Get(path, r => room = r);
 
             if (room.status == 404)
             {
-                mHostedCode = null;
+                LeaveHostedRoom();
                 StopHosting("Your room was closed.");
                 yield break;
             }
@@ -352,8 +379,9 @@ public partial class LobbyController : MonoBehaviour
             Dictionary<string, object> guest = room.fields.GetMap("guest");
             if (guest != null)
             {
-                mHostedCode = null;
-                StartMatch(code, 0, PlayerSession.Name, guest.GetString("name"), timer, mSkillsToggle.isOn);
+                if (!isPublic) RtdbRest.DeleteWithoutWaiting(RoomPath(code)); // off the list; the match is on the hidden path
+                mHostedCode = mHostedPath = null;
+                StartMatch(code, path, 0, PlayerSession.Name, guest.GetString("name"), timer, mSkillsToggle.isOn);
                 yield break;
             }
         }
@@ -363,7 +391,8 @@ public partial class LobbyController : MonoBehaviour
     {
         if (mHostedCode == null) return;
         RtdbRest.DeleteWithoutWaiting(RoomPath(mHostedCode));
-        mHostedCode = null;
+        if (mHostedPath != null && mHostedPath != RoomPath(mHostedCode)) RtdbRest.DeleteWithoutWaiting(mHostedPath);
+        mHostedCode = mHostedPath = null;
     }
 
     static Dictionary<string, object> SeatInfo() => new Dictionary<string, object>
@@ -387,9 +416,9 @@ public partial class LobbyController : MonoBehaviour
             return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(code + ":" + password)).Select(b => b.ToString("x2")));
     }
 
-    void StartMatch(string code, int localSeat, string hostName, string guestName, int timerMinutes, bool skills)
+    void StartMatch(string code, string path, int localSeat, string hostName, string guestName, int timerMinutes, bool skills)
     {
-        MatchSession.Begin(code, localSeat, hostName ?? "Player 1", guestName ?? "Player 2", timerMinutes, skills);
+        MatchSession.Begin(code, path, localSeat, hostName ?? "Player 1", guestName ?? "Player 2", timerMinutes, skills);
         CameraChoice.Apply();
         SceneManager.LoadScene(matchSceneName);
     }
@@ -413,8 +442,7 @@ public partial class LobbyController : MonoBehaviour
 
     // Decks: the account's saved decks (Cloud Save), the starter decks, and the Inspector test deck
 
-    /* Per editor window: PlayerPrefs are shared by a project's editor windows, so with one key a
-     deck picked in one window became the other's too. Holds the deck's id */
+    // Per editor window (shared PlayerPrefs)
     static string DeckPrefKey => DeckPref + "." + CameraChoice.WindowId;
 
     // Starter decks straight away; the saved ones join the list once Cloud Save answers

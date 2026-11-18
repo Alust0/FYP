@@ -1,8 +1,6 @@
 using UnityEngine;
 
-/* Creates the two empty PlayerState slots GameState needs at startup. Cards are physical
- now: their zone/state comes from VuforiaCardOverlayManager as they're scanned. Online, the
- players are named after the lobby's two accounts and OnlineMatch syncs the two PCs. */
+// Creates the two PlayerState slots
 public class GameSetup : MonoBehaviour
 {
     void Start()

@@ -1,5 +1,4 @@
-/* "手札から1枚選び、捨てる" in an effect, not a cost: waits for the owner's drop zone to go up by that
- many, as the camera sees the cards land there or Drop + counts them. The drop zone is lit meanwhile. */
+// Effect discard: waits for the drop count to rise
 public class DiscardStep : Step
 {
     public int Amount { get; }

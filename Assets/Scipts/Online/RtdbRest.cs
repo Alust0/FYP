@@ -9,14 +9,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
-/* Small Firebase Realtime Database REST client for the online match: lobby rooms, board sync,
- account sessions and fallback camera pictures. Realtime Database is billed by data stored and
- downloaded, not per read and write like Firestore, so a sync every second doesn't use up a daily
- write limit. REST, not the Firebase SDK, because the project builds for UWP where the SDK isn't
- supported. Paths look like "rooms/ABCDE", and values go in and out as plain C#: string, long,
- double, bool, Dictionary<string, object> and List<object>. Run the IEnumerators with StartCoroutine.
- The database's rules (Firebase console) must allow rooms and sessions, with ".indexOn": ["status"]
- on rooms for the lobby's Query. */
+// Realtime Database REST client
 public static class RtdbRest
 {
     public class Result
@@ -90,9 +83,7 @@ public static class RtdbRest
         done(ToResult(write, path, false));
     }
 
-    /* Writes only the fields named in updateMask, each replaced whole; dotted paths like
-     "host.beatMs" reach into maps, and a field missing from fields is removed. With
-     requireVersion (a Result's version) the write fails (412) unless the value is unchanged since that read. */
+    // Writes only the named fields; requireVersion makes it conditional
     public static IEnumerator Patch(string path, Dictionary<string, object> fields, IEnumerable<string> updateMask,
         Action<Result> done, string requireVersion = null)
     {
@@ -103,8 +94,7 @@ public static class RtdbRest
             yield break;
         }
 
-        /* A PATCH can't be made conditional, so: read with an ETag, check it's what the caller
-         read, then PUT the whole value back with the changes, only if the ETag still matches */
+        // Conditional write: read with ETag, then PUT if unchanged
         Response read = null;
         yield return Send("GET", path, null, null, null, true, r => read = r);
         if (!read.succeeded)
@@ -146,8 +136,7 @@ public static class RtdbRest
         request.SendWebRequest().completed += _ => request.Dispose();
     }
 
-    /* Children of a path whose fields equal all the given values; an empty list on failure.
-     The database filters on the first one (it needs an ".indexOn" rule for it), the rest are checked here. */
+    // Children matching the given field values
     public static IEnumerator Query(string collection, Dictionary<string, object> equalTo, int limit, Action<List<Result>> done)
     {
         KeyValuePair<string, object> first = equalTo.First();
@@ -187,11 +176,7 @@ public static class RtdbRest
     // As stored, as a string: equal strings mean equal values
     public static string ToJson(object value) => ToToken(value).ToString(Formatting.None);
 
-    /* Listens to path with the database's streaming (server-sent events), so changes arrive as they're
-     written instead of by polling. onChange gets each "put" or "patch" as the changed path inside the
-     listened one ("/" for all of it, "/jpg" for one field) and its value. Runs until the connection
-     ends or stop() is true; done gets whether anything arrived (the server sends the current value
-     straight away, so false means streaming doesn't work here). */
+    // Streams a path (server-sent events) instead of polling
     public static IEnumerator Listen(string path, Action<string, JToken> onChange, Func<bool> stop, Action<bool> done)
     {
         if (sBaseUrl == null && !Init())

@@ -8,11 +8,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
-/* Keeps finished matches in Firestore, matches/{auto id}: one document per player per match, with
- the summary MatchLogger works out and that player's whole log. It's one write per match, so it
- costs next to nothing of Firestore's daily writes, unlike the live sync (RtdbRest, Realtime
- Database). The local log file stays too, for when there's no connection. REST, since the Firebase
- SDK isn't supported on UWP. Firestore's rules must allow creating documents in matches. */
+// Finished matches to Firestore matches/
 public static class MatchArchive
 {
     const string Collection = "matches";

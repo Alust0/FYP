@@ -1,8 +1,7 @@
 using UnityEngine;
 using Vuforia;
 
-/* Prioritizes camera image quality over frame rate, keeps continuous autofocus on, and sets
- Unity's highest quality level, all to improve the chances of a Cloud Reco match. */
+// Camera quality over frame rate, plus autofocus
 public class UpgradeCameraQuality : MonoBehaviour
 {
     void Start()
@@ -28,8 +27,7 @@ public class UpgradeCameraQuality : MonoBehaviour
         bool modeSet = cameraDevice.SetCameraMode(CameraMode.MODE_OPTIMIZE_QUALITY);
         Debug.Log($"[CameraDiag] SetCameraMode(MODE_OPTIMIZE_QUALITY) returned: {modeSet}");
 
-        /* Continuous autofocus keeps cards sharp at tabletop distance. Macro mode blurs a
-         playmat viewed from above; trigger-auto is the fallback when continuous AF is missing. */
+        // Continuous autofocus, else trigger-auto
         bool focusSet = cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_CONTINUOUSAUTO);
         Debug.Log($"[CameraDiag] SetFocusMode(CONTINUOUSAUTO) returned: {focusSet}");
 
@@ -38,8 +36,7 @@ public class UpgradeCameraQuality : MonoBehaviour
             bool triggerSet = cameraDevice.SetFocusMode(FocusMode.FOCUS_MODE_TRIGGERAUTO);
             Debug.Log($"[CameraDiag] Fallback SetFocusMode(TRIGGERAUTO) returned: {triggerSet}");
 
-            /* Both fail on a PC webcam (Vuforia can't control its focus), so ask the driver directly.
-             Only for the chosen camera, leaving the other editor window's alone. */
+            // Ask the webcam driver directly (PC webcams)
             if (!triggerSet)
                 WebcamAutoFocus.Enable(CameraChoice.Current);
         }

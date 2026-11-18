@@ -1,12 +1,10 @@
 using TMPro;
 using UnityEngine;
 
-/* StatBar's pieces: a border in the seat's colour, the segments or battery cells, and the number badge.
- The rest of StatBar is in StatBar.cs. */
+// StatBar's border, segments/cells and badge
 public partial class StatBar
 {
-    /* A bar at position (top-left, as UISetup's count lines) in a HUD column; damage or energy for that
-     seat. Returns its root, to hide with the line. */
+    // A damage or energy bar in a HUD column
     public static StatBar Create(RectTransform parent, Vector2 position, Vector2 size, int player, bool damage)
     {
         var obj = new GameObject(damage ? "DamageBar" : "EnergyBar", typeof(RectTransform));

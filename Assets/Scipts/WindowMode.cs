@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/* Switches builds between full screen and a window,or F11 in any scene.*/
+// Switches builds between full screen and windowed (F11)
  public class WindowMode : MonoBehaviour
 {
     const float WindowedSize = 0.75f; // a window's share of the screen's width and height

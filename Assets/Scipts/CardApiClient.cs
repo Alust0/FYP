@@ -98,8 +98,7 @@ namespace Vanguard.Api
                 }
             }
 
-            /* Trigger icon: use the explicit trigger_type when present (Firestore always has it,
-             the REST scraper may not), else guess from name/type text. */
+            // Trigger icon from trigger_type, else guessed from the name/type text
             string triggerSource = !string.IsNullOrEmpty(trigger_type_en) ? trigger_type_en : trigger_type;
             if (!string.IsNullOrEmpty(triggerSource))
             {

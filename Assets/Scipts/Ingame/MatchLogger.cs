@@ -5,11 +5,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-/* The match's log: every action (cards placed, moved, rested and flipped, counts changed, keywords
- and buttons), every notification, and where every card is at the end of each Ride, Main and Battle
- Phase. Goes to the Console and to a text file per match in the account's folder (Folder); the
- notifications are also kept for the in-match log (MatchLogPanel). Once the result is known, the
- summary and the whole log are saved to Firestore too (MatchArchive). Created by UISetup. */
+// Match log: Console, a text file per match, and Firestore at the end
 public class MatchLogger : MonoBehaviour
 {
     public static string FilePath { get; private set; }
@@ -17,8 +13,7 @@ public class MatchLogger : MonoBehaviour
     // Every account's logs, each in its own folder; older logs from before that sit here loose
     public static string RootFolder => Path.Combine(Application.persistentDataPath, "MatchLogs");
 
-    /* This account's logs, MatchLogs/<Unity player ID> ("Guest" when the match was opened without
-     logging in), so the Logs scene shows each account only its own */
+    // This account's log folder (Guest without a login)
     public static string Folder
     {
         get
@@ -123,8 +118,7 @@ public class MatchLogger : MonoBehaviour
         else Debug.Log("[MatchLogger] Action  " + text);
     }
 
-    /* Card changes, called by GameState before its events fire so each action is logged before
-     the rule notices it sets off. Online, the opponent's cards arrive through here too. */
+    // Logs card changes before the rules react
     public static void CardMoved(CardInstance card, PlayerState fromOwner, string fromZone)
     {
         string text = CardName(card) + ": " + Where(fromOwner, fromZone) + " -> " + Where(card.zoneOwner, card.zone);
@@ -197,10 +191,7 @@ public class MatchLogger : MonoBehaviour
     // The player who dealt more damage, or -1 when it's even
     int DamageLeader() => mDamage[1] > mDamage[0] ? 0 : mDamage[0] > mDamage[1] ? 1 : -1;
 
-    /* Win, Lose or Draw for this PC's player (online its seat, offline Player 1), the damage each
-     dealt with that player first, and the time, e.g.
-     "=== Result: Win | Ann 6 - 4 Bo | 23:15 | Bo reached 6 damage ===". The Logs scene
-     (MatchLog) reads this line, and the in-match log gets who won. */
+    // Result line, e.g. "=== Result: Win | Ann 6 - 4 Bo | 23:15 | ... ==="
     void WriteResult(int winner, string reason)
     {
         mLoggedResult = true;

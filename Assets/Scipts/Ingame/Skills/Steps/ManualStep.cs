@@ -1,8 +1,6 @@
 using System.Linq;
 
-/* The parts of an effect the engine can't read or check, e.g. "retire one of your opponent's
- rear-guards": the player does them and says Done. Japanese and English sentences don't line up
- one to one, so it shows the skill's whole English effect, saying which parts the engine does itself. */
+// A part the engine can't do: the player presses Done
 public class ManualStep : Step
 {
     public override bool Automated => false;

@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 
-/* Card text that runs like a skill's steps but isn't one of its [AUTO]/[ACT] skills, so it's never
- offered as one: an order's cost to play it (SkillParser.PlayCost, SkillRules.PayToPlay), and an
- Over trigger's additional effect (SkillParser.OverTriggerEffect, SkillRules.OverTriggerEffect). */
+// Order play costs and Over trigger effects, run like skill steps
 public class ExtraSkill : Skill
 {
     readonly string mMarker;

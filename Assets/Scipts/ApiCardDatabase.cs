@@ -4,8 +4,7 @@ using System.Linq;
 using UnityEngine;
 using Vanguard.Api;
 
-/* Singleton that loads card data from the Python REST API, with query and deck-building helpers.
- Separate from AR/CardDatabase.cs (the Resources-based lookup the AR overlays use). */
+// Loads card data from the Python REST API (not AR/CardDatabase)
 public class ApiCardDatabase : MonoBehaviour
 {
     public static ApiCardDatabase Instance { get; private set; }

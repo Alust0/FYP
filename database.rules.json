@@ -2,17 +2,77 @@
   "rules": {
     "rooms": {
       ".read": true,
-      ".write": true,
-      ".indexOn": ["status"]
+      ".indexOn": ["status"],
+      "$room": {
+        ".write": "$room.matches(/^[A-HJ-NP-Z2-9]+(_video[01])?$/) && ($room.length == 5 || $room.length == 11)",
+        ".validate": "newData.hasChildren()",
+        "status": { ".validate": "!$room.contains('_video') && newData.isString() && (newData.val() == 'waiting' || newData.val() == 'playing' || newData.val() == 'closed')" },
+        "isPublic": { ".validate": "newData.isBoolean()" },
+        "createdMs": { ".validate": "newData.isNumber()" },
+        "host": { ".validate": "newData.hasChildren()", "$field": { ".validate": "newData.isString() && newData.val().length <= 100 || newData.isNumber()" } },
+        "guest": { ".validate": "newData.hasChildren()", "$field": { ".validate": "newData.isString() && newData.val().length <= 100 || newData.isNumber()" } },
+        "deck": { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "cover": { ".validate": "newData.isString() && newData.val().length <= 50" },
+        "gameVersion": { ".validate": "newData.isString() && newData.val().length <= 50 || newData.isNumber()" },
+        "cardsVersion": { ".validate": "newData.isNumber()" },
+        "timerMinutes": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 600" },
+        "noSkills": { ".validate": "newData.isBoolean()" },
+        "video": { ".validate": "newData.hasChildren(['port'])" },
+        "seat0": { ".validate": "newData.hasChildren()" },
+        "seat1": { ".validate": "newData.hasChildren()" },
+        "undo": { ".validate": "newData.hasChildren()" },
+        "turn": { ".validate": "newData.hasChildren()" },
+        "jpg": { ".validate": "$room.contains('_video') && newData.isString() && newData.val().length <= 600000" },
+        "ms": { ".validate": "$room.contains('_video') && newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "privateRooms": {
+      "$key": {
+        ".read": true,
+        ".write": "$key.matches(/^[0-9a-f]+(_video[01])?$/) && ($key.length == 64 || $key.length == 71)",
+        ".validate": "newData.hasChildren()",
+        "status": { ".validate": "!$key.contains('_video') && newData.isString() && (newData.val() == 'waiting' || newData.val() == 'playing' || newData.val() == 'closed')" },
+        "isPublic": { ".validate": "newData.isBoolean()" },
+        "createdMs": { ".validate": "newData.isNumber()" },
+        "host": { ".validate": "newData.hasChildren()", "$field": { ".validate": "newData.isString() && newData.val().length <= 100 || newData.isNumber()" } },
+        "guest": { ".validate": "newData.hasChildren()", "$field": { ".validate": "newData.isString() && newData.val().length <= 100 || newData.isNumber()" } },
+        "deck": { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "cover": { ".validate": "newData.isString() && newData.val().length <= 50" },
+        "gameVersion": { ".validate": "newData.isString() && newData.val().length <= 50 || newData.isNumber()" },
+        "cardsVersion": { ".validate": "newData.isNumber()" },
+        "timerMinutes": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 600" },
+        "noSkills": { ".validate": "newData.isBoolean()" },
+        "video": { ".validate": "newData.hasChildren(['port'])" },
+        "seat0": { ".validate": "newData.hasChildren()" },
+        "seat1": { ".validate": "newData.hasChildren()" },
+        "undo": { ".validate": "newData.hasChildren()" },
+        "turn": { ".validate": "newData.hasChildren()" },
+        "jpg": { ".validate": "$key.contains('_video') && newData.isString() && newData.val().length <= 600000" },
+        "ms": { ".validate": "$key.contains('_video') && newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
     },
     "sessions": {
-      ".read": true,
-      ".write": true
+      "$playerId": {
+        ".read": true,
+        ".write": "$playerId.matches(/^[A-Za-z0-9_-]+$/) && $playerId.length >= 8 && $playerId.length <= 64",
+        ".validate": "newData.hasChildren(['clientId', 'beatMs'])",
+        "clientId": { ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f]+$/) && newData.val().length == 32" },
+        "device": { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "beatMs": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
     },
     "emails": {
       "$id": {
         ".read": true,
-        ".write": "!data.exists()"
+        ".write": "!data.exists() && $id.matches(/^[0-9a-f]+$/) && $id.length == 64",
+        ".validate": "newData.hasChildren(['username', 'playerId', 'createdMs'])",
+        "username": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+        "playerId": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]+$/) && newData.val().length >= 8 && newData.val().length <= 64" },
+        "createdMs": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
       }
     }
   }

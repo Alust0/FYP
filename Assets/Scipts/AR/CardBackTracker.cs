@@ -4,16 +4,7 @@ using System.IO;
 using UnityEngine;
 using Vuforia;
 
-/* Tracks face-down cards by their backs: every picture in StreamingAssets/CardBack (the plain card
- back, CardBack.png, plus any extra sleeve pictures put there) and the sleeves the match's decks
- picked in the deck builder (UseSleeve, from DeckTargetLoader). Several targets are made from each
- picture, as with identical deck cards, since one target only follows one physical card. A ride
- deck sleeve (or a picture with "Ride" in its name) gets fewer, as the ride deck never goes face
- down elsewhere. Used for:
-  - Counter Blast: a damage card that disappears with a card back showing in its place has been
-    flipped, so VuforiaCardOverlayManager can turn it face down straight away.
-  - Drawing: the deck's top card back going out of view and coming back is a hand taking a card,
-    reported through OnDeckTouched. Added by UISetup. */
+// Tracks face-down cards by their sleeves/backs (Counter Blast flips, draws)
 public class CardBackTracker : MonoBehaviour
 {
     public static CardBackTracker Instance { get; private set; }
@@ -138,8 +129,7 @@ public class CardBackTracker : MonoBehaviour
         sSleeves.Clear();
     }
 
-    /* Vuforia wants pictures at least 320 px wide and the sleeve pictures are 300, so a narrower one
-     is saved at twice the size in the temporary cache and that copy is used */
+    // Vuforia needs 320 px wide, so small sleeves are saved at 2x
     static string LargeEnough(string path)
     {
         var small = new Texture2D(2, 2);
@@ -217,9 +207,7 @@ public class CardBackTracker : MonoBehaviour
             OnDeckTouched?.Invoke(key, deck.hiddenSince);
     }
 
-    /* Whether the deck's card back was out of view at some point between from and to (Time.time),
-     still being out of view counting too: lets a draw count as soon as the hand leaves, without
-     waiting for Vuforia to find the card back again */
+    // Whether the deck's card back was out of view between from and to
     public bool DeckHiddenDuring(string key, float from, float to)
     {
         if (key == null || !mDecks.TryGetValue(key, out DeckWatch deck)) return false;

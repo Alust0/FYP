@@ -4,10 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/* Pops up when this PC's player Counter Blasts (a skill's cost or the HUD's CB -) or Counter Charges:
- their damage cards as DamageSlots remembers them, to pick which ones to flip. They pick, flip the
- real cards, and press Done; the damage bar (StatBar) then shows those gray (or red again). Added by
- UISetup. Its UI is built in CounterBlastPicker.UI.cs. */
+// Pick which damage cards to flip for a Counter Blast/Charge
 public partial class CounterBlastPicker : MonoBehaviour
 {
     GameObject mCanvasObj;

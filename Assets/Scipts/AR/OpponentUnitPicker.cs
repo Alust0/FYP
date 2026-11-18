@@ -4,11 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-/* Pops up while a skill has its owner choose one of the opponent's units (ChooseOpponentStep, e.g.
- "retire one of your opponent's rear-guards"): a red box with ripples on each unit that can be chosen,
- picked by clicking or keys 1-6. Over The Board the boxes sit on the opponent's circles in this
- camera's view; online, like AttackTargetPicker's, on the chooser's own side: each on their circle
- facing it across the table (Facing). Added by UISetup. Its UI is built in OpponentUnitPicker.UI.cs. */
+// Boxes on the opponent's units a skill can choose (click or 1-6)
 public partial class OpponentUnitPicker : MonoBehaviour
 {
     static readonly string[] Circles = { "LeftFront", "Vanguard", "RightFront", "LeftBack", "CenterBack", "RightBack" };

@@ -9,9 +9,7 @@ using Unity.Services.CloudSave.Models;
 using Unity.Services.Core;
 using UnityEngine;
 
-/* The logged-in account's decks, kept in Unity Cloud Save so they follow the login to any PC.
- Starter decks are made from the Start/Trial Deck sets in the card pictures and never saved;
- their id is the set code, e.g. "D-SD01". */
+// The account's decks in Unity Cloud Save, plus starter decks
 public static class DeckRepository
 {
     const string Key = "decks"; // one Cloud Save key holding every saved deck as JSON

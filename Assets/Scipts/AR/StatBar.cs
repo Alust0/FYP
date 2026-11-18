@@ -4,11 +4,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
-/* A HUD count as a bar, in place of its text line (UISetup, PhaseHUDOverlay):
- - Damage: 6 slanted segments, black when empty, red for a face-up damage card, gray for a face-down
-   one (Counter Blast), from DamageSlots; hovering one names the card. The number badge glows red at 6.
- - Energy: a battery of 10 green cells.
- The damage bar's border is blue for the first seat and red for the second; energy's is green. Its UI is built in StatBar.UI.cs. */
+// HUD bar: 6 damage segments or 10 energy cells
 public partial class StatBar : MonoBehaviour
 {
     static readonly Color Empty = new Color(0.08f, 0.08f, 0.09f);

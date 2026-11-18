@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/* A UI shape drawn from its own mesh, so the HUD needs no sprites: a slanted bar (StatBars' damage
- segments), a box with cut corners (its energy cells) or a circle (the number badges). Fills its rect. */
+// UI shape from its own mesh: slanted bar, cut-corner box or circle
 public class ShapeGraphic : MaskableGraphic
 {
     public enum Kind { Slant, Rounded, Circle }

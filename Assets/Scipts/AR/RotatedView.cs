@@ -4,16 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-/* Settings' rotate button: the finished picture of the camera area, turned a quarter turn
- anticlockwise (online, the opponent's side on the left and yours on the right). Off, nothing here
- runs. On, the AR camera is also drawn into a texture each frame (as SplitScreenView sends it), and
- a UI camera draws that picture, then the canvases over the camera view (Follow), into a
- screen-sized texture, so everything lands where it normally would. Only that camera touches the
- texture: URP cameras always clear what they draw into, so it can't share the screen. The texture's
- view boxes are shown turned, over a black backing that hides the AR camera's usual on-screen
- picture. The sidebar and its menus stay upright. Clicks on the turned picture are turned back and
- passed on (ClickForwarder), so a card's "i" and the trigger pick circles still work; calibration
- reads the mouse itself, so calibrate with it off. Added by UISetup. */
+// Settings' rotate: the camera area turned a quarter anticlockwise
 public class RotatedView : MonoBehaviour
 {
     const int UiLayer = 5; // Unity's built-in "UI" layer: all the UI camera draws
@@ -52,8 +43,7 @@ public class RotatedView : MonoBehaviour
     }
     static readonly List<Upright> sUpright = new List<Upright>();
 
-    /* Keeps a label reading upright while the view is turned: it's laid a quarter turn clockwise
-     across its box instead, which the turn puts upright again */
+    // Keeps a label upright while the view is turned
     public static void KeepUpright(RectTransform label) =>
         sUpright.Add(new Upright { label = label, offsetMin = label.offsetMin, offsetMax = label.offsetMax });
 
@@ -290,8 +280,7 @@ public class RotatedView : MonoBehaviour
         rt.sizeDelta = new Vector2(width * scale, height * scale);
     }
 
-    /* What's under the mouse on the turned picture isn't what's drawn there, so the picture takes
-     the click and passes it on to the spot it shows, as it was before the turn: e.g. a card's "i" */
+    // Passes a click on the turned picture to the spot it shows
     class ClickForwarder : MonoBehaviour, IPointerClickHandler
     {
         readonly List<RaycastResult> mHits = new List<RaycastResult>();
@@ -312,8 +301,7 @@ public class RotatedView : MonoBehaviour
                 button = eventData.button,
                 clickCount = eventData.clickCount,
             };
-            /* The topmost thing there that takes clicks, e.g. a card's "i": the turned canvases (hand
-             frames, the opponent's picture) also lie over that spot, but don't */
+            // Topmost clickable thing at that spot
             EventSystem.current.RaycastAll(unturned, mHits);
             foreach (RaycastResult hit in mHits)
             {

@@ -3,17 +3,12 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-/* Pops up while the turn player's attack needs a target: a box for each of the defender's three
- front-row circles, picked by clicking, keys 1-3 (left, vanguard, right), saying "attack left",
- "attack vanguard" or "attack right", or online a finger held on the box (HandZones). Empty
- rear-guard circles can't be picked. Over The Board the boxes sit on the defender's circles in this
- camera's view; online on your own front row, each on the circle facing its target. Added by UISetup. Its UI is built in AttackTargetPicker.UI.cs. */
+// Attack target boxes for the defender's front row (click, keys 1-3, voice or finger)
 public partial class AttackTargetPicker : MonoBehaviour
 {
     static readonly Key[] PickKeys = { Key.Digit1, Key.Digit2, Key.Digit3 };
 
-    /* The defender's front-row circle facing one of yours across the table, and the other way
-     round: their left is your right */
+    // The defender's front-row circle facing one of yours (their left is your right)
     public static string Facing(string zone)
     {
         switch (zone)
@@ -80,8 +75,7 @@ public partial class AttackTargetPicker : MonoBehaviour
         }
     }
 
-    /* The defender's circle on screen in pixels. Online that's their camera picture, where their
-     half uses the same layout as this PC's own (both drawn as P1), turned round. */
+    // The defender's circle on screen in pixels
     Rect ScreenRect(Camera cam, PlayerState defender, string zone, int index)
     {
         Rect px = cam.pixelRect;
@@ -92,8 +86,7 @@ public partial class AttackTargetPicker : MonoBehaviour
             if (mBoard != null && mBoard.TryGetZoneViewRect(key, cam, out Rect view))
                 return new Rect(px.x + view.x * px.width, px.y + view.y * px.height, view.width * px.width, view.height * px.height);
         }
-        /* Online: on your own front-row circle facing it, so a finger held there picks it (HandZones)
-         and each box sits in line with its target in the opponent's picture above */
+        // Online: on your own front-row circle facing the target
         else if (mBoard != null && mBoard.TryGetZoneViewRect("P1_" + Facing(zone), cam, out Rect yours))
             return new Rect(px.x + yours.x * px.width, px.y + yours.y * px.height, yours.width * px.width, yours.height * px.height);
 

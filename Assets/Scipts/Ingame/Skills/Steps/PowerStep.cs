@@ -1,6 +1,4 @@
-/* "このユニットのパワー+5000", "このユニットのクリティカル+1": the skill's own unit gets it straight
- away. "そのバトル中" before it: it goes when the battle ends; otherwise at the end of the turn
- (RulesEngine.AddBonus). */
+// Power/Critical to this unit (battle or turn)
 public class PowerStep : Step
 {
     public bool Critical { get; }
